@@ -11,7 +11,7 @@ Bu proje Cowork oturumunda sıfırdan yazıldı ve buraya taşındı. Kullanıc�
   - `build.js` — engine'e string yamaları uygular (hız sınırı, hafif istekler, memo, havuz önbelleği, satır alanları) ve ui.js ile birleştirip IIFE içinde `site/index.html` üretir. **Yeni motor özelliği eklerken önce engine.js/strat2.js'i düzenle; build.js'deki `rep()` çağrıları metin eşleşmesine dayanır, eşleşmezse hata fırlatır.** Uzun vadede bu yamaların engine.js'e kalıcı olarak işlenmesi (build.js'i sadeleştirmek) iyi bir ilk görevdir.
   - `term-head.html` (CSS), `term-body.html` (DOM), `icon192.b64` (favicon/apple-touch-icon).
 - `site/` — yayınlanabilir klasör: index.html (derlenir, repoya da konabilir), `sw.js`, `manifest.webmanifest`, ikonlar.
-- `electron/` — Windows/Mac paketi için `main.js` + `package.json`; `npm run pack:win`.
+- `electron/` — Windows/Mac paketi için `main.js` + `package.json` + `icon.ico`; `npm run pack:win` → `dist/SWEEP-win32-x64/SWEEP.exe` (Electron 44, sürüm script'te sabit; arka plan kısma kapalı: `backgroundThrottling:false`, `disable-renderer-backgrounding`, `powerSaveBlocker`). Masaüstünde `SWEEP.lnk` kısayolu bu exe'ye bakar; paket yeniden derlenince kısayol değişmez.
 - `tests/` — `dom-scenario.js` (jsdom; yapay süpürme→MSS→OTE dizisiyle uçtan uca: kapılar, plan, günlük, tarayıcı; `fetch` stub'lıdır), `screenshot.js` / `screenshot-bot.js` (Playwright; Binance ve WebSocket mock'lanır, masaüstü+mobil ekran görüntüsü alır; bot senaryosu limit emir → dolum).
 
 ## Komutlar
@@ -42,8 +42,8 @@ npm run pack:win   # Electron paketi dist/
 
 ## Bilinen sınırlar / yol haritası (öncelik sırasıyla)
 
-1. **Yayın**: `site/` klasörünü GitHub Pages'e koy (repo adı `sweep` → https://denizalpkargi.github.io/sweep/). Chrome "Uygulamayı yükle" ile masaüstü uygulaması, iPhone ana ekran. Electron paketi release olarak eklenebilir.
-2. Bot sekme arka plandayken Chrome zamanlayıcıları kısar (WebSocket mesajları işlenir, 10 sn'lik REST turu ve tarama gecikir). Electron paketi ya da `document.visibilityState` için uyarı/çözüm.
+1. **Yayın**: yapıldı (2026-10-05). Repo https://github.com/denizalpkargi/sweep, site https://denizalpkargi.github.io/sweep/; `.github/workflows/pages.yml` her `main` push'unda `site/` klasörünü yayınlar (Pages dal kaynağı `/site` kabul etmediği için Actions modu). Electron paketi henüz release olarak eklenmedi.
+2. Bot sekme arka plandayken Chrome zamanlayıcıları kısar (WebSocket mesajları işlenir, 10 sn'lik REST turu ve tarama gecikir). Electron paketinde çözüldü (2026-10-05); tarayıcı/PWA sürümü için `document.visibilityState` uyarısı hâlâ eklenebilir.
 3. Bot kapalıyken geçen sürede açık pozisyonun stop/hedefi kontrol edilmez; yeniden açılışta eksik aralığı REST kline'larla doldurup "ne olmuş olurdu" hesapla.
 4. "Aynı bölgeye en fazla iki deneme" kuralı (Trading Geek) günlüğe/bota eklenmedi.
 5. Zaman dilimi parametrik değil (15 dk sabit); 5 dk giriş / 1 saat yapı seçeneği.

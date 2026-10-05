@@ -9,7 +9,7 @@
     "shot": "npm run build && node tests/screenshot.js",
     "shot:bot": "npm run build && node tests/screenshot-bot.js",
     "serve": "npx --yes http-server site -p 8080 -c-1",
-    "pack:win": "npm run build && cp site/index.html electron/index.html && npx --yes @electron/packager ./electron SWEEP --platform=win32 --arch=x64 --out=dist --overwrite --icon=electron/icon.png"
+    "pack:win": "npm run build && node -e \"require('fs').copyFileSync('site/index.html','electron/index.html')\" && npx --yes @electron/packager ./electron SWEEP --platform=win32 --arch=x64 --out=dist --overwrite --icon=electron/icon.ico --electron-version=44.5.1"
   },
   "devDependencies": {
     "jsdom": "^25.0.1",
