@@ -1,7 +1,7 @@
 /* ---------- Hesap: Binance USDⓈ-M vadeli hesabını salt okunur izler ----------
    Anahtar ve gizli anahtar yalnızca bu cihazda tutulur (isteğe bağlı localStorage), imza tarayıcıda WebCrypto ile atılır, istekler doğrudan Binance'e gider.
    Yalnızca okuma uç noktaları: /fapi/v2/balance, /fapi/v2/positionRisk, /fapi/v1/openOrders, /fapi/v1/listenKey (kullanıcı veri akışı). Emir gönderen kod yoktur. */
-const acct={key:"",secret:"",remember:false,on:false,offset:0,bal:null,positions:[],orders:[],ws:null,listenKey:null,kaTimer:null,timer:null,lastAt:0,err:null,src:"",events:[]};
+const acct={key:"",secret:"",remember:false,on:false,offset:0,bal:null,positions:[],orders:[],ws:null,listenKey:null,kaTimer:null,timer:null,lastAt:0,err:null,src:"",events:[],reviews:{},_reviewing:{}};
 try{ const sv=JSON.parse(localStorage.getItem("st-acct")||"null"); if(sv&&sv.key&&sv.secret){ acct.key=sv.key; acct.secret=sv.secret; acct.remember=true; } }catch(e){}
 function acctSave(){ try{ if(acct.remember&&acct.key&&acct.secret) localStorage.setItem("st-acct",JSON.stringify({key:acct.key,secret:acct.secret})); else localStorage.removeItem("st-acct"); }catch(e){} }
 async function hmacHex(secret,msg){ const enc=new TextEncoder(); const k=await crypto.subtle.importKey("raw",enc.encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]); const sig=await crypto.subtle.sign("HMAC",k,enc.encode(msg)); return Array.from(new Uint8Array(sig)).map(b=>b.toString(16).padStart(2,"0")).join(""); }

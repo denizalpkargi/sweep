@@ -78,3 +78,35 @@ function committee(A, dir, c24, opts){
   say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/7 evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu 8 saat. Boy risk yüzdesinden, 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
   return {dir,score,yes,no,n:agents.length,veto,agents,talk,plan,decision,changed:chg};
 }
+/* ---------- Açık pozisyon yorumu: masa, elde tutulan pozisyonu kendi yönünde yeniden değerlendirir (tut / azalt / çık / stop sık) ---------- */
+function positionReview(A, pos, orders, c24){
+  const dir=pos.dir; const isL=dir==="long"; c24=isFinite(c24)?c24:0;
+  const c=committee(A,dir,c24); const opp=committee(A,isL?"short":"long",c24);
+  const kb=A.src&&A.src.k15L; const atr=kb&&kb.length>20?atrAt(kb,kb.length):A.med15*A.px; const atrRel=atr/A.px;
+  const px=A.px; const pnlPct=(isL?(px/pos.entry-1):(1-px/pos.entry))*100; const liqAtr=pos.liq>0?Math.abs(px-pos.liq)/atr:NaN;
+  const so=(orders||[]).filter(o=>o.sym===pos.sym&&(o.ro||o.cp)); const hasStop=so.some(o=>/STOP/.test(o.type)); const hasTp=so.some(o=>/TAKE_PROFIT/.test(o.type)||(o.px>0&&!/STOP/.test(o.type)));
+  const sd=Math.max(0.012,1.2*atrRel); const r=A.amd&&A.amd[dir];
+  let stopLv=isL?px*(1-sd):px*(1+sd), stopWhy="1,2 ATR arkası";
+  if(r&&isFinite(r.stop)&&(isL?r.stop<px:r.stop>px)){ const d=Math.abs(px-r.stop)/atr; if(d>=0.6&&d<=3){ stopLv=r.stop; stopWhy="süpürme ucunun arkası"; } }
+  const sup=isL?(A.S&&A.S[0]):(A.R&&A.R[0]); if(sup&&Math.abs(px-sup)/atr<=3&&Math.abs(px-sup)/atr>=0.6){ const lv=isL?sup*(1-0.0025):sup*(1+0.0025); if(isL?lv>stopLv:lv<stopLv){ stopLv=lv; stopWhy="en yakın "+(isL?"desteğin altı":"direncin üstü"); } }
+  const risk=Math.abs(pos.entry-stopLv); const tp1=isL?pos.entry+1.5*risk:pos.entry-1.5*risk, tp2=isL?pos.entry+3*risk:pos.entry-3*risk;
+  let verdict="tut"; if(opp.decision==="giriş"&&c.score<0) verdict="çık"; else if(opp.decision==="giriş"||c.score<-0.15) verdict="azalt"; else if(c.score>=COM_DEF.threshold) verdict="tut"; else verdict="tut, stop sık";
+  if(isFinite(liqAtr)&&liqAtr<1.5&&verdict==="tut") verdict="tut, stop sık";
+  const lines=[]; const add=(id,text)=>{ const d=DESK.find(x=>x.id===id); lines.push({who:d.name,role:d.role,id,text}); };
+  const st=a=>a.v>0.15?"destekliyor":a.v<-0.15?"karşı":"kararsız"; const g=id=>c.agents.find(a=>a.id===id);
+  add("trend",`${st(g("trend"))}: ${g("trend").txt}.`);
+  add("liq",`${st(g("liq"))}: ${g("liq").txt}. ${r&&r.pool?`Stop için doğal yer ${stopWhy} (${fmtP(stopLv)}).`:`Elde süpürme yok; stop ${stopWhy} (${fmtP(stopLv)}).`}`);
+  add("flow",`${st(g("flow"))}: ${g("flow").txt}.`);
+  add("macro",`${st(g("macro"))}: ${g("macro").txt}.${opp.decision==="giriş"?" Masa ters yöne giriş diyor; pozisyon rüzgâra karşı.":""}`);
+  const be=isL?pos.entry*(1+0.0013):pos.entry*(1-0.0013);
+  add("quant",`Başabaş (komisyon dahil) ${fmtP(be)}. 1,5R ${fmtP(tp1)}, 3R ${fmtP(tp2)} (stop ${fmtP(stopLv)} alınırsa). ${g("quant").txt}.`);
+  add("mom",`${st(g("mom"))}: ${g("mom").txt}.${pnlPct>0&&g("mom").v>0.3?" Hareket devam ediyor, kârı erken kesme.":""}`);
+  const canParts=[];
+  if(isFinite(liqAtr)) canParts.push(liqAtr<1.5?`likidasyon ${fx(liqAtr,1)} ATR uzakta, tehlikeli: boyu küçült, teminat ekleme`:liqAtr<3?`likidasyon ${fx(liqAtr,1)} ATR uzakta, tek dalga yeter`:`likidasyon ${fx(liqAtr,1)} ATR uzakta`);
+  canParts.push(hasStop?"stop emri var":`stop emri YOK; ${fmtP(stopLv)} (${stopWhy}) koy`);
+  if(pnlPct>=1.5*risk/pos.entry*100&&!hasTp) canParts.push("1,5R geçildi: yarısını al, stopu girişe çek");
+  else if(pnlPct>0&&!hasTp) canParts.push(`hedef ${fmtP(tp1)} için emir yok`);
+  if(verdict==="çık") canParts.push("masa karşı yöne dönmüş: çık"); else if(verdict==="azalt") canParts.push("masa ikna değil: boyu azalt"); else canParts.push("tut");
+  add("risk",`Karar: ${verdict.toUpperCase()}. ${canParts.join(" · ")}.`);
+  return {verdict,score:c.score,oppScore:opp.score,oppDecision:opp.decision,agents:c.agents,lines,stopLv,stopWhy,tp1,tp2,be,liqAtr,pnlPct,hasStop,hasTp,atrRel,t:Date.now()};
+}
