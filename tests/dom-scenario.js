@@ -31,7 +31,11 @@ const resp=(obj,ok=true,status=200)=>Promise.resolve({ok,status,json:()=>Promise
 const SYMS=['ENAUSDT','NEARUSDT'];
 const dom=new JSDOM(html,{runScripts:"dangerously",url:"https://example.test/x.html",pretendToBeVisual:true,beforeParse(w){
   w.localStorage.setItem('st-sym','ENAUSDT'); w.localStorage.setItem('rp-cons',JSON.stringify({UNIUSDT:{L:{tier:'proven',n:7,wr:0.6,ev:0.9,lastT:Date.now()-864e5},S:{tier:'weak',n:1,wr:0,ev:-1,lastT:null},t:Date.now()-1000}}));
-  w.fetch=(u)=>{ const p=u.replace('https://fapi.binance.com',''); const sym=(p.match(/symbol=(\w+)/)||[])[1];
+  w.fetch=(u)=>{ if(u.startsWith('https://www.binance.com/bapi/')){ const now=Date.now(); if(u.includes('query-list')) return resp({code:"000000",data:{list:[{leadPortfolioId:"1",nickname:"Lider1",roi:120,pnl:5000,aum:50000,mdd:20,winRate:70,currentCopyCount:200,sharpRatio:2},{leadPortfolioId:"2",nickname:"Lider2",roi:80,pnl:3000,aum:30000,mdd:30,winRate:60,currentCopyCount:90,sharpRatio:1.2}]}});
+      if(u.includes('position-history')) return resp({code:"000000",data:{list:[{symbol:'ENAUSDT',side:'Long',opened:now-6*3600e3,closed:now-3600e3,avgCost:0.098,avgClosePrice:0.1,closingPnl:120,leverage:'20',roi:'0.4'},{symbol:'NEARUSDT',side:'Short',opened:now-30*3600e3,closed:now-20*3600e3,avgCost:0.11,avgClosePrice:0.1,closingPnl:50,leverage:'10',roi:'0.2'}]}});
+      if(u.includes('order-history')) return resp({code:"000000",data:{list:[{symbol:'ENAUSDT',side:'BUY',positionSide:'LONG',executedQty:1000,avgPrice:0.098,orderTime:now-6*3600e3},{symbol:'ENAUSDT',side:'BUY',positionSide:'LONG',executedQty:500,avgPrice:0.099,orderTime:now-5*3600e3},{symbol:'ENAUSDT',side:'SELL',positionSide:'LONG',executedQty:1500,avgPrice:0.1,orderTime:now-3600e3},{symbol:'UNIUSDT',side:'BUY',positionSide:'LONG',executedQty:200,avgPrice:0.1,orderTime:now-1800e3}]}});
+      return resp({code:"000000",data:{}}); }
+    const p=u.replace('https://fapi.binance.com',''); const sym=(p.match(/symbol=(\w+)/)||[])[1];
     if(p.startsWith('/futures/data/')){ const n=+(p.match(/limit=(\d+)/)[1]); const per=p.includes('period=15m')?9e5:3e5; return resp(Array.from({length:n},(_,i)=>({buySellRatio:String(1.1),longShortRatio:String(2),sumOpenInterestValue:String(4e6-i*1e3),timestamp:Date.now()-(n-i)*per}))); }
     if(p.startsWith('/fapi/v1/klines')){ const m=p.match(/interval=(\w+)&limit=(\d+)/); const n=+m[2]; if(m[1]==='15m') return resp(k15(n)); if(m[1]==='1d') return resp(klDaily(n)); return resp(klGen(n,{'5m':3e5,'1h':36e5,'4h':144e5}[m[1]])); }
     if(p.startsWith('/fapi/v1/exchangeInfo')) return resp({symbols:SYMS.map(s=>({symbol:s,contractType:'PERPETUAL',quoteAsset:'USDT',status:'TRADING'}))});
@@ -80,6 +84,7 @@ setTimeout(async()=>{
   d.querySelector('#stratSeg button[data-v="free"]').click(); console.log('free plan button:', !!d.querySelector('#planBody button[data-jr]'));
   d.querySelector('#drawer .bar [data-t="account"]').click(); d.getElementById('acctKey').value='test-key'; d.getElementById('acctSecret').value='test-secret'; d.getElementById('acctConnect').click(); await new Promise(r=>setTimeout(r,1500));
   await new Promise(r=>setTimeout(r,2500)); console.log('account:', txt('acctStatus'), '|', txt('acctData').slice(0,1400));
+  d.querySelector('#drawer .bar [data-t="bot"]').click(); await new Promise(r=>setTimeout(r,800)); console.log('leaders:', (d.getElementById('ldBox')||{textContent:''}).textContent.replace(/\s+/g,' ').slice(0,700));
   console.log('errors', errors, 'console.error', logs);
   w.close(); process.exit(0);
 },2500);

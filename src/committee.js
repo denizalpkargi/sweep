@@ -10,6 +10,7 @@ const DESK=[
   {id:"macro",name:"Arda",role:"Makro araştırmacısı",w:1},
   {id:"quant",name:"Onur",role:"Kantitatif araştırmacı",w:0.8},
   {id:"mom",name:"Baran",role:"Trader · agresif",w:0.8},
+  {id:"copy",name:"Tolga",role:"Kopya trader araştırmacısı",w:1},
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 const COM_DEF={threshold:0.3,minYes:4};
@@ -42,6 +43,11 @@ function committee(A, dir, c24, opts){
   if(crowd){ bv-=0.2; }
   set("macro",bv,bc,btxt+(crowd?" · "+crowd:""));
   say("macro","açılış",B?`${btxt}. ${B.agree?"Piyasa geneli aynı yöne bakıyor, zemin sağlam.":B.ok?"BTC karşı değil ama destek de vermiyor.":B.dump?"BTC sert gidiyor; "+D+" için zemin kaygan.":"BTC yapısı karşı yöne bakıyor."}${crowd?" Ayrıca "+crowd+".":""}`:"BTC verisi elimde yok, rejim hakkında konuşamam.");
+  const sym=opts.sym||null; const LD=(typeof ld!=="undefined")?ld:null; const cs=sym&&LD&&LD.sym?LD.sym[sym]:null;
+  let cv=0,cc=0.2,ctxt=LD&&LD.at?"liderler bu coinde işlem yapmadı":"lider verisi yok (masaüstü uygulamasında saatte bir çekilir)";
+  if(cs){ const me=cs[dir]||{n:0,w:0,leaders:[]}, ot=cs[isL?"short":"long"]||{n:0,w:0,leaders:[]}; const tot=me.w+ot.w; if(tot>0){ cv=(me.w-ot.w)/tot; cc=Math.min(0.9,0.4+0.1*(me.n+ot.n)); ctxt=`${me.n} lider ${D} (${(me.leaders||[]).slice(0,3).join(", ")||"—"}), ${ot.n} lider ters yönde`; } }
+  set("copy",cv,cc,ctxt);
+  say("copy","açılış",cs&&(cs.long.n||cs.short.n)?`En iyi liderlerden ${ctxt}. ${cv>0.3?"Büyük paralar bizimle.":cv<-0.3?"Büyük paralar ters tarafta; dikkat.":"Liderler bölünmüş."}`:(LD&&LD.at?`Liderler ${sym?sym.replace("USDT",""):"bu coin"} ile ilgilenmiyor; ne destek ne engel.`:"Lider verisi henüz yok, bu turda çekimserim."));
   const S=A.rsStats&&A.rsStats[dir]; const n=S?S.A.n+S.B.n:0; const sum=S?(S.A.sum||0)+(S.B.sum||0):0;
   let qv=0,qc=0.5,qtxt="bu coinde kanıt yok"; if(n>=3){ qv=sum>0?0.35:sum<0?-0.35:0; qc=0.6+Math.min(0.3,n/30); qtxt=`K3 bu coinde ${n} işlem, toplam ${sum>=0?"+":""}${fx(sum,1)}R`; } else if(n>0){ qtxt=`K3 bu coinde ${n} işlem (az örnek)`; }
   const kb=A.src&&A.src.k15L; const atrRel=kb&&kb.length>20?atrAt(kb,kb.length)/A.px:A.med15; let sd=Math.max(0.012,1.2*(atrRel||0.01)); const costR=(0.0005+0.0005+0.0003)/sd;
@@ -58,6 +64,8 @@ function committee(A, dir, c24, opts){
   /* ---- 2. tur: tartışma (oyları gerçekten değiştirir) ---- */
   let runR=3; const chg=[];
   if(!veto){
+    if(ag.copy.v<-0.4&&ag.liq.v>0.5){ say("copy","tartışma","Kerem, liderlerin çoğu ters yönde; süpürme ikinci kez de gelebilir, güvenini biraz kıs."); ag.liq.c=Math.max(0,ag.liq.c-0.1); chg.push("liq"); }
+    if(ag.copy.v>0.5&&ag.mom.v>0){ say("mom","tartışma","Liderler de bizim tarafta; boyu tam tutarım."); ag.mom.v=Math.min(1,ag.mom.v+0.1); chg.push("mom"); }
     if(ag.macro.v<-0.3&&ag.mom.v>0.3){ say("macro","tartışma",`Baran, BTC ${isL?"düşerken":"yükselirken"} momentum kovalamak son 15 günde en çok kaybettiren şey. Oyunu kıs.`); if(A.volRel>=1.8){ ag.mom.v-=0.1; say("mom","tartışma",`Hacim ×${fx(A.volRel,1)}, bu coin BTC'yi dinlemiyor. Biraz kısıyorum ama tutuyorum.`); } else { ag.mom.v-=0.3; say("mom","tartışma","Haklısın, hacim de sıradan. Oyumu düşürüyorum."); } chg.push("mom"); }
     if(ag.trend.v<-0.3&&ag.liq.v>0.5){ say("trend","tartışma","Kerem, süpürme güzel ama günlük yön karşı. Karşı-trend işlemde hedef kısa tutulur."); ag.liq.c-=0.2; runR=2; say("liq","tartışma","Kabul: süpürme + MSS karşı trendde de çalışır ama koşucuyu 2R'de keselim, güvenimi düşürüyorum."); chg.push("liq"); }
     else if(ag.trend.v>0.3&&ag.liq.v>0.5){ say("liq","tartışma","Trend de bizimle; süpürme trend yönünde olunca en iyi örnekler bunlar."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
@@ -75,13 +83,13 @@ function committee(A, dir, c24, opts){
   const px=A.px; const plan=veto?null:{entry:px,sd,stop:isL?px*(1-sd):px*(1+sd),t1:isL?px*(1+1.5*sd):px*(1-1.5*sd),t2:isL?px*(1+runR*sd):px*(1-runR*sd),rr1:1.5,rr2:runR};
   const go=!veto&&score>=opts.threshold&&yes>=opts.minYes;
   const decision=veto?"veto":go?"giriş":score>=opts.threshold?"oy eksik":"bekle";
-  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/7 evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu 8 saat. Boy risk yüzdesinden, 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
+  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/${DESK.length} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu 8 saat. Boy risk yüzdesinden, 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
   return {dir,score,yes,no,n:agents.length,veto,agents,talk,plan,decision,changed:chg};
 }
 /* ---------- Açık pozisyon yorumu: masa, elde tutulan pozisyonu kendi yönünde yeniden değerlendirir (tut / azalt / çık / stop sık) ---------- */
-function positionReview(A, pos, orders, c24){
+function positionReview(A, pos, orders, c24, opts){
   const dir=pos.dir; const isL=dir==="long"; c24=isFinite(c24)?c24:0;
-  const c=committee(A,dir,c24); const opp=committee(A,isL?"short":"long",c24);
+  const c=committee(A,dir,c24,opts); const opp=committee(A,isL?"short":"long",c24,opts);
   const kb=A.src&&A.src.k15L; const atr=kb&&kb.length>20?atrAt(kb,kb.length):A.med15*A.px; const atrRel=atr/A.px;
   const px=A.px; const pnlPct=(isL?(px/pos.entry-1):(1-px/pos.entry))*100; const liqAtr=pos.liq>0?Math.abs(px-pos.liq)/atr:NaN;
   const so=(orders||[]).filter(o=>o.sym===pos.sym&&(o.ro||o.cp)); const hasStop=so.some(o=>/STOP/.test(o.type)); const hasTp=so.some(o=>/TAKE_PROFIT/.test(o.type)||(o.px>0&&!/STOP/.test(o.type)));
