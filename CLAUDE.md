@@ -1,0 +1,59 @@
+# SWEEP · Likidite Terminali — Claude Code için devir notu
+
+Bu proje Cowork oturumunda sıfırdan yazıldı ve buraya taşındı. Kullanıcı (denizalp) Türkçe konuşur, kripto vadeli işlemlerde yeni başlayan ama yüksek kaldıraç seven bir yatırımcıdır; açıklamaları sade, dürüst ve uyarı/sorumluluk reddi cümleleri olmadan ister. Finansal tavsiye vermiyoruz, bir eğitim/analiz aracı yazıyoruz.
+
+## Ne var
+
+- `src/` kaynak parçalar → `node src/build.js` hepsini tek dosyaya derler: `site/index.html` (HTML + CSS + JS, ~180 KB, harici bağımlılık yalnızca Google Fonts ve jsDelivr'dan lightweight-charts 4.2.0).
+  - `engine.js` — saf analiz motoru (DOM yok): Binance REST istemcisi (`j`, `opt`, hız sınırı bekletme), `fetchFast`/`fetchSlow`, `analyze(f,s)` → `A` nesnesi, seviye/pivot kümeleme, kutu teorisi (`boxTheory`, `pocOf`), AMD modeli (`poolsAt`, `amdDetect`, `amdStats`), yüksek tutarlılık yardımcıları (`consistencyOf`, `hcGates`, `effLev`, `posSize`), işlem günlüğü mantığı (`jrAdd/jrSet/jrToday`), tarayıcı (`universe`, `scanOne`, `rowOf`, `scanDeep`).
+  - `strat2.js` — Kurulum 2: konsolidasyon kırılımı → momentum mumunun FVG'sine geri test (`breakoutRetest`, `breakoutStats`). build.js bunu engine içine `amdStats` öncesine ekler.
+  - `ui.js` — arayüz katmanı: başlık, grafik (lightweight-charts; katmanlar: yapı HH/HL/LH/LL, havuzlar, long/short planı, kırılım·FVG, kutu·POC, seviyeler), akış kartları, 10 kapı, plan, Kurulum 2 kartı, bağlam, sinyal akışı (feed), takip listesi, tarayıcı tablosu, günlük, hikâye, istatistik, strateji sekmesi; **canlı WebSocket katmanı** (`wsConnect`, `wsDispatch`, bant, likidasyon dalgası → `quickScan`); **kâğıt bot** (`bot*` fonksiyonları: aday seçimi, limit emir, dolum, TP1/TP2/iz süren stop, fonlama, karar günlüğü, CSV).
+  - `build.js` — engine'e string yamaları uygular (hız sınırı, hafif istekler, memo, havuz önbelleği, satır alanları) ve ui.js ile birleştirip IIFE içinde `site/index.html` üretir. **Yeni motor özelliği eklerken önce engine.js/strat2.js'i düzenle; build.js'deki `rep()` çağrıları metin eşleşmesine dayanır, eşleşmezse hata fırlatır.** Uzun vadede bu yamaların engine.js'e kalıcı olarak işlenmesi (build.js'i sadeleştirmek) iyi bir ilk görevdir.
+  - `term-head.html` (CSS), `term-body.html` (DOM), `icon192.b64` (favicon/apple-touch-icon).
+- `site/` — yayınlanabilir klasör: index.html (derlenir, repoya da konabilir), `sw.js`, `manifest.webmanifest`, ikonlar.
+- `electron/` — Windows/Mac paketi için `main.js` + `package.json`; `npm run pack:win`.
+- `tests/` — `dom-scenario.js` (jsdom; yapay süpürme→MSS→OTE dizisiyle uçtan uca: kapılar, plan, günlük, tarayıcı; `fetch` stub'lıdır), `screenshot.js` / `screenshot-bot.js` (Playwright; Binance ve WebSocket mock'lanır, masaüstü+mobil ekran görüntüsü alır; bot senaryosu limit emir → dolum).
+
+## Komutlar
+
+```
+npm install
+npm run build      # src → site/index.html
+npm test           # build + jsdom senaryosu (çıktıda "errors []" beklenir)
+npm run shot       # build + Playwright ekran görüntüleri tests/shot-*.png
+npm run serve      # site/ klasörünü http://localhost:8080 ile sun (PWA kurulumu için https gerekir)
+npm run pack:win   # Electron paketi dist/
+```
+
+## Stratejinin kesin tanımı (uygulama içindeki "Strateji" sekmesiyle aynı)
+
+- Günlük yön: 1 günlük mumlar (SMA20/50, 10 günlük HH/HL, 30 günlük değişim; 6 puanda ≥3 yukarı / ≤−3 aşağı, arası yatay = model geçersiz).
+- Havuzlar (15 dk, son 192 mum): eşit dipler/tepeler (3'lü swing, tolerans max(%0,1; 0,25×tipik mum)), önceki UTC gün ucu, Asya aralığı (00–07 UTC), 16–60 mumluk kutu, tekil swing.
+- Süpürme: son 48 mumda fitil havuzun ≥%0,05 ötesine, aynı/sonraki mum içeri kapanış. Emir akışı: CVD emilimi (geri alım mumunda CVD ≥ havuz anındaki), geri alım mumunda taker payı >%52, süpürmede OI ≥%0,5 düşüş, 15 dk taker oranı.
+- MSS: süpürmeden önceki 12 mumun ara tepesi gövdeyle kırılır, gövde ≥1,5× medyan (96 mum); FVG kaydedilir.
+- Giriş: OTE %62–79 (bacak büyüdükçe yeniden hesaplanır; MSS'den sonra 16 mum içinde dokunulmazsa süre dolar); limit %62'ye. Stop: süpürme ucu ±%0,15. Hedef: MSS anında bilinen karşı taraf havuzları; oran ≥1,5.
+- Not: A ≥5 puan + ofScore≥2 + rr≥1,5; B ≥3 puan + ofScore≥1 + rr≥1,2.
+- Geriye dönük test: 1500×15 dk, süpürme başına bir işlem, 48 mumda hedef/stop; sonuçlar `memo()` ile mumlar değişene kadar önbellekte.
+- Coin tutarlılığı: A+B birleşik; kanıtlı ≥5 kurulum, EV ≥+0,6R, hedef ≥%45; umut var ≥3, ≥+0,25R.
+- 10 kapı (`hcGates`): günlük yön, süpürme, emir akışı ≥2, MSS, fiyat bölgede (canlı: `stageLive`), kill zone (süpürme mumu Londra 07–10 / NY 12:30–16 / Asya 00–02 UTC), oran≥1,5 ve stop ≤20x'e sığar, coin tutarlılığı, kalabalık karşı değil, günlük disiplin (≤2 işlem, ≤2 kayıp, tek açık pozisyon).
+- Çıkış: hedef 1'de %50 + stop girişe; hedef 2'de %30; kalan %20 iz süren stop; ekleme yalnızca hedef 1'den sonra, bir kez, yarım boy.
+- Kurulum 2 (Trading Geek kursu): 16–60 mumluk kutu, günlük yönle uyumlu gövdeli kırılım, kırılım mumunun FVG'si; giriş FVG kenarı (ikinci emir %50), stop momentum mumunun ucu, hedef 2R/3R.
+- Bot (`bot.cfg`): risk %1, kaldıraç ≤20x (stop mesafesinden), günde ≤2 işlem, ≤2 kayıp, tek pozisyon; komisyon maker %0,02 / taker %0,05, kayma %0,03, fonlama markPrice akışından. Durum `localStorage["st-bot"]`.
+
+## Bilinen sınırlar / yol haritası (öncelik sırasıyla)
+
+1. **Yayın**: `site/` klasörünü GitHub Pages'e koy (repo adı `sweep` → https://denizalpkargi.github.io/sweep/). Chrome "Uygulamayı yükle" ile masaüstü uygulaması, iPhone ana ekran. Electron paketi release olarak eklenebilir.
+2. Bot sekme arka plandayken Chrome zamanlayıcıları kısar (WebSocket mesajları işlenir, 10 sn'lik REST turu ve tarama gecikir). Electron paketi ya da `document.visibilityState` için uyarı/çözüm.
+3. Bot kapalıyken geçen sürede açık pozisyonun stop/hedefi kontrol edilmez; yeniden açılışta eksik aralığı REST kline'larla doldurup "ne olmuş olurdu" hesapla.
+4. "Aynı bölgeye en fazla iki deneme" kuralı (Trading Geek) günlüğe/bota eklenmedi.
+5. Zaman dilimi parametrik değil (15 dk sabit); 5 dk giriş / 1 saat yapı seçeneği.
+6. build.js'deki string yamalarını engine.js'e kalıcı işle; engine'i ES modüllerine böl; birim testleri genişlet (amdDetect için yapay diziler `tests/crafted-data.js` içinde).
+7. Hız: ilk açılışta 1500 mumluk klines + 13 istek; tarayıcı deep pass 24 coin × 3 istek. Hız sınırı (429) bekletmesi `rest.cool` ile yapılır.
+8. Kopya trader analizi (Binance lead-portfolio iç uç noktaları) ayrı bir araç olarak eklenebilir; uç noktalar ve bulgular sohbet geçmişinde.
+
+## Kurallar
+
+- Türkçe arayüz; sayılar `tr-TR` biçiminde (virgül).
+- Harici kaynak ekleme: yalnızca jsDelivr/Google Fonts (file:// ve Pages'te çalışmalı). Her şey tek dosyada kalmalı.
+- Her değişiklikten sonra `npm test` ve mümkünse `npm run shot` çalıştır; `errors []` görmeden teslim etme.
+- Gerçek emir gönderen kod yazma; bot sanal bakiyeyle çalışır (kullanıcı "tüm işlemler gerçek olacak" derken gerçek fiyat/dolum kastediyor, gerçek para değil).

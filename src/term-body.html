@@ -1,0 +1,135 @@
+<body>
+<noscript><div class="noscript">Bu önizlemede betikler çalışmıyor. Dosyayı indirip Chrome ya da Edge ile aç.</div></noscript>
+<div class="app">
+  <header class="top">
+    <div class="brand"><div class="mark">S</div><div><b>SWEEP</b><small>likidite terminali · AMD · emir akışı</small></div></div>
+    <div class="symbox"><input id="sym" list="symList" value="ENAUSDT" spellcheck="false" aria-label="Coin"><datalist id="symList"></datalist></div>
+    <div class="seg" id="modeSeg" role="group" aria-label="Yön"><button data-v="both" aria-pressed="true">İki yön</button><button data-v="long" aria-pressed="false">Long</button><button data-v="short" aria-pressed="false">Short</button></div>
+    <div class="seg" id="stratSeg" role="group" aria-label="Strateji"><button data-v="hc" aria-pressed="true">Yüksek tutarlılık</button><button data-v="free" aria-pressed="false">Serbest</button></div>
+    <label>Kaldıraç <select id="lev" aria-label="Kaldıraç"><option value="3">3x</option><option value="5">5x</option><option value="10">10x</option><option value="20" selected>20x</option><option value="50">50x</option><option value="75">75x</option><option value="100">100x</option></select></label>
+    <label>Bakiye $ <input id="bal" type="number" min="0" step="1" placeholder="500" style="width:78px" aria-label="Bakiye"></label>
+    <div class="spacer"></div>
+    <div class="sess" id="sess"><i></i><span>seans hesaplanıyor…</span></div>
+    <button class="icon" id="bell" type="button" title="Giriş sinyalinde masaüstü bildirimi" aria-pressed="false">🔔</button>
+    <button class="icon" id="snd" type="button" title="Giriş sinyalinde ses" aria-pressed="false">♪</button>
+    <button class="icon" id="helpAll" type="button" title="Tüm açıklamaları aç/kapat" aria-pressed="false">?</button>
+    <div class="live"><i id="dot"></i><span id="stamp">bağlanıyor…</span><span class="wsdot off" id="wsDot" title="Canlı akış"></span><span id="wsTxt">canlı yok</span></div>
+    <div class="scanbar" id="scanBar"></div>
+  </header>
+
+  <aside class="col left">
+    <div class="tabs" role="tablist"><button role="tab" id="tabFeed" aria-selected="true">Sinyaller</button><button role="tab" id="tabWatch" aria-selected="false">Takip</button></div>
+    <div id="feedWrap">
+      <ul class="feed" id="feed"><li class="empty" style="display:block;border:0;background:transparent">Tarayıcı ilk turunu bitirince sinyaller burada akar.</li></ul>
+    </div>
+    <div id="watchWrap" hidden>
+      <div class="card"><h3>Dizisi ilerleyenler <button class="q" type="button">?</button></h3><p class="hint">Süpürme olmuş ama yapı kırılımı ya da bölgeye dönüş bekleyen coinler. Sinyal değil, kuyruktur: izle, kovalama.</p><ul class="watch" id="watch"><li class="empty">—</li></ul></div>
+      <div class="card"><h3>Kanıtlı coinler <button class="q" type="button">?</button></h3><p class="hint">Bu stratejinin son 15 günde A/B kurulumlarla gerçekten para kazandırdığı coinler (derin taramadan, 6 saat saklanır). Kopya traderlardan alınan ders: kazandıran coine sadık kal.</p><ul class="watch" id="proven"><li class="empty">—</li></ul></div>
+    </div>
+  </aside>
+
+  <main class="col center">
+    <div id="errbox" class="err" hidden></div>
+    <div class="head">
+      <div><div class="sym" id="hSym">—<small id="hSub">BINANCE USDⓈ-M · 15 DK</small></div></div>
+      <div class="px num sk" id="hPx">0.00000</div>
+      <div id="hChg"></div>
+      <div class="kpis">
+        <div class="kpi"><b>Mark</b><span id="kMark">—</span></div>
+        <div class="kpi"><b>Fonlama</b><span id="kFund">—</span></div>
+        <div class="kpi"><b>Sonraki fonlama</b><span id="kNext">—</span></div>
+        <div class="kpi"><b>OI 1s</b><span id="kOI">—</span></div>
+        <div class="kpi"><b>Agresif alıcı</b><span id="kTk">—</span></div>
+        <div class="kpi"><b>Günlük yön</b><span id="kTrend">—</span></div>
+      </div>
+    </div>
+    <div class="chartwrap"><div id="chart"></div><div class="legend" id="legend"></div></div>
+    <div class="flow" id="flow"></div>
+    <div class="card"><h3>Canlı bant <span class="tapehead" id="tapeHead"></span><button class="q" type="button">?</button></h3><p class="hint">Binance vadeli WebSocket akışından saniye saniye: büyük piyasa emirleri (20 saniyelik ortalama hacmin üstündekiler), zorunlu likidasyonlar, canlı CVD ve 20 kademelik emir defteri dengesi. Süpürme anında long likidasyonlarının toplanması, manipülasyonun en net kanıtıdır.</p><div class="tape" id="tape"></div></div>
+  </main>
+
+  <aside class="col right">
+    <div class="card" id="gatesCard">
+      <h3>10 kapı <span class="dirsw" id="dirsw"><button class="l" data-d="long" aria-pressed="true">Long</button><button class="s" data-d="short" aria-pressed="false">Short</button></span><button class="q" type="button">?</button></h3>
+      <p class="hint">Strateji tek cümle: günlük yönün tarafında, bir likidite havuzu süpürülüp emir akışı teyit verdikten ve yapı kırıldıktan sonra, kill zone'da, OTE bölgesine limit emirle, bu kurulumun bu coinde çalıştığı kanıtlanmışsa ve günlük disiplin içindeysek girilir. On kapı bu cümlenin on parçası; izin yalnızca 10/10'da çıkar.</p>
+      <div class="gatehead">
+        <div class="ring"><svg width="74" height="74" viewBox="0 0 74 74"><circle class="bg" cx="37" cy="37" r="31"/><circle class="fg" id="ringFg" cx="37" cy="37" r="31" stroke-dasharray="194.8" stroke-dashoffset="194.8"/></svg><div class="lbl"><span id="ringTxt">0/10</span></div></div>
+        <div class="permit" id="permit">Bekle<small>veri bekleniyor</small></div>
+      </div>
+      <ul class="gates" id="gates"></ul>
+    </div>
+    <div class="card" id="planCard">
+      <h3>Plan <span id="planGrade"></span><button class="q" type="button">?</button></h3>
+      <p class="hint">Giriş OTE %62 seviyesine limit emir; stop süpürme fitilinin arkası; hedef 1'de yarısı kapanır ve stop girişe çekilir; hedef 2'de %30; kalan %20 iz süren stop. Ekleme yalnızca hedef 1'den sonra, bir kez, yarım boy. Kaldıraç stop mesafesine göre; tutarlılık modunda en fazla 20x. Risk işlem başına bakiyenin %1'i.</p>
+      <div id="planBody"><div class="empty">Plan için önce süpürme ve yapı kırılımı gerekir.</div></div>
+    </div>
+    <div class="card" id="brCard">
+      <h3>Kurulum 2 · kırılım + FVG geri testi <span id="brGrade"></span><button class="q" type="button">?</button></h3>
+      <p class="hint">Konsolidasyonun içi işlem yapılmaz. 16–60 mumluk dar kutu, günlük yönle aynı tarafa gövdeli momentum mumuyla kırılır; kırılım mumunun bıraktığı dengesizlik (önceki mumun tepesi ile sonraki mumun dibi arasındaki boşluk) işaretlenir ve fiyat o boşluğa geri döndüğünde girilir: limit emir boşluğun kenarına, ikinci emir %50'sine. Stop momentum mumunun arkası, hedef 2R (ya da 3R). Not A: yönle uyumlu, kutu ≥20 mum, boşluk belirgin, kill zone, kırılım hacmi yüksek.</p>
+      <div id="brBody"><div class="empty">Kutu kırılımı yok.</div></div>
+    </div>
+    <div class="card" id="ctxCard">
+      <h3>Bağlam <button class="q" type="button">?</button></h3>
+      <p class="hint">Yön ve kalabalık özeti: günlük trend, 1 saatlik yapı, en yakın seviyeler, açık pozisyon davranışı, büyük tüccarlar, emir defteri. Giriş kararı değil, zemin.</p>
+      <div id="ctxBody"></div>
+    </div>
+    <div class="card" id="boxCard">
+      <h3>Kutu · POC <button class="q" type="button">?</button></h3>
+      <p class="hint">Yan kurulum: 20 mumluk birikim kutusu → hacim profili POC → kutu kenarı süpürmesi → POC geri alımı → POC geri testi. Ana strateji AMD; bu kart yalnız POC geri testi tamamlandığında anlam taşır.</p>
+      <div id="boxBody"></div>
+    </div>
+  </aside>
+
+  <section class="drawer closed" id="drawer">
+    <div class="bar" role="tablist">
+      <button role="tab" data-t="scan" aria-selected="true">Tarayıcı</button>
+      <button role="tab" data-t="journal" aria-selected="false">Günlük</button>
+      <button role="tab" data-t="story" aria-selected="false">Bugünün hikâyesi</button>
+      <button role="tab" data-t="stats" aria-selected="false">İstatistik</button>
+      <button role="tab" data-t="strategy" aria-selected="false">Strateji</button>
+      <button role="tab" data-t="bot" aria-selected="false">Bot · kâğıt</button>
+      <span class="st" id="scanStamp">tarama bekleniyor</span>
+      <button class="ghost" id="drawerTgl" type="button" title="Aç/kapat">▴</button>
+    </div>
+    <div class="body">
+      <div id="dScan">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px;color:var(--ink-2)">
+          <label>Hacim eşiği <select id="minVol"><option value="5000000">5 M$</option><option value="10000000" selected>10 M$</option><option value="30000000">30 M$</option><option value="100000000">100 M$</option></select></label>
+          <label><input type="checkbox" id="onlyPick" style="width:auto"> yalnızca giriş/yakın</label>
+          <label>Otomatik <select id="scanEvery"><option value="0">kapalı</option><option value="300000" selected>5 dk</option><option value="600000">10 dk</option></select></label>
+          <button id="scanNow" type="button" class="primary">Şimdi tara</button>
+          <span class="muted">İki geçiş: evren hızlı okunur, AMD dizisi ilerlemiş adaylar 15 günlük geçmişle derin taranır.</span>
+        </div>
+        <table class="t" id="scanTable"><thead><tr>
+          <th data-k="s">Coin</th><th data-k="dir">Yön</th><th data-k="px">Fiyat</th><th data-k="c24">24s</th><th data-k="stage" class="sorted">AMD</th><th data-k="grade">Not</th><th data-k="consRank">Tutarlılık</th><th data-k="kz">Seans</th><th data-k="rr">Oran</th><th data-k="maxLev">Kaldıraç</th><th data-k="fund">Fonlama</th><th data-k="oi1h">OI 1s</th><th data-k="trend">Günlük</th><th data-k="qv">Hacim 24s</th>
+        </tr></thead><tbody id="scanBody"><tr><td colspan="14" class="empty">Tarama henüz yapılmadı.</td></tr></tbody></table>
+      </div>
+      <div id="dJournal" hidden></div>
+      <div id="dBot" hidden></div>
+      <div id="dStory" hidden><ol class="story" id="story"></ol></div>
+      <div id="dStrategy" hidden><div class="spec">
+        <div class="card"><h4>Zaman dilimleri · ne nerede hesaplanır</h4><table>
+          <tr><td>Günlük yön (bias)</td><td><b>1 günlük</b> mumlar (150 gün): fiyat SMA20/SMA50'ye göre, SMA20 eğimi, son 10 günün tepe/dibi önceki 10 güne göre (HH/HL), 30 günlük değişim. 6 puanın ≥3'ü yukarı → yükseliş; ≤−3 → düşüş; arası yatay (model geçersiz).</td></tr>
+          <tr><td>Kısa vade yapı</td><td><b>1 saatlik</b> mumlar: SMA20 konumu/eğimi, son 6 saatin dibi önceki 6 saate göre.</td></tr>
+          <tr><td>Likidite havuzları</td><td><b>15 dk</b> mumlar, son 192 mum (48 saat): eşit dipler/tepeler (3'lü swing, tolerans %0,1 ya da 0,25× tipik mum), önceki UTC günün tepe/dibi, Asya aralığı (03:00–10:00 TR), 16–60 mumluk birikim kutusu, tekil swingler.</td></tr>
+          <tr><td>Süpürme (manipülasyon)</td><td><b>15 dk</b>, son 48 mum (12 saat): fitil havuzun ≥%0,05 ötesine gider, aynı ya da sonraki mum havuzun içine kapanır. Yükseliş gününde alt havuzlar, düşüş gününde üst havuzlar.</td></tr>
+          <tr><td>Emir akışı teyidi</td><td>CVD (15 dk, taker alış − satış birikimi) geri alım mumunda havuz anındakinin üstünde → emilim; geri alım mumunda taker payı >%52; süpürmede OI düşüşü ≥%0,5 (likidasyon temizliği); 15 dk taker oranı; canlı: forceOrder likidasyon toplamı.</td></tr>
+          <tr><td>Yapı kırılımı (MSS)</td><td><b>15 dk</b>: süpürmeden önceki 12 mumun ara tepesi (short için dibi) gövdeyle kırılır; gövde ≥1,5× son 96 mumun medyan gövdesi (yer değiştirme). FVG: kırılım mumunun iki yanı arasında boşluk.</td></tr>
+          <tr><td>Giriş bölgesi (OTE)</td><td>Süpürme ucu → kırılım sonrası tepe bacağının %62–79 geri çekilmesi; limit emir %62'ye. Bacak büyüdükçe bölge yeniden hesaplanır; MSS'den sonra 16 mum (4 saat) içinde dokunulmazsa süre dolar.</td></tr>
+          <tr><td>Stop / hedef</td><td>Stop: süpürme ucunun %0,15 arkası. Hedefler: MSS anında bilinen karşı taraf havuzları (bacağın geçmediği ilk ve ikinci). Oran ≥1,5 şart.</td></tr>
+          <tr><td>Kill zone</td><td>Süpürme mumunun saati: Londra 10:00–13:00, New York 15:30–19:00, Asya açılışı 03:00–05:00 (TR).</td></tr>
+          <tr><td>Coin tutarlılığı</td><td><b>15 dk × 1500 mum (~15 gün)</b> geriye dönük test: aynı kurallarla A/B kurulumlar, bir süpürmeye bir işlem, sonuç 48 mum içinde hedef/stop. Kanıtlı: ≥5 kurulum, beklenti ≥+0,6R, hedef ≥%45. Umut var: ≥3 kurulum, ≥+0,25R.</td></tr>
+          <tr><td>Kurulum 2 · kırılım + FVG</td><td><b>15 dk</b>: 16–60 mumluk dar kutu; gövdesi ≥1,5× medyan olan kapanışla kırılım; kırılım mumunun FVG'si (önceki mumun tepesi ↔ sonraki mumun dibi); giriş FVG kenarı (ikinci emir %50), stop momentum mumunun ucu, hedef 2R/3R; 24 mumda geri test gelmezse süre dolar.</td></tr>
+          <tr><td>Kutu · POC (yan kurulum)</td><td><b>15 dk</b>: 20 mumluk dar kutu (aralık ≤%1,2 ya da 2,5× tipik mum), 24 kademeli hacim profili POC, kenar süpürmesi ≥0,3× tolerans, 12 mumda POC geri alımı, 16 mumda POC geri testi.</td></tr>
+          <tr><td>Tarayıcı</td><td>Hızlı geçiş: hacim eşiğini geçen ≤120 coin, 15 dk × 100 mum. Derin geçiş: dizisi ilerlemiş ≤24 aday, 15 dk × 1500 mum + 15 dk OI/taker. Likidasyon dalgası (5 dk'da tek tarafta ≥250 bin $) anında derin tarama tetikler.</td></tr>
+          <tr><td>Canlı akış</td><td>WebSocket: aggTrade (fiyat, CVD, bant), kline_15m (son mum), markPrice@1s (fonlama), depth20, forceOrder, !forceOrder@arr. REST her 10 sn analiz, 60 sn'de bir geçmiş.</td></tr>
+        </table></div>
+        <div class="card"><h4>Grafikteki çizimler</h4><p><b>HH/HL/LH/LL</b>: 15 dk 3'lü swing'ler; yeşil etiket yapı lehine (HH, HL), kırmızı aleyhine (LH, LL). <b>Mor çizgiler</b>: en ağır 3 alt ve 3 üst havuz (eşit dipler/tepeler ×n, önceki gün, Asya, kutu). <b>Mor oklar</b>: süpürme mumu. <b>Mavi daire</b>: MSS mumu. <b>Yeşil çizgiler (L)</b>: long OTE %62 (kalın, giriş) ve %79, hedefler; <b>turuncu çizgiler (S)</b>: short için aynısı; <b>kırmızı</b>: stoplar. Çizgiler MSS mumundan başlar, bu yüzden hangi bacağa ait olduğu görünür. <b>Beyaz</b>: kutu POC ve kutu sınırları; <b>gri</b>: 10 günlük kutu ve en yakın direnç/destek. Üstteki etiketlere tıklayarak katmanları kapatabilirsin.</p></div>
+        <div class="card"><h4>Trading Geek (Brad Goh) kursundan alınanlar</h4><p><b>Kurulum 1 · trend geri çekilmesi:</b> yapı HH/HL ile belirlenir, yapı kırılımı mum kapanışıyla sayılır; giriş, yapıyı kıran hareketin başladığı talep bölgesine dönüşte ve <b>yalnızca o bölgede likidite süpürülmüşse</b>; stop bölgenin altı, hedef 2–3R. Bizde: AMD dizisi aynı mantık; "pivot bölgesi" ve "rafine bölge" artık planda ve grafikte gösterilir.</p><p><b>Kurulum 2 · kırılım geri testi:</b> yukarıdaki kart. Bizde yeni; tarayıcıda "KIRILIM" sinyali olarak akar.</p><p><b>Kurulum 3 · likidasyon süpürme dönüşü:</b> eşit diplerin süpürülmesi + V dönüş + 1 saatlik yapı kırılımı → likidite süpüren talep bölgesine dönüşte giriş; aynı bölgeye en fazla iki deneme; son süpürmenin hangisi olduğu bilinemez, olasılık oyunudur. Bizde: ana AMD modeli; OTE %62 girişi onun "bölgeye dönüş"üyle çoğu zaman çakışır, farkı planda görürsün.</p><p><b>Sistem kuralları:</b> tetik yoksa işlem yok; stop fikrin bozulduğu yer; hedef önceden; risk %0,5–2; günde 1–3 işlem; 20x üstü kaldıraçtan kaçın; bir kurulum, bir coin (BTC/ETH + bir anlatı coini); 100 işlemden önce yargı yok; her işlemin ekran görüntüsü ve duygu notu; günlük kayıt, haftalık gözden geçirme, aylık kalıp, çeyreklik ince ayar.</p></div>
+        <div class="card"><h4>On kapı · izin kuralı</h4><p>1 Günlük yön net · 2 Havuz süpürmesi · 3 Emir akışı ≥2 teyit · 4 MSS + yer değiştirme · 5 Fiyat OTE'de (canlı) · 6 Süpürme kill zone'da · 7 Oran ≥1,5 ve stop kaldıraca sığıyor (tutarlılık modunda ≤20x) · 8 Coin tutarlılığı kanıtlı/umut var · 9 Fonlama ve büyük tüccarlar karşı değil, climax/kapitülasyon yok · 10 Günlük disiplin (≤2 işlem, ≤2 kayıp, tek açık pozisyon). İzin yalnızca 10/10. Çıkış: hedef 1'de yarısı + stop girişe; hedef 2'de %30; kalan %20 iz süren stop. Ekleme yalnızca hedef 1'den sonra, bir kez, yarım boy.</p></div>
+      </div></div>
+      <div id="dStats" hidden><div class="stats" id="stats"></div><div id="amdStatsBox" style="margin-top:10px;font-size:12px;color:var(--ink-2)"></div></div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
