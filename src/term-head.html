@@ -218,7 +218,8 @@ table.t tr.near td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
 .tp{display:grid;grid-template-columns:70px 110px 1fr auto;gap:10px;padding:4px 8px;border-radius:6px;background:var(--surface-2);animation:slide .25s}
 .tp.buy .k{color:var(--long)}.tp.sell .k{color:var(--short)}.tp.liq{background:rgba(245,181,63,.08)}.tp.lq-long .k{color:var(--short)}.tp.lq-short .k{color:var(--long)}.tp .when{color:var(--muted);font-family:var(--mono)}.tp .v{font-weight:600}.tp .k{font-weight:700;letter-spacing:.06em;font-size:10.5px}
 .feed li.k-breakout{border-color:rgba(57,198,242,.45)}.k-breakout .kind{background:var(--cyan);color:#04121a}
-.feed li.k-rejim{border-color:rgba(244,114,182,.45)}.k-rejim .kind{background:#f472b6;color:#1a0612}
+.feed li@keyframes flowin{to{stroke-dashoffset:-16}}@keyframes flowout{to{stroke-dashoffset:16}}.flow-in{stroke-dasharray:8 8;animation:flowin 1.1s linear infinite}.flow-out{stroke-dasharray:8 8;animation:flowout 1.1s linear infinite}.agent circle{transition:r .4s,fill-opacity .4s}
+.k-rejim{border-color:rgba(244,114,182,.45)}.k-rejim .kind{background:#f472b6;color:#1a0612}
 .k-liq{border-color:rgba(255,138,61,.45)}.k-liq .kind{background:#ff8a3d;color:#1a0a00}
 </style>
 </head>
