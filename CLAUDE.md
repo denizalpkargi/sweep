@@ -41,7 +41,10 @@ npm run pack:win   # Electron paketi dist/
 - Çıkış: hedef 1'de %50 + stop girişe; hedef 2'de %30; kalan %20 iz süren stop; ekleme yalnızca hedef 1'den sonra, bir kez, yarım boy.
 - Kurulum 3 (rejimli süpürme): AMD dizisi + BTC rejimi (long için BTC 4 sa ≥ −%2, 24 sa ≥ −%4, 15 dk 20/60 SMA yapısı aşağı değil) + coin 24 sa ≤ %12 + süpürmeden MSS'e ≤4 ATR + stop = max(süpürme ucu %0,15; 0,8 ATR; %1,5) ≤ 3 ATR + emir akışı ≥1. Giriş OTE %62; 1,5R'de %50 ve stop girişe; koşucu 2–4R havuz (yoksa 3R); 32 mum zaman stopu; 16 mumda dolum yoksa iptal. Not A: BTC yapısı aynı yön + OF ≥2 + kill zone. Bot'ta "Kurulum 3 de alınsın" (varsayılan açık), sinyal akışında REJİM.
 - Kurulum 2 (Trading Geek kursu): 16–60 mumluk kutu, günlük yönle uyumlu gövdeli kırılım, kırılım mumunun FVG'si; giriş FVG kenarı (ikinci emir %50), stop momentum mumunun ucu, hedef 2R/3R.
-- Bot (`bot.cfg`): risk %1, kaldıraç ≤20x (stop mesafesinden), günde ≤2 işlem, ≤2 kayıp, tek pozisyon; komisyon maker %0,02 / taker %0,05, kayma %0,03, fonlama markPrice akışından. Durum `localStorage["st-bot"]`.
+- Bot (`bot.cfg`), iki mod (5 Ekim 2026):
+  - **Komite** (varsayılan): `src/committee.js` → `committee(A,dir,c24)`; altı ajan (Trend, Likidite, Emir akışı, Momentum, Rejim (BTC), Risk) her biri v∈[−1,1], c∈[0,1]; puan = Σ w·v·c / Σ w (Likidite 1,3, Momentum 0,8, diğerleri 1). Giriş: puan ≥ eşik (0,30), evet oyu ≥ 4/6, Risk vetosu yok (stop 1,2 ATR ≥ %1,2 ve ≤ %2,7; 24 sa ±%15 pompa; fonlama ±%0,1). Market giriş (taker + kayma), 20x sabit, risk %3 (ayarlanabilir), aynı anda 3 pozisyon (ayarlanabilir), 1,5R'de %50 + stop girişe, 3R'de %60 + iz, zaman stopu 8 sa, coin başına 90 dk bekleme, günde 12 işlem / 6 kayıp. Tüm pozisyonlar tek WebSocket'te (`botWsSync`). Satırlarda `r.com.long/short`. Hedef %100 ROI ekranda. Komite geriye dönük test edilmedi (OI/taker/fonlama canlı veri); kâğıt bot kanıt toplamak için.
+  - **Kapı**: eski davranış (AMD/K2/K3 limit planları, 10 kapı seçeneği), artık çoklu emir destekler.
+  - Ortak: komisyon maker %0,02 / taker %0,05, kayma %0,03, fonlama markPrice akışından. Durum `localStorage["st-bot"]` (`positions[]`, `orders[]`; eski `pos/order` taşınır, eski cfg'de `mode` yoksa komite varsayılanları uygulanır).
 
 ## Bilinen sınırlar / yol haritası (öncelik sırasıyla)
 
