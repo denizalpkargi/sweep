@@ -47,7 +47,7 @@ function data(p){ const sym=(p.match(/symbol=(\w+)/)||[])[1];
       class MockWS{ constructor(url){ this.url=url; this.readyState=0; setTimeout(()=>{ this.readyState=1; this.onopen&&this.onopen(); this._run(); },300); }
         _send(stream,data){ this.onmessage&&this.onmessage({data:JSON.stringify({stream,data})}); }
         _run(){ const s=this.url.split('streams=')[1].split('/')[0].split('@')[0]; const S=s.toUpperCase(); let px=0.1012, i=0;
-          this._iv=setInterval(()=>{ i++; px=0.1012-Math.min(0.0008,i*0.00004); const big=i%7===0; this._send(`${s}@aggTrade`,{p:String(px),q:String(big?400000:3000),m:i%3===0,T:Date.now()});
+          this._iv=setInterval(()=>{ i++; px=0.1012-Math.min(0.0008,i*0.00004); const big=i%7===0; this._send(`${s}@trade`,{p:String(px),q:String(big?400000:3000),m:i%3===0,T:Date.now()});
             if(i%5===0) this._send(`${s}@markPrice@1s`,{p:String(px+0.00001),r:"0.00012",T:Date.now()+3600e3});
             if(i%4===0) this._send(`${s}@kline_15m`,{k:{t:Math.floor(Date.now()/9e5)*9e5,o:"0.1009",h:"0.1013",l:String(px),c:String(px),q:"120000"}});
             if(i%6===0) this._send(`${s}@depth20@500ms`,{E:Date.now(),b:[[String(px-0.0001),"900000"],[String(px-0.0002),"500000"]],a:[[String(px+0.0001),"300000"],[String(px+0.0002),"200000"]]});

@@ -413,7 +413,7 @@ const LIQ_WAVE=250000; // 5 dakikada tek tarafta bu kadar likidasyon = dalga
 function wsConnect(sym){
   const s=sym.toLowerCase(); live.wantSym=sym; if(live.ws){ try{ live.ws.onclose=null; live.ws.close(); }catch(e){} live.ws=null; }
   if(live.sym!==sym){ live.sym=sym; live.px=null; live.cvd=0; live.cvdT0=Date.now(); live.tape=[]; live.liq=[]; live.depth=null; }
-  const streams=[`${s}@aggTrade`,`${s}@kline_15m`,`${s}@markPrice@1s`,`${s}@depth20@500ms`,`${s}@forceOrder`,"!forceOrder@arr"];
+  const streams=[`${s}@trade`,`${s}@kline_15m`,`${s}@markPrice@1s`,`${s}@depth20@500ms`,`${s}@forceOrder`,"!forceOrder@arr"]; // aggTrade/markPrice/kline/forceOrder kanalları 5 Ekim 2026'da Binance tarafında sessiz; trade/depth akıyor, mark ve mumlar REST turundan
   let ws; try{ ws=new WebSocket(WS_BASE+streams.join("/")); }catch(e){ wsStatus(false,"ws açılamadı"); return; }
   live.ws=ws;
   ws.onopen=()=>{ live.tries=0; live.ok=true; wsStatus(true); };
@@ -423,7 +423,7 @@ function wsConnect(sym){
 }
 function wsStatus(ok,txt){ const el=$("wsDot"); if(!el) return; el.className="wsdot "+(ok?"ok":"off"); el.title=ok?"Canlı akış bağlı (WebSocket)":"Canlı akış kapalı · "+(txt||""); const lbl=$("wsTxt"); if(lbl) lbl.textContent=ok?"canlı":"canlı yok"; }
 function wsDispatch(stream,d){
-  if(stream.endsWith("@aggTrade")){ const p=+d.p,q=+d.q,v=p*q,sell=!!d.m; live.px=p; live.cvd+=sell?-v:v; if(v>=tapeMin()) tapePush({t:d.T,kind:sell?"sell":"buy",p,v}); onLivePrice(); }
+  if(stream.endsWith("@aggTrade")||stream.endsWith("@trade")){ const p=+d.p,q=+d.q,v=p*q,sell=!!d.m; live.px=p; live.cvd+=sell?-v:v; if(v>=tapeMin()) tapePush({t:d.T,kind:sell?"sell":"buy",p,v}); onLivePrice(); }
   else if(stream.endsWith("@kline_15m")){ const k=d.k; if(ui.candles){ const off=-new Date().getTimezoneOffset()*60; const time=k.t/1000+off; try{ ui.candles.update({time,open:+k.o,high:+k.h,low:+k.l,close:+k.c}); ui.vols.update({time,value:+k.q,color:+k.c>=+k.o?"rgba(46,229,157,.35)":"rgba(255,92,108,.35)"}); }catch(e){} } }
   else if(stream.endsWith("@markPrice@1s")){ live.mark=+d.p; live.fund=+d.r; live.nextFund=+d.T; }
   else if(stream.includes("@depth20")){ live.depth={bids:d.b,asks:d.a,t:d.E}; }
@@ -465,10 +465,10 @@ function renderTape(A){
 /* ================= kâğıt bot: gerçek fiyat, sanal bakiye · komite modu (çoklu pozisyon, market giriş) ya da kapı modu ================= */
 const fmtB=v=>(isFinite(v)?(+v).toFixed(2).replace(".",","):"—")+" $";
 const BOT_CFG_DEF={mode:"komite",risk:0.03,lev:20,maxLev:20,maxPos:3,maxOpens:12,maxLosses:6,threshold:0.3,minYes:4,holdH:8,cooldownMin:90,strict:false,useBR:true,useRS:true,feeMaker:0.0002,feeTaker:0.0005,slip:0.0003};
-const bot={on:false,startT:null,bal:100,start:100,positions:[],orders:[],trades:[],log:[],eq:[],day:{key:null,opens:0,losses:0},ws:null,wsKey:null,px:{},mark:{},fund:{},cool:{},lastTick:0,cfg:{...BOT_CFG_DEF},lastDecision:0,lastVotes:[]};
+const bot={on:false,startT:null,bal:100,start:100,positions:[],orders:[],trades:[],log:[],eq:[],day:{key:null,opens:0,losses:0},ws:null,wsKey:null,px:{},mark:{},book:{},fund:{},cool:{},lastTick:0,lastMark:0,_lastTrade:{},cfg:{...BOT_CFG_DEF},lastDecision:0,lastVotes:[]};
 try{ const saved=JSON.parse(LS("st-bot")||"null"); if(saved){ const cfg={...BOT_CFG_DEF,...(saved.cfg||{})}; if(!saved.cfg||saved.cfg.mode===undefined){ Object.assign(cfg,{mode:"komite",risk:BOT_CFG_DEF.risk,maxOpens:BOT_CFG_DEF.maxOpens,maxLosses:BOT_CFG_DEF.maxLosses,maxPos:BOT_CFG_DEF.maxPos,strict:false}); } Object.assign(bot,saved); bot.cfg=cfg; bot.ws=null; bot.wsKey=null;
   if(!Array.isArray(bot.positions)) bot.positions=[]; if(!Array.isArray(bot.orders)) bot.orders=[]; if(saved.pos) bot.positions.push(saved.pos); if(saved.order) bot.orders.push(saved.order); delete bot.pos; delete bot.order;
-  bot.px=bot.px||{}; bot.mark=bot.mark||{}; bot.fund=bot.fund||{}; bot.cool=bot.cool||{}; bot.lastVotes=bot.lastVotes||[]; for(const p of bot.positions){ if(!p.expiresAt) p.expiresAt=(p.openT||Date.now())+cfg.holdH*3600e3; } } }catch(e){}
+  bot.px=bot.px||{}; bot.mark=bot.mark||{}; bot.book=bot.book||{}; bot.fund=bot.fund||{}; bot.cool=bot.cool||{}; bot._lastTrade={}; bot.lastVotes=bot.lastVotes||[]; for(const p of bot.positions){ if(!p.expiresAt) p.expiresAt=(p.openT||Date.now())+cfg.holdH*3600e3; } } }catch(e){}
 function botSave(){ const {ws,...rest}=bot; try{ localStorage.setItem("st-bot",JSON.stringify({...rest,log:bot.log.slice(-300),eq:bot.eq.slice(-2000),lastVotes:bot.lastVotes.slice(0,24)})); }catch(e){} }
 function botLog(type,sym,text){ bot.log.push({t:Date.now(),type,sym:sym||"",text}); bot.log=bot.log.slice(-300); botSave(); if(ui.drawerTab==="bot") renderBot(); }
 function botDay(){ const k=dayKey(Date.now()); if(bot.day.key!==k){ bot.day={key:k,opens:0,losses:0}; } return bot.day; }
@@ -548,10 +548,11 @@ function botWsSync(){
   const syms=Array.from(new Set([...bot.positions.map(p=>p.sym),...bot.orders.map(o=>o.sym)])).sort(); const key=syms.join(",");
   if(bot.wsKey===key && bot.ws && bot.ws.readyState<=1) return;
   if(bot.ws){ try{ bot.ws.onclose=null; bot.ws.close(); }catch(e){} bot.ws=null; } bot.wsKey=key; if(!syms.length) return;
-  let ws; try{ ws=new WebSocket(WS_BASE+syms.map(s=>s.toLowerCase()).flatMap(s=>[`${s}@aggTrade`,`${s}@markPrice@1s`]).join("/")); }catch(e){ return; } bot.ws=ws;
+  let ws; try{ ws=new WebSocket(WS_BASE+syms.map(s=>s.toLowerCase()).flatMap(s=>[`${s}@trade`,`${s}@bookTicker`,`${s}@markPrice@1s`]).join("/")); }catch(e){ return; } bot.ws=ws;
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } const d=m.data||m; const st=m.stream||""; const sym=(d.s||st.split("@")[0]||"").toUpperCase(); if(!sym) return;
-    if(st.endsWith("@aggTrade")){ bot.src="ws"; botOnPrice(sym,+d.p,d.T); }
-    else if(st.endsWith("@markPrice@1s")){ if(+d.p>0){ bot.mark[sym]=+d.p; bot.lastTick=Date.now(); } const T=+d.T; const f=bot.fund[sym]||{r:0,T:0}; if(f.T&&T>f.T+60e3&&Date.now()>=f.T-5000) botFunding(sym,f.r); bot.fund[sym]={r:+d.r,T}; } };
+    if(st.endsWith("@aggTrade")||st.endsWith("@trade")){ bot.src="ws"; bot._lastTrade[sym]=Date.now(); botOnPrice(sym,+d.p,d.T); }
+    else if(st.endsWith("@bookTicker")){ const b=+d.b,a=+d.a; if(b>0&&a>0){ bot.book[sym]={b,a}; const now=Date.now(); if(!bot._lastTrade[sym]||now-bot._lastTrade[sym]>3000){ bot.src="ws"; botOnPrice(sym,(b+a)/2,now); } } }
+    else if(st.endsWith("@markPrice@1s")){ if(+d.p>0){ bot.mark[sym]=+d.p; bot.lastMark=Date.now(); bot.lastTick=Date.now(); } const T=+d.T; const f=bot.fund[sym]||{r:0,T:0}; if(f.T&&T>f.T+60e3&&Date.now()>=f.T-5000) botFunding(sym,f.r); bot.fund[sym]={r:+d.r,T}; } };
   ws.onclose=()=>{ if(bot.wsKey===key&&bot.on) setTimeout(()=>{ if(bot.wsKey===key){ bot.ws=null; bot.wsKey=null; botWsSync(); } },3000); };
 }
 function botFunding(sym,rate){ for(const p of bot.positions){ if(p.sym!==sym) continue; const fee=p.notional*rate*(p.dir==="long"?1:-1); bot.bal-=fee; p.fees+=fee; botLog("fund",p.sym,`Fonlama ${fx(rate*100,4)}% → ${fee>=0?"ödendi":"alındı"} ${fmtB(Math.abs(fee))}.`); } }
@@ -629,7 +630,7 @@ function botStop(){ bot.on=false; botLog("sys","","Bot durduruldu (açık pozisy
 function botReset(){ if(bot.positions.length||bot.orders.length){ if(!confirm(`${bot.positions.length} açık pozisyon ve ${bot.orders.length} emir var. Hepsi silinip bakiye 100 $'a dönsün mü?`)) return; } Object.assign(bot,{on:false,startT:null,bal:100,start:100,positions:[],orders:[],trades:[],log:[],eq:[],day:{key:null,opens:0,losses:0},px:{},cool:{},lastVotes:[],goalHit:null}); botSave(); renderBot(); }
 function botCloseAll(){ for(const p of [...bot.positions]){ const px=bot.px[p.sym]; if(!px) continue; const isL=p.dir==="long"; const price=isL?px*(1-bot.cfg.slip):px*(1+bot.cfg.slip); const q=p.qty; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*bot.cfg.feeTaker; bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty=0; botLog("close",p.sym,`Elle kapatıldı ${fmtP(price)} · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); botClosePos(p); } bot.orders=[]; botSave(); botWsSync(); renderBot(); }
 function botCsv(){ const rows=[["acilis","kapanis","coin","yon","model","not","kaldirac","giris","pnl_usdt","komisyon","R","komite_puan"]].concat(bot.trades.map(t=>[new Date(t.openT).toISOString(),new Date(t.closeT).toISOString(),t.sym,t.dir,t.model,t.grade,t.lev,t.entry,t.pnl.toFixed(4),t.fees.toFixed(4),t.r.toFixed(2),t.score!=null?t.score:""])); const logRows=[[],["zaman","tur","coin","mesaj"]].concat(bot.log.map(l=>[new Date(l.t).toISOString(),l.type,l.sym,'"'+l.text.replace(/"/g,"'")+'"'])); const csv=rows.concat(logRows).map(r=>r.join(",")).join("\n"); const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv"})); a.download="sweep-bot-"+new Date().toISOString().slice(0,10)+".csv"; a.click(); }
-function botNetTxt(){ const fresh=bot.lastTick&&Date.now()-bot.lastTick<15000; const has=bot.positions.length||bot.orders.length; const a=has?(fresh?(bot.src==="rest"?'<span class="warn">● fiyat REST yedeğinden (3 sn)</span>':'<span class="up">● fiyat akışı canlı</span>'):'<span class="down">● fiyat akışı yok</span>'):(live.ok?'<span class="up">● Binance bağlı</span>':'<span class="down">● Binance\'e ulaşılamıyor</span>'); const cool=typeof rest!=="undefined"&&Date.now()<rest.cool?` · <span class="warn">hız sınırı, ${Math.ceil((rest.cool-Date.now())/1000)} sn</span>`:""; const err=bot.pollErr&&Date.now()-bot.pollErrAt<60000?` · <span class="down">yedek: ${esc(bot.pollErr)}</span>`:""; return `<span id="botNet">${a} · tarama ${scan.rows.length} coin${cool}${err}</span>`; }
+function botNetTxt(){ const fresh=bot.lastTick&&Date.now()-bot.lastTick<15000; const has=bot.positions.length||bot.orders.length; const mk=has&&bot.markSrc==="rest"&&!(bot.lastMark&&Date.now()-bot.lastMark<10000)?' · mark REST (5 sn)':''; const a=has?(fresh?(bot.src==="rest"?'<span class="warn">● fiyat REST yedeğinden (3 sn)</span>':'<span class="up">● fiyat akışı canlı</span>'+mk):'<span class="down">● fiyat akışı yok</span>')::(live.ok?'<span class="up">● Binance bağlı</span>':'<span class="down">● Binance\'e ulaşılamıyor</span>'); const cool=typeof rest!=="undefined"&&Date.now()<rest.cool?` · <span class="warn">hız sınırı, ${Math.ceil((rest.cool-Date.now())/1000)} sn</span>`:""; const err=bot.pollErr&&Date.now()-bot.pollErrAt<60000?` · <span class="down">yedek: ${esc(bot.pollErr)}</span>`:""; return `<span id="botNet">${a}${has&&!fresh?mk:""} · tarama ${scan.rows.length} coin${cool}${err}</span>`; }
 function renderBot(){
   const el=$("dBot"); if(!el) return; const eq=botEquity(); const d=botDay(); const c=bot.cfg; const roi=(eq/bot.start-1)*100;
   const st=bot.trades.length?{n:bot.trades.length,win:bot.trades.filter(t=>t.pnl>0).length,sum:bot.trades.reduce((a,t)=>a+t.r,0)}:null;
@@ -666,14 +667,15 @@ function renderBot(){
 }
 /* --- REST yedeği: WebSocket 6 saniye susarsa mark (premiumIndex) ve son fiyat (ticker/price) 3 saniyede bir çekilir; pozisyonlar yürümeye devam eder --- */
 async function botPoll(){
-  const need=bot.positions.length||bot.orders.length; if(!need||bot._polling) return;
-  if(bot.lastTick&&Date.now()-bot.lastTick<6000&&bot.src!=="rest") return;
+  const need=bot.positions.length||bot.orders.length; if(!need||bot._polling) return; const now0=Date.now();
+  const stalePx=!(bot.lastTick&&now0-bot.lastTick<6000)||bot.src==="rest"; const staleMk=!(bot.lastMark&&now0-bot.lastMark<10000)&&now0-(bot._mkAt||0)>=5000;
+  if(!stalePx&&!staleMk) return;
   bot._polling=true;
   try{ const syms=new Set([...bot.positions.map(p=>p.sym),...bot.orders.map(o=>o.sym)]);
-    const [prem,tick]=await Promise.all([j("/fapi/v1/premiumIndex"),j("/fapi/v1/ticker/price")]); const now=Date.now();
-    for(const x of prem||[]){ if(syms.has(x.symbol)&&+x.markPrice>0) bot.mark[x.symbol]=+x.markPrice; }
-    for(const t of tick||[]){ if(syms.has(t.symbol)&&+t.price>0) botOnPrice(t.symbol,+t.price,now); }
-    bot.lastTick=now; bot.src="rest"; bot.pollErr=null; bot._lr=0; botLive(); if(!bot._restNoted){ bot._restNoted=true; botLog("sys","","Fiyat akışı (WebSocket) sustu; fiyatlar REST'ten 3 saniyede bir alınıyor. Pozisyonlar normal yürür."); }
+    const [prem,tick]=await Promise.all([staleMk?j("/fapi/v1/premiumIndex"):null,stalePx?j("/fapi/v1/ticker/price"):null]); const now=Date.now();
+    if(prem){ for(const x of prem){ if(syms.has(x.symbol)&&+x.markPrice>0) bot.mark[x.symbol]=+x.markPrice; } bot._mkAt=now; bot.markSrc="rest"; }
+    if(tick){ for(const t of tick){ if(syms.has(t.symbol)&&+t.price>0) botOnPrice(t.symbol,+t.price,now); } bot.lastTick=now; bot.src="rest"; if(!bot._restNoted){ bot._restNoted=true; botLog("sys","","Fiyat akışı (WebSocket) sustu; fiyatlar REST'ten 3 saniyede bir alınıyor. Pozisyonlar normal yürür."); } }
+    bot.pollErr=null; bot._lr=0; botLive();
   }catch(e){ bot.pollErr=String(e.message||e).slice(0,120); bot.pollErrAt=Date.now(); if(Date.now()-(bot._pollLogAt||0)>300e3){ bot._pollLogAt=Date.now(); botLog("skip","",`Fiyat yedeği (REST) hata verdi: ${bot.pollErr}. 3 saniyede bir yeniden denenir.`); } }
   finally{ bot._polling=false; }
 }
