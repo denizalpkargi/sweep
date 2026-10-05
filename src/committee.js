@@ -1,14 +1,14 @@
 /* ---------- Masa: yedi kişilik, üç tur ----------
-   Analistler: Ayşe (trend), Kerem (likidite / ICT), Mert (emir akışı). Araştırmacılar: Elif (makro · BTC rejimi, kalabalık), Selin (kantitatif · kanıt, maliyet).
+   Analistler: Emre (trend), Kerem (likidite / ICT), Mert (emir akışı). Araştırmacılar: Arda (makro · BTC rejimi, kalabalık), Onur (kantitatif · kanıt, maliyet).
    Traderlar: Baran (agresif, momentum), Can (baş trader · risk ve boy; veto hakkı).
    1. tur açılış: herkes verisine bakıp oy (v −1..+1) ve güven (c 0..1) verir. 2. tur tartışma: kurallı karşılıklı itirazlar oyları ve güvenleri değiştirir, plan kısalabilir.
    3. tur karar: Can veto eder ya da boyu ve planı yazar. Puan = Σ w·v·c / Σ w. Bot: puan ≥ eşik ve evet oyu ≥ asgari ve veto yok → market giriş. */
 const DESK=[
-  {id:"trend",name:"Ayşe",role:"Trend analisti",w:1},
+  {id:"trend",name:"Emre",role:"Trend analisti",w:1},
   {id:"liq",name:"Kerem",role:"Likidite analisti",w:1.3},
   {id:"flow",name:"Mert",role:"Emir akışı analisti",w:1},
-  {id:"macro",name:"Elif",role:"Makro araştırmacısı",w:1},
-  {id:"quant",name:"Selin",role:"Kantitatif araştırmacı",w:0.8},
+  {id:"macro",name:"Arda",role:"Makro araştırmacısı",w:1},
+  {id:"quant",name:"Onur",role:"Kantitatif araştırmacı",w:0.8},
   {id:"mom",name:"Baran",role:"Trader · agresif",w:0.8},
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
