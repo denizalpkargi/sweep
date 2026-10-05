@@ -55,6 +55,7 @@ setTimeout(async()=>{
   console.log('permit:', txt('permit'), '| ring:', txt('ringTxt'));
   console.log('gates:', txt('gates').slice(0,700));
   console.log('plan:', txt('planBody').slice(0,600));
+  console.log('RS:', txt('rsBody').slice(0,500));
   console.log('ctx:', txt('ctxBody').slice(0,300));
   console.log('box:', txt('boxBody').slice(0,200));
   console.log('flow tiles:', d.querySelectorAll('#flow .tile').length, txt('flow').slice(0,300));

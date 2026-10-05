@@ -2,3 +2,5 @@ node_modules/
 dist/
 electron/index.html
 tests/shot-*.png
+tests/data/
+tests/backtest-*.json
