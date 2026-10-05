@@ -367,7 +367,7 @@ function renderQuick(f){
 }
 function renderDrawer(A){
   if(!ui.drawerOpen) return;
-  if(ui.drawerTab==="story") renderStory(A); else if(ui.drawerTab==="stats") renderStats(A); else if(ui.drawerTab==="journal") renderJournal(); else if(ui.drawerTab==="bot") renderBot();
+  if(ui.drawerTab==="story") renderStory(A); else if(ui.drawerTab==="stats") renderStats(A); else if(ui.drawerTab==="journal") renderJournal(); else if(ui.drawerTab==="bot") renderBot(); else if(ui.drawerTab==="account") renderAccount();
 }
 function start(){
   clearInterval(state.timer); state.sym=$("sym").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,""); if(!state.sym.endsWith("USDT")) state.sym+="USDT"; $("sym").value=state.sym;
@@ -398,7 +398,7 @@ document.querySelectorAll("#scanTable th").forEach(th=>th.addEventListener("clic
 $("scanNow").addEventListener("click",runScan); $("onlyPick").addEventListener("change",renderScanTable); $("minVol").addEventListener("change",()=>{ if(!scan.running) runScan(); });
 function scheduleScan(){ clearInterval(scan.timer); const ev=+$("scanEvery").value; if(ev>0) scan.timer=setInterval(()=>{ if(!document.hidden) runScan(); },ev); }
 $("scanEvery").addEventListener("change",scheduleScan);
-function setDrawer(open,tab){ ui.drawerOpen=open; if(tab) ui.drawerTab=tab; $("drawer").classList.toggle("closed",!open); $("drawerTgl").textContent=open?"▾":"▴"; document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.t===ui.drawerTab))); ["scan","journal","story","stats","strategy","bot"].forEach(t=>{ const el=$("d"+t[0].toUpperCase()+t.slice(1)); el.hidden=t!==ui.drawerTab; }); LS("st-drawer",open?ui.drawerTab:""); if(open&&state.lastA) renderDrawer(state.lastA); if(open&&ui.drawerTab==="journal") renderJournal(); if(open&&ui.drawerTab==="bot") renderBot(); }
+function setDrawer(open,tab){ ui.drawerOpen=open; if(tab) ui.drawerTab=tab; $("drawer").classList.toggle("closed",!open); $("drawerTgl").textContent=open?"▾":"▴"; document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.t===ui.drawerTab))); ["scan","journal","story","stats","strategy","bot","account"].forEach(t=>{ const el=$("d"+t[0].toUpperCase()+t.slice(1)); el.hidden=t!==ui.drawerTab; }); LS("st-drawer",open?ui.drawerTab:""); if(open&&state.lastA) renderDrawer(state.lastA); if(open&&ui.drawerTab==="journal") renderJournal(); if(open&&ui.drawerTab==="bot") renderBot(); if(open&&ui.drawerTab==="account") renderAccount(); }
 document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.addEventListener("click",()=>setDrawer(true,b.dataset.t)));
 $("drawerTgl").addEventListener("click",()=>setDrawer(!ui.drawerOpen));
 $("dJournal").addEventListener("click",e=>{ const b=e.target.closest("button.jr"); if(!b) return; jrSet(b.dataset.id,b.dataset.act); renderJournal(); rerender(); });
@@ -679,6 +679,37 @@ async function botPoll(){
 setInterval(botPoll,3000);
 setInterval(()=>{ if(bot.on){ botDecide("tick"); if(ui.drawerTab==="bot") renderBot(); } },60000);
 if(bot.on||bot.positions.length||bot.orders.length){ botWsSync(); }
+
+/* ================= gerçek hesap: Binance USDⓈ-M, salt okunur ================= */
+function renderAccount(){
+  const el=$("dAccount"); if(!el) return;
+  if(!$("acctForm")){
+    el.innerHTML=`<div id="acctForm" class="card" style="margin-bottom:10px"><h4 style="margin:0 0 6px">Binance hesabı · salt okunur</h4><p class="hint">Binance'te API Management'tan anahtar oluştur: "Enable Reading" ve "Enable Futures" açık, spot işlem ve çekim yetkileri kapalı, mümkünse IP kısıtı. Anahtar yalnızca bu cihazda kalır ve yalnızca Binance'e gider; SWEEP emir göndermez, pozisyon kapatmaz, kaldıraç değiştirmez (kodunda emir uç noktası yoktur).</p><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input id="acctKey" type="password" placeholder="API Key" autocomplete="off" style="flex:1;min-width:200px"><input id="acctSecret" type="password" placeholder="Secret Key" autocomplete="off" style="flex:1;min-width:200px"><label style="font-size:12px;color:var(--ink-2)"><input type="checkbox" id="acctRemember" style="width:auto"> bu cihazda hatırla</label><button type="button" class="primary" id="acctConnect">Bağlan</button><button type="button" class="ghost" id="acctForget">Unut</button></div><div id="acctStatus" class="muted" style="font-size:12px;margin-top:6px"></div></div><div id="acctData"></div>`;
+    $("acctKey").value=acct.key; $("acctSecret").value=acct.secret; $("acctRemember").checked=acct.remember;
+    $("acctConnect").addEventListener("click",async()=>{ if(acct.on){ acctStop(false); renderAccount(); return; } $("acctStatus").textContent="bağlanıyor…"; const ok=await acctStart($("acctKey").value,$("acctSecret").value,$("acctRemember").checked); renderAccount(); if(ok) toast("Binance hesabı bağlandı · salt okunur."); });
+    $("acctForget").addEventListener("click",()=>{ acctStop(true); $("acctKey").value=""; $("acctSecret").value=""; $("acctRemember").checked=false; renderAccount(); });
+  }
+  $("acctConnect").textContent=acct.on?"Kes":"Bağlan"; $("acctConnect").className=acct.on?"":"primary";
+  $("acctStatus").innerHTML=acct.on?`<span class="up">● bağlı</span> · ${acct.src==="ws"?"anlık akış":"REST 5 sn"} · son ${acct.lastAt?tl(acct.lastAt):"—"}${acct.err?` · <span class="down">${esc(acct.err)}</span>`:""}`:(acct.err?`<span class="down">${esc(acct.err)}</span>`:"bağlı değil");
+  const d=$("acctData"); if(!acct.on||!acct.bal){ d.innerHTML=""; return; }
+  const b=acct.bal; const upnl=acct.positions.reduce((a,p)=>a+p.upnl,0); const marg=acct.positions.reduce((a,p)=>a+p.margin,0); const eq=b.wallet+upnl;
+  const cards=`<div class="plan" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:10px">
+    <div class="pv"><b>Cüzdan (USDT)</b><span>${fx(b.wallet,2)} $</span><small>kullanılabilir ${fx(b.avail,2)} $</small></div>
+    <div class="pv"><b>Teminat bakiyesi</b><span class="${eq>=b.wallet?"up":"down"}">${fx(eq,2)} $</span><small>cüzdan + açık PnL</small></div>
+    <div class="pv"><b>Açık PnL</b><span class="${upnl>=0?"up":"down"}">${upnl>=0?"+":""}${fx(upnl,2)} $</span><small>${marg>0?pct(upnl/marg*100,1)+" teminata göre":"pozisyon yok"}</small></div>
+    <div class="pv"><b>Pozisyon</b><span>${acct.positions.length}</span><small>teminatta ${fx(marg,2)} $ · ${acct.orders.length} açık emir</small></div></div>`;
+  const row=p=>{ const r=scan.rows.find(x=>x.s===p.sym); const c=r&&r.com?r.com[p.dir]:null; const opp=r&&r.com?r.com[p.dir==="long"?"short":"long"]:null;
+    const masa=c?`${c.decision==="giriş"?'<span class="up">masa aynı yönde: giriş</span>':c.veto?'<span class="down">masa veto: '+esc(c.veto)+'</span>':'<span class="muted">masa '+esc(c.decision)+' · puan '+fx(c.score,2)+'</span>'}${opp&&opp.decision==="giriş"?' · <span class="down">ters yöne giriş diyor</span>':""}`:'<span class="muted">tarama bu coini içermiyor</span>';
+    const ld=isFinite(p.liqDist)?pct(p.liqDist*100,1):"—";
+    return `<tr><td><b>${p.sym.replace("USDT","")}</b> ${chip(p.dir==="long"?"up sm":"down sm",p.dir==="long"?"L":"S")} <span class="muted">${p.lev}x ${p.iso?"izole":"cross"}</span></td><td class="num">${fmtB(p.notional)}<br><span class="muted" style="font-size:10.5px">${p.amt} adet · teminat ${fmtB(p.margin)}</span></td><td class="num">${fmtP(p.entry)}</td><td class="num">${fmtP(p.mark)}</td><td class="num warn">${p.liq?fmtP(p.liq):"—"}<br><span class="muted" style="font-size:10.5px">${ld} uzakta</span></td><td class="num ${p.upnl>=0?"up":"down"}">${p.upnl>=0?"+":""}${fx(p.upnl,2)} $<br><span style="font-size:11px">${p.roe>=0?"+":""}${fx(p.roe,1)}%</span></td><td style="font-size:11.5px">${masa}</td></tr>`; };
+  const pos=acct.positions.length?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likidasyon</th><th>PnL (ROE)</th><th>Masanın görüşü</th></tr></thead><tbody>${acct.positions.map(row).join("")}</tbody></table>`:'<div class="empty" style="margin-bottom:10px">Açık pozisyon yok.</div>';
+  const ord=acct.orders.length?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Açık emir</th><th>Tür</th><th>Fiyat / tetik</th><th>Miktar</th><th>Not</th></tr></thead><tbody>${acct.orders.map(o=>`<tr><td><b>${o.sym.replace("USDT","")}</b> ${chip(o.side==="BUY"?"up sm":"down sm",o.side==="BUY"?"Alış":"Satış")}</td><td>${esc(o.type)}</td><td class="num">${o.px?fmtP(o.px):"—"}${o.stop?" / "+fmtP(o.stop):""}</td><td class="num">${o.qty}${o.filled?" ("+o.filled+" doldu)":""}</td><td class="muted">${o.cp?"pozisyonu kapatır":o.ro?"yalnızca azaltır":""}</td></tr>`).join("")}</tbody></table>`:"";
+  const ev=acct.events.length?`<div class="tape" style="max-height:200px">${acct.events.map(e=>`<div class="tp" style="grid-template-columns:70px 1fr"><span class="when">${tl(e.t)}</span><span>${esc(e.txt)}</span></div>`).join("")}</div>`:"";
+  d.innerHTML=cards+pos+ord+ev;
+}
+function acctOnEvent(){ if(ui.drawerOpen&&ui.drawerTab==="account") renderAccount(); }
+function acctOnSync(){ if(ui.drawerOpen&&ui.drawerTab==="account") renderAccount(); }
+if(acct.key&&acct.secret&&acct.remember){ acctStart(acct.key,acct.secret,true).then(()=>{ if(ui.drawerTab==="account") renderAccount(); }).catch(()=>{}); }
 
 /* ---- boot ---- */
 (function boot(){

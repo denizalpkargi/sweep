@@ -40,8 +40,14 @@ const dom=new JSDOM(html,{runScripts:"dangerously",url:"https://example.test/x.h
     if(p.startsWith('/fapi/v1/depth')) return resp({bids:[['0.1005','100000'],['0.1','200000']],asks:[['0.1007','100000'],['0.102','200000']]});
     if(p.startsWith('/fapi/v1/aggTrades')) return resp([{p:'0.1006',q:'1000',m:false,T:Date.now()},{p:'0.1006',q:'800',m:true,T:Date.now()}]);
     if(p.startsWith('/fapi/v1/fundingRate')) return resp([{fundingRate:'0.00005',fundingTime:Date.now()-3600e3}]);
+    if(p.startsWith('/fapi/v1/time')) return resp({serverTime:Date.now()});
+    if(p.startsWith('/fapi/v2/balance')) return resp([{asset:'USDT',balance:'250.5',availableBalance:'190.2',crossUnPnl:'-3.1'}]);
+    if(p.startsWith('/fapi/v2/positionRisk')) return resp([{symbol:'DASHUSDT',positionAmt:'28.34',entryPrice:'60',markPrice:'59.04',liquidationPrice:'57.33',leverage:'20',marginType:'cross',isolatedMargin:'0',unRealizedProfit:'-27.2',updateTime:Date.now()}]);
+    if(p.startsWith('/fapi/v1/openOrders')) return resp([{symbol:'DASHUSDT',side:'SELL',type:'STOP_MARKET',price:'0',stopPrice:'58.2',origQty:'28.34',executedQty:'0',reduceOnly:true,closePosition:true,time:Date.now()}]);
+    if(p.startsWith('/fapi/v1/listenKey')) return resp({listenKey:'abc'});
     return resp({},false,404);
   };
+  try{ Object.defineProperty(w,'crypto',{value:globalThis.crypto,configurable:true}); }catch(e){} w.TextEncoder=globalThis.TextEncoder;
   w.ResizeObserver=class{observe(){}}; w.HTMLCanvasElement.prototype.getContext=()=>null;
   w.addEventListener('error',e=>errors.push(String(e.error||e.message)));
   w.console.error=(...a)=>logs.push(a.map(String).join(' '));
@@ -72,6 +78,8 @@ setTimeout(async()=>{
   d.querySelector('#drawer .bar [data-t="stats"]').click(); console.log('stats:', txt('stats').slice(0,200), '|', txt('amdStatsBox').slice(0,200));
   d.querySelector('#dirsw button[data-d="short"]').click(); console.log('short gates permit:', txt('permit'));
   d.querySelector('#stratSeg button[data-v="free"]').click(); console.log('free plan button:', !!d.querySelector('#planBody button[data-jr]'));
+  d.querySelector('#drawer .bar [data-t="account"]').click(); d.getElementById('acctKey').value='test-key'; d.getElementById('acctSecret').value='test-secret'; d.getElementById('acctConnect').click(); await new Promise(r=>setTimeout(r,1500));
+  console.log('account:', txt('acctStatus'), '|', txt('acctData').slice(0,420));
   console.log('errors', errors, 'console.error', logs);
   w.close(); process.exit(0);
 },2500);
