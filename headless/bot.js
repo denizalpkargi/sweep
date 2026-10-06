@@ -14,6 +14,13 @@ function createBot(E, opt){
   if(opt.cfg) Object.assign(bot.cfg,opt.cfg);
   bot.cfg.mode="komite";
   const rt={px:{},mark:{},book:{},fund:{},lastTrade:{},lastMark:0,src:null,managing:false,saveT:null};
+  /* --- denetçi (Murat): ui.js botAudit ile aynı; dersler eşik, asgari oy, aynı yön sınırı, kayıp sonrası ara ve erken kâr kilidine bağlı --- */
+  const A0=()=>E.getAud(); const thr=()=>bot.cfg.threshold+(A0()?A0().thrBump:0); const minYes=()=>Math.min(E.DESK.length,bot.cfg.minYes+(A0()?A0().minYesBump:0));
+  function audit(rec){
+    const prev=A0()?A0().lessons.map(l=>l.k):[]; let A; try{ A=E.auditRun(bot.trades,[],{thr:bot.cfg.threshold,minYes:bot.cfg.minYes}); }catch(e){ console.error('denetim hatası',e.message); return; } E.setAud(A);
+    if(rec){ const f=A.findings.find(x=>x.openT===rec.openT&&x.sym===rec.sym); if(f&&f.tags.length) log("audit",rec.sym,`Murat: ${fx(rec.r,2)}R · ${f.tags.map(k=>E.AUD_TAGS[k].t.toLowerCase()).join(", ")}.${isFinite(rec.mfe)?` En iyi gidiş +${fx(rec.mfe,1)}R.`:""}`,{tags:f.tags,r:r4(rec.r)}); }
+    for(const l of A.lessons.filter(l=>!prev.includes(l.k))) log("audit","",`Murat yeni ders: ${l.t} · ${l.n} işlemde ort. ${fx(l.avg,2)}R (diğerleri ${fx(l.avgNot,2)}R) → ${l.lever}.`,{lesson:l.k,n:l.n,avg:r4(l.avg),lever:l.lever});
+  }
 
   function save(now){ if(now){ clearTimeout(rt.saveT); rt.saveT=null; try{ atomicWrite(file,JSON.stringify({...bot,eq:bot.eq.slice(-5000)})); }catch(e){ console.error('durum yazılamadı',e.message); } return; } if(!rt.saveT) rt.saveT=setTimeout(()=>save(true),2000); }
   function log(type,sym,text,extra){ const t=Date.now(); say(`${new Date(t).toISOString().slice(11,19)} ${type.padEnd(6)} ${(sym||"").padEnd(12)} ${text}`); write('events',{t,type,sym:sym||"",text,...(extra||{})}); }
@@ -31,7 +38,7 @@ function createBot(E, opt){
     for(const r of rows){ if(!r.com) continue;
       for(const d of ["long","short"]){ const c=r.com[d]; if(!c) continue;
         const held=has(r.s), cool=!!(bot.cool[r.s]&&now<bot.cool[r.s]);
-        const go=!!c.plan&&c.score>=bot.cfg.threshold&&c.yes>=bot.cfg.minYes&&!c.veto&&!held&&!cool;
+        const go=!!c.plan&&c.score>=thr()&&c.yes>=minYes()&&!c.veto&&!held&&!cool;
         out.push({sym:r.s,dir:d,row:r,com:c,go,held,cool,score:c.score,yes:c.yes,veto:c.veto,sd:c.plan?c.plan.sd:NaN,grade:c.score>=0.5?"A":c.score>=bot.cfg.threshold?"B":"C"}); } }
     return out.sort((a,b)=>b.score-a.score);
   }
@@ -50,7 +57,7 @@ function createBot(E, opt){
     const p={id:x.sym+"-"+now,sym:x.sym,dir:x.dir,model:"KOMİTE",grade:x.grade,entry:fill,entry0:fill,px0:px,stop,t1,t2,rr1:1.5,rr2:x.com.plan?x.com.plan.rr2:3,lev,notional,margin,risk,risk0:Math.abs(fill-stop),stop0:stop,qty,qty0:qty,fees:fee,openT:now,expiresAt:now+cfg.holdH*3600e3,stage:"open",hi:fill,lo:fill,realized:0,score:x.score,yes:x.yes,votes,
       scan:bot.scanId,agents:compactAgents(x.com.agents),feat:x.com.feat||null,row:rowFeat(x.row),talk:x.com.talk,exits:[],reviews:0};
     bot.positions.push(p);
-    log("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · puan ${fx(x.score,2)} · ${x.yes}/8 evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · 1,5R ${fmtP(t1)} · 3R ${fmtP(t2)} · ${lev}x · pozisyon ${fmtB(notional)} · risk ${fmtB(risk)}. Oylar: ${votes.join(", ")}.`,
+    log("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · puan ${fx(x.score,2)} · ${x.yes}/${E.DESK.length} evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · 1,5R ${fmtP(t1)} · 3R ${fmtP(t2)} · ${lev}x · pozisyon ${fmtB(notional)} · risk ${fmtB(risk)}. Oylar: ${votes.join(", ")}.`,
       {id:p.id,dir:p.dir,px,fill,stop,t1,t2,sd:r4(sd),notional:r4(notional),margin:r4(margin),risk:r4(risk),score:x.score,yes:x.yes,agents:p.agents,feat:p.feat});
     save(); opt.onPositions&&opt.onPositions(); return true;
   }
@@ -64,8 +71,10 @@ function createBot(E, opt){
     if(d.losses>=cfg.maxLosses){ if(reason==="scan") log("skip","",`Bugün ${d.losses}/${cfg.maxLosses} kayıp: gün kapalı.`); return; }
     const slots=cfg.maxPos-bot.positions.length; if(slots<=0) return;
     if(!rows.length){ if(reason==="scan") log("skip","","Tarama boş: Binance'e ulaşılamıyor ya da ilk tur bitmedi."); return; }
-    const go=c.filter(x=>x.go);
-    if(!go.length){ if(reason==="scan") log("skip","",`Komite ${rows.length} coin × 2 yön puanladı; eşik ${fx(cfg.threshold,2)} ve ${cfg.minYes}/8 oyu sağlayan yok. En iyi: ${c.slice(0,3).map(x=>x.sym.replace("USDT","")+" "+(x.dir==="long"?"L":"S")+" "+fx(x.score,2)+(x.veto?" (veto)":"")).join(", ")||"—"}.`); save(); return; }
+    let go=c.filter(x=>x.go); const AU=A0();
+    if(AU&&AU.pauseMin){ const ll=bot.trades.filter(t=>t.r<0).slice(-1)[0]; if(ll&&now-ll.closeT<AU.pauseMin*60e3){ if(go.length&&reason==="scan") log("skip","",`Murat: son kayıptan bu yana ${Math.round((now-ll.closeT)/60e3)} dk geçti; ders gereği ${AU.pauseMin} dk ara.`); go=[]; } }
+    if(AU&&AU.maxSameDir){ const n0={long:bot.positions.filter(p=>p.dir==="long").length,short:bot.positions.filter(p=>p.dir==="short").length}; const keep=[]; for(const x of go){ if(n0[x.dir]>=AU.maxSameDir){ if(reason==="scan") log("skip",x.sym,`Murat: zaten ${n0[x.dir]} ${x.dir} açık; ders gereği aynı yönde en fazla ${AU.maxSameDir}.`); continue; } keep.push(x); n0[x.dir]++; } go=keep; }
+    if(!go.length){ if(reason==="scan") log("skip","",`Komite ${rows.length} coin × 2 yön puanladı; eşik ${fx(thr(),2)} ve ${minYes()}/${E.DESK.length} oyu sağlayan yok. En iyi: ${c.slice(0,3).map(x=>x.sym.replace("USDT","")+" "+(x.dir==="long"?"L":"S")+" "+fx(x.score,2)+(x.veto?" (veto)":"")).join(", ")||"—"}.`); save(); return; }
     let opened=0; const seen=new Set();
     for(const x of go){ if(opened>=slots) break; if(seen.has(x.sym)||has(x.sym)) continue; seen.add(x.sym);
       let px=rt.px[x.sym]; try{ const fp=await freshPx(x.sym); if(fp>0) px=fp; }catch(e){} if(!(px>0)) px=x.row.px;
@@ -86,13 +95,14 @@ function createBot(E, opt){
   function closePos(p){
     const now=Date.now(); const r=p.realized/p.risk; const risk0=p.risk0||1;
     const peakR=(p.dir==="long"?(p.hi-p.entry0):(p.entry0-p.lo))/risk0, maeR=(p.dir==="long"?(p.lo-p.entry0):(p.entry0-p.hi))/risk0;
-    const rec={sym:p.sym,dir:p.dir,model:p.model,grade:p.grade,lev:p.lev,entry:p.entry,openT:p.openT,closeT:now,pnl:p.realized,fees:p.fees,r,score:p.score};
+    const rec={sym:p.sym,dir:p.dir,model:p.model,grade:p.grade,lev:p.lev,entry:p.entry,openT:p.openT,closeT:now,pnl:p.realized,fees:p.fees,risk:p.risk,r,score:p.score,
+      exits:(p.exits||[]).map(x=>x.k),mfe:r4(peakR),mae:r4(-maeR),snap:p.agents?{v:Object.fromEntries(Object.entries(p.agents).map(([id,a])=>[id,a[0]])),sd:r4(p.risk0/p.entry0),score:p.score,yes:p.yes}:undefined};
     bot.trades.push(rec); if(p.realized<0) day().losses++; bot.cool[p.sym]=now+bot.cfg.cooldownMin*60e3;
     write('trades',{t:now,id:p.id,sym:p.sym,dir:p.dir,openT:p.openT,closeT:now,holdH:r4((now-p.openT)/3600e3),entry0:p.entry0,entry:p.entry,stop0:p.stop0,t1:p.t1,t2:p.t2,sd:r4(p.risk0/p.entry0),lev:p.lev,
       pnl:r4(p.realized),fees:r4(p.fees),r:r4(r),peakR:r4(peakR),maeR:r4(maeR),stage:p.stage,added:!!p.added,reduced:!!p.reduced,locked:!!p.locked,reviews:p.reviews||0,exits:p.exits,
       score:p.score,yes:p.yes,scan:p.scan,agents:p.agents,feat:p.feat,row:p.row,talk:p.talk,bal:r4(bot.bal)},false);
     log("close",p.sym,`İşlem kapandı: ${p.realized>=0?"+":""}${fmtB(p.realized)} (${r>=0?"+":""}${fx(r,2)}R) · bakiye ${fmtB(bot.bal)} · ROI ${E.pct((bot.bal/bot.start-1)*100,1)}.`,{id:p.id,r:r4(r),pnl:r4(p.realized),bal:r4(bot.bal)});
-    bot.positions=bot.positions.filter(x=>x!==p); bot.eq.push({t:now,v:bot.bal});
+    bot.positions=bot.positions.filter(x=>x!==p); bot.eq.push({t:now,v:bot.bal}); audit(rec);
     if(bot.bal>=bot.start*2&&!bot.goalHit){ bot.goalHit=now; log("sys","",`Hedef tamam: bakiye ikiye katlandı (${fmtB(bot.bal)}). Bot devam ediyor.`); }
     save(); opt.onPositions&&opt.onPositions(); opt.onClose&&opt.onClose();
   }
@@ -125,7 +135,7 @@ function createBot(E, opt){
       if(rv.verdict==="çık"){ act="exit"; }
       else if(rv.verdict==="azalt"&&!p.reduced){ act="reduce"; }
       else if(held>Math.max(2,medHold*1.5)&&rNow>-0.3&&rNow<0.5&&rv.score<cfg.threshold){ act="time"; }
-      else if(p.stage==="open"&&peakR>=1&&peakR-rNow>=0.5&&ag("mom").v<0&&!p.locked){ act="lock"; }
+      else if(p.stage==="open"&&peakR>=1&&peakR-rNow>=0.5&&(ag("mom").v<0||(A0()&&A0().lockEarly))&&!p.locked){ act="lock"; }
       else if(p.stage==="tp1"&&!p.added&&rv.verdict==="tut"&&ag("mom").v>0.3&&rv.score>=cfg.threshold+0.1){ act="add"; }
       write('reviews',{t:Date.now(),id:p.id,sym:p.sym,dir:p.dir,px,rNow:r4(rNow),peakR:r4(peakR),heldH:r4(held),stage:p.stage,verdict:rv.verdict,score:rv.score,oppScore:rv.oppScore,act,agents:compactAgents(rv.agents),liqAtr:r4(rv.liqAtr)});
       if(act==="exit"){ sayD("Can",`masa karşı yöne döndü (puan ${fx(rv.score,2)}, ters yön ${fx(rv.oppScore,2)}; karşı: ${against}). ${rNow>=0?"Kârla":"Zararla"} kapatıyorum, ${fx(rNow,2)}R.`); closeAt(p,1,taker,{k:"desk",t:"Masa kararı · çık"},true); continue; }
@@ -141,6 +151,7 @@ function createBot(E, opt){
     } } finally{ rt.managing=false; save(); }
   }
 
-  return {bot,rt,log,save,equity,decide,onPrice,funding,manage,openMarket,closeAt,candidates,syms:()=>Array.from(new Set(bot.positions.map(p=>p.sym))).sort()};
+  audit(null);
+  return {bot,rt,log,save,audit,equity,decide,onPrice,funding,manage,openMarket,closeAt,candidates,syms:()=>Array.from(new Set(bot.positions.map(p=>p.sym))).sort()};
 }
 module.exports={createBot};
