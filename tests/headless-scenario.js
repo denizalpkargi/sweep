@@ -6,11 +6,23 @@ const errors=[]; const ok=(c,m)=>{ if(!c) errors.push(m); };
 const readJsonl=f=>fs.existsSync(f)?fs.readFileSync(f,'utf8').trim().split('\n').filter(Boolean).map(l=>JSON.parse(l)):[];
 
 (async()=>{
+  const day=new Date().toISOString().slice(0,10);
+  // 0. tur (varsayılan ayarlar): aşamalı giriş · aynı yönde ikinci long 15 dk aralık kuralına takılmalı; 200 $'a ulaşınca masa her şeyi kapatıp kilitlemeli
+  { const d0=fs.mkdtempSync(path.join(os.tmpdir(),'sweep-headless0-')); const r0=await main({dir:d0,minVol:1e6,every:300000,votes:'deep',once:true,quiet:true},{fetch:mock.fetch,WebSocket:null}); const b0=r0.B.bot;
+    const ev0=readJsonl(path.join(d0,'logs',`events-${day}.jsonl`));
+    ok(b0.positions.length===1&&b0.positions[0].sym==='ENAUSDT','aşamalı girişte tek long beklenirdi: '+b0.positions.map(p=>p.sym).join(','));
+    ok(ev0.some(e=>e.type==='stages'&&e.sym==='NEARUSDT'&&!e.ok&&e.stages.some(s=>s.k==='korelasyon'&&s.st==='fail')),'NEAR korelasyon aşamasında kalmadı');
+    const p0=b0.positions[0]; ok(p0&&Array.isArray(p0.stages)&&p0.stages.length===5&&p0.quality,'pozisyonda giriş aşamaları yok');
+    if(p0){ b0.bal=197; r0.B.onPrice('ENAUSDT',p0.entry*1.02,Date.now()); ok(!b0.positions.length&&b0.goalHit,'200 $ kilidi çalışmadı');
+      const tr0=b0.trades[b0.trades.length-1]; ok(tr0&&tr0.decs&&tr0.decs.some(d=>d.k==='goal'),'200 $ kilidi karar kaydı yok');
+      ok(readJsonl(path.join(d0,'logs',`events-${day}.jsonl`)).some(e=>e.type==='goal'),'hedef olayı günlükte yok'); }
+    fs.rmSync(d0,{recursive:true,force:true}); }
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'sweep-headless-')); const logs=path.join(dir,'logs');
+  // aşağıdaki akış iki long ister: aynı yön aralığı kapalı
+  fs.writeFileSync(path.join(dir,'config.json'),JSON.stringify({dirGapMin:0}));
   const opts={dir,minVol:1e6,every:300000,votes:'deep',once:true,quiet:true};
   // 1. tur: tarama ve giriş
   const r1=await main(opts,{fetch:mock.fetch,WebSocket:null}); const B=r1.B, bot=B.bot;
-  const day=new Date().toISOString().slice(0,10);
   const votes=readJsonl(path.join(logs,`votes-${day}.jsonl`));
   ok(votes.length>=2,'oy satırı yok'); ok(votes.every(v=>v.feat&&v.agents&&isFinite(v.score)),'oy satırında özellik eksik');
   ok(bot.positions.length>=1,'masa giriş açmadı'); const p=bot.positions.find(x=>x.sym==='ENAUSDT'); ok(p&&p.dir==='long','ENA long yok');
@@ -43,7 +55,7 @@ const readJsonl=f=>fs.existsSync(f)?fs.readFileSync(f,'utf8').trim().split('\n')
   ok(fs.existsSync(path.join(dir,'status.json'))&&fs.existsSync(path.join(dir,'bot.json')),'durum dosyaları yok');
   // denetçi: kapanan işlemler girişteki oylarla saklanır, durum dosyasında özet var
   { const b2=JSON.parse(fs.readFileSync(path.join(dir,'bot.json'),'utf8')); const t0=(b2.trades||[])[0]; ok(t0&&t0.snap&&isFinite(t0.snap.v.liq)&&Array.isArray(t0.exits)&&typeof t0.exits[0]==='string'&&isFinite(t0.mfe),'denetçi kaydı eksik: '+JSON.stringify(t0&&{snap:!!t0.snap,ex:t0.exits,mfe:t0.mfe}));
-    const st=JSON.parse(fs.readFileSync(path.join(dir,'status.json'),'utf8')); ok(st.audit&&st.audit.n>=1,'status.json denetçi özeti yok'); }
+    const st=JSON.parse(fs.readFileSync(path.join(dir,'status.json'),'utf8')); ok(st.audit&&st.audit.n>=1,'status.json denetçi özeti yok'); ok(st.trend&&st.trend.on===true&&isFinite(st.trend.eq),'status.json trend sepeti özeti yok'); ok(st.dip&&st.dip.on===true&&isFinite(st.dip.eq),'status.json geri çekilme özeti yok'); }
   console.log('votes',votes.length,'events',ev.length,'trades',readJsonl(path.join(logs,'trades.jsonl')).length);
   console.log('errors',JSON.stringify(errors));
   fs.rmSync(dir,{recursive:true,force:true});

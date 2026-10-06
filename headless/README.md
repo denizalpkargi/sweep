@@ -13,7 +13,8 @@ Gereken: Node 22+ (yerleşik `fetch` ve `WebSocket`). `npm install` gerekmez. Bi
 ## Ne yapar
 
 - Her 5 dakikada UI ile aynı tarama: evren (10 M$ hacim, ilk 120) → hızlı tarama → en iyi 24 aday derin tarama.
-- Taramadan sonra ve dakikada bir masa toplanır; eşik 0,30, 4/8 evet, Can vetosu yoksa market giriş. Giriş fiyatı açılıştan hemen önce REST'ten taze alınır.
+- Taramadan sonra ve dakikada bir masa toplanır; eşik 0,30, 4/10 evet, Can vetosu yoksa aday beş aşamadan geçer (rejim → kalite → bütçe → korelasyon → karar, `src/goal.js`). Yer ya da teminat yoksa ve kurulum belirgin iyiyse kârdaki pozisyondan kâr alınıp yer açılır. Giriş fiyatı açılıştan hemen önce REST'ten taze alınır.
+- Özkaynak 200 $'a (`config.json` → `goal`) ulaşınca masa tüm pozisyonları kapatıp kârı kilitler; sonra risk yarıya iner. Zirveden %10 düşüşte risk ×0,6.
 - Açık pozisyonlar tek WebSocket'te (trade, bookTicker, markPrice); akış 6 sn susarsa REST'ten 3 sn'de bir fiyat.
 - 30 sn'de bir (pozisyon başına 2 dk) masa pozisyonu yeniden değerlendirir: çık, azalt, süre doldu, kârı kilitle, ekle (UI `botManage` ile aynı).
 - Liderler (kopya trader) 10 dk'da bir kontrol edilir, saatte bir yenilenir. Node'da CORS yok, doğrudan çekilir.
@@ -30,7 +31,7 @@ Risk ayarları UI varsayılanlarıdır (`BOT_CFG_DEF`, `src/committee.js`). Değ
 | `status.json` | 30 sn'de bir nabız: özkaynak, pozisyonlar, son tarama, fiyat kaynağı, denetçi özeti (Murat'ın dersleri) |
 | `store.json` | motorun localStorage'ı: coin tutarlılığı önbelleği, liderler |
 | `logs/votes-GGGG-AA-GG.jsonl` | her taramada masa oyu: puan, evet/hayır, veto, ajan başına `[oy, güven]`, `feat` (masanın kullandığı ham girdiler) |
-| `logs/events-*.jsonl` | bot olayları: tarama, giriş, hedef, stop, fonlama, masa konuşmaları |
+| `logs/events-*.jsonl` | bot olayları: tarama, giriş, hedef, stop, fonlama, masa konuşmaları; `stages` (her adayın beş aşaması), `dyn` (hedef/stop değişikliği), `goal` (mod değişimi, 200 $ kilidi) |
 | `logs/reviews-*.jsonl` | açık pozisyonun 2 dakikalık gözden geçirmeleri ve alınan aksiyon |
 | `logs/trades.jsonl` | kapanan her işlem: giriş anındaki özellikler + sonuç (R, en iyi/en kötü R, çıkışlar) |
 
