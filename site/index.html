@@ -1194,7 +1194,7 @@ function audVoteFor(ag){
   return {v,c,w:1,hits,veto,txt};
 }
 
-/* ---------- Masa: on kişilik, dört tur ----------
+/* ---------- Masa: on iki kişilik, dört tur (Serkan · hacim: volume.js, Yusuf · strateji doğrulayıcı: tfcheck.js) ----------
    Analistler: Emre (trend), Kerem (likidite / ICT), Mert (emir akışı). Araştırmacılar: Arda (makro · BTC rejimi, kalabalık), Onur (kantitatif · kanıt, maliyet).
    Araştırma ekibi (research.js): Tolga (liderlerin coin uzlaşısı), Burak (liderlerin geçmişinden çıkan aday stratejiler ve kaçınılacak kalıplar). Denetçi: Murat.
    Traderlar: Baran (agresif, momentum), Can (baş trader · risk ve boy; veto hakkı).
@@ -1214,6 +1214,8 @@ const DESK=[
   {id:"copy",name:"Tolga",role:"Kopya trader araştırmacısı",w:1},
   {id:"lab",name:"Burak",role:"Strateji araştırmacısı",w:0.9},
   {id:"audit",name:"Murat",role:"Denetçi · hatalardan ders",w:1},
+  {id:"vol",name:"Serkan",role:"Hacim analisti",w:1.5},
+  {id:"check",name:"Yusuf",role:"Strateji doğrulayıcı",w:1},
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1.1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 // eşik, asgari evet ve katsayılar tests/backtest-masa.js ile seçildi (6 Ekim 2026, 24 coin × 6 ay, 169 bin toplantı); v: ayar sürümü (comMigrate)
@@ -1234,7 +1236,7 @@ function comTally(pre, opts){
   return {L,act,moves,yes,no,nAct:act.length,score:den?num/den:0};
 }
 // tartışma dökümü: tez (en güçlü destek), karşı tez (en güçlü itiraz), ikna olanlar, ikna olmayanlar
-const GEN={Emre:"Emre'nin",Kerem:"Kerem'in",Mert:"Mert'in",Arda:"Arda'nın",Onur:"Onur'un",Baran:"Baran'ın",Tolga:"Tolga'nın",Burak:"Burak'ın",Murat:"Murat'ın",Can:"Can'ın"};
+const GEN={Emre:"Emre'nin",Kerem:"Kerem'in",Mert:"Mert'in",Arda:"Arda'nın",Onur:"Onur'un",Baran:"Baran'ın",Tolga:"Tolga'nın",Burak:"Burak'ın",Murat:"Murat'ın",Serkan:"Serkan'ın",Yusuf:"Yusuf'un",Can:"Can'ın"};
 function comTalkLines(T, D){
   const out=[]; const nm=id=>(T.L.find(a=>a.id===id)||{}).name||id; const gen=id=>GEN[nm(id)]||nm(id)+"'in"; const f2=v=>(v>0?"+":"")+fx(v,2); const cap=t=>t?t.charAt(0).toUpperCase()+t.slice(1):t;
   const pro=[...T.act].filter(a=>a.v0>0.15).sort((a,b)=>b.w*b.c*b.v0-a.w*a.c*a.v0)[0], con=[...T.act].filter(a=>a.v0<-0.15).sort((a,b)=>a.w*a.c*a.v0-b.w*b.c*b.v0)[0];
@@ -1327,6 +1329,10 @@ function committee(A, dir, c24, opts){
     const sdMin=AUD&&AUD.sdMin>0.015?AUD.sdMin:0.015;
     if(sd<sdMin){ if(sdMin>0.015) say("audit","tartışma",`Kayıplarımızın çoğu gürültü stopu: fiyat lehimize gitmeden 45 dakikada stop oluyoruz. Stop tabanı %${fx(sdMin*100,1)}, boy ona göre küçülsün.`); else say("quant","tartışma",`Stop ${fx(sd*100,2)}% dar; testte %1,5 altı stoplar eksiydi. Stopu %1,5 tabanına çekelim, boy ona göre küçülür.`); sd=sdMin; say("risk","tartışma",`Tamam, stop %${fx(sdMin*100,1)}; pozisyon boyu buna göre.`); }
   }
+  /* ---- hacim analisti (volume.js) ve strateji doğrulayıcı (tfcheck.js): son stopla (tartışmadan sonra) ---- */
+  const vm=volMember(A,dir), tm=tfMember(A,dir,{r,lv:ag.liq.v,q,sd,costR:(BOT_CFG_DEF.feeTaker*2+BOT_CFG_DEF.slip)/sd});
+  set("vol",vm.v,vm.c,vm.txt); say("vol","açılış",vm.say); set("check",tm.v,tm.c,tm.txt); say("check","açılış",tm.say);
+  if(!veto&&tm.issues.length>=3&&ag.liq.v>0.5){ say("check","tartışma","Kerem, kurulumun üç şartı tutmuyor; bu kitaptaki süpürme değil. Güvenini kıs."); ag.liq.c=Math.max(0,ag.liq.c-0.2); chg.push("liq"); }
   /* ---- denetçi: kurulumu kapanmış işlemlerden çıkan derslerle karşılaştırır ---- */
   const au=audVoteFor(ag); ag.audit={id:"audit",v:au.v,c:au.c,txt:au.txt};
   // tahmin defteri (forecast.js): masanın evet dediği, sonradan tabandan kötü çıkan kalıplar
@@ -1338,7 +1344,7 @@ function committee(A, dir, c24, opts){
   // Burak'ın elinde eşleşen aday ya da kaçınılacak kalıp yoksa çekimserdir: ağırlığı 0, puanı sulandırmaz
   const labIdle=!best&&!bad;
   // çekimserler: verisi olmayan üye puana girmez, ortalamayı sulandırmaz (Tolga: lider verisi yok; Burak: eşleşen kalıp yok; Onur: coinde K3 kanıtı yok; Arda: BTC verisi yok; Murat: kayıt yok)
-  const abst={copy:!cs||!(((cs[dir]||{}).w||0)+((cs[isL?"short":"long"]||{}).w||0)>0),lab:labIdle,quant:n<3,macro:!B,audit:!au.w};
+  const abst={copy:!cs||!(((cs[dir]||{}).w||0)+((cs[isL?"short":"long"]||{}).w||0)>0),lab:labIdle,quant:n<3,macro:!B,audit:!au.w,vol:!!vm.abst,check:!!tm.abst};
   const pre=DESK.map(d=>{ const a=ag[d.id]; const m=clamp((AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1)*(typeof fcMult==='function'?fcMult(d.id):1),0.5,1.5); return {id:d.id,name:d.name,role:d.role,v:a.v,c:a.c,txt:a.txt,abst:!!abst[d.id],base:d.id==="audit"?(au.w?d.w:0):d.w,m}; });
   /* ---- 3. tur: ikna turu (fon toplantısı): tez, karşı tez, sonra kararsızlar en ikna edici argümana göre oyunu günceller ---- */
   const T=comTally(pre,opts);
@@ -1476,6 +1482,95 @@ function paperStep(p, px, now, cfg){
   if(p.stage==="tp2"){ const trail = isL ? p.hi-0.7*risk : p.lo+0.7*risk; if(isL? trail>p.stop : trail<p.stop) p.stop=trail; }
   if(p.expiresAt && now>p.expiresAt){ out.push({part:1,price:isL?px*(1-cfg.slip):px*(1+cfg.slip),k:"time",t:"Zaman stopu",taker:true,final:true}); }
   return out;
+}
+
+/* ---------- Hacim analisti Serkan (masanın on birinci üyesi, 6 Ekim 2026) ----------
+   15 dk kapanmış mumlardan ölçülebilir hacim okumaları: hacim oranı (son 1 saat ÷ son 24 saatin medyan saati), hacim eğilimi (son 24 mumda
+   log hacmin eğimi: artıyor / azalıyor), fiyat-hacim uyumu, 4 saatlik delta (taker alış − satış), günün gelişen profili (POC, VAH/VAL),
+   dünkü değer alanına göre yer, en yakın çıplak POC.
+   Oy yalnızca geçmişte iki yarıda da aynı işareti veren okumalardan (tests/research-mtf-volume.js, 24 coin × 6 ay, saatte bir, 107 bin örnek):
+   - düşüşten sonra artan hacim → tepki yükselişi (kapitülasyon/emilim): IC +0,039 / +0,028
+   - fiyat, günün gelişen POC'sinin altındaysa yukarı, üstündeyse aşağı çekilir: IC +0,038 / +0,012
+   Tutmayanlar (oy vermez, yalnız söylenir): "yükseliş artan hacimle teyitli" (IC −0,012 / +0,002; artan hacimli hareketler 4 saatte geri
+   veriyor), delta (−0,010 / −0,002), dünkü değer alanının dışı (−0,033 / +0,005), çıplak POC (−0,015 / +0,009).
+   Puan long yönüne göre s ∈ [−1,1]; short için −s. Verisi yetmezse (< 60 kapanmış mum) ya da |s| < 0,1 ise çekimser. */
+const VOL_CFG={wCap:0.6,wPoc:0.4,capR:1,pocAtr:3,minBars:60,minS:0.1};
+function volRead(k, now){
+  if(!k||k.length<VOL_CFG.minBars) return null; now=now||Date.now();
+  let n=k.length; if(k[n-1].t+9e5>now) n--; if(n<VOL_CFG.minBars) return null; // açık mum hariç
+  const c=k.slice(Math.max(0,n-200),n); const L=c.length, last=c[L-1], px=last.c; const atr=atrAt(c,L,14); if(!(atr>0)) return null;
+  const lq=c.map(x=>Math.log(x.q+1)); let sx=0,sy=0,sxy=0,sxx=0; for(let j=0;j<24;j++){ const y=lq[L-24+j]; sx+=j; sy+=y; sxy+=j*y; sxx+=j*j; }
+  const slope=(24*sxy-sx*sy)/(24*sxx-sx*sx)*24; // 24 mumda log hacim değişimi (0,69 ≈ iki katına çıktı)
+  const q4=c.slice(L-4).reduce((s,x)=>s+x.q,0); const base=[]; for(let j=L-96;j<L-3;j+=4) if(j>=0) base.push(c.slice(j,j+4).reduce((s,x)=>s+x.q,0)); base.sort((a,b)=>a-b);
+  const rel=base.length?q4/(base[base.length>>1]||q4):1;
+  const r24=(px-c[L-25].c)/atr, r4=(px-c[L-5].c)/atr; let dq=0,qq=0; for(let j=L-16;j<L;j++){ dq+=2*c[j].tb-c[j].q; qq+=c[j].q; } const delta=qq?dq/qq:0;
+  // günün gelişen profili (UTC), en az 4 mum; yoksa son 24 saat
+  let d0=L-1; const day=Math.floor(last.t/864e5); while(d0>0&&Math.floor(c[d0-1].t/864e5)===day) d0--; const curP=L-d0>=4?volProfile(c,d0,L-1,{bins:48}):volProfile(c,Math.max(0,L-96),L-1,{bins:48});
+  const days=sessionProfiles(c,L,{bins:48}); const pd=days.filter(p=>!p.current).slice(-1)[0]||null;
+  const naked=days.filter(p=>!p.current&&p.naked).map(p=>p.poc).sort((a,b)=>Math.abs(a-px)-Math.abs(b-px))[0];
+  // oy: long yönüne göre
+  const cap=r24<=-VOL_CFG.capR?clamp(slope/2,-1,1):0; const poc=clamp((curP.poc-px)/atr/VOL_CFG.pocAtr,-1,1);
+  const s=clamp(VOL_CFG.wCap*cap+VOL_CFG.wPoc*poc,-1,1);
+  return {s,slope,rel,r24,r4,delta,cap,poc,atr,px,curPoc:curP.poc,curVah:curP.vah,curVal:curP.val,curDay:L-d0>=4,pd:pd?{poc:pd.poc,vah:pd.vah,val:pd.val}:null,naked:isFinite(naked)?naked:null};
+}
+// masadaki görüş (committee içinden): v, c ve konuşma metni; okuma zayıfsa (|s| < minS) çekimser, puanı sulandırmaz
+function volMember(A, dir){
+  const k=A&&A.src&&A.src.k15L; const R=volRead(k); if(!R) return {v:0,c:0.2,abst:true,txt:"15 dk hacim verisi yetmiyor · çekimser",say:"Hacim geçmişi yetmiyor, bu turda çekimserim."};
+  const isL=dir==="long", v=isL?R.s:-R.s; const weak=Math.abs(R.s)<VOL_CFG.minS; const trendTxt=R.slope>0.35?"artıyor":R.slope<-0.35?"azalıyor":"yatay"; const relTxt=`son 1 sa hacmi ×${fx(R.rel,1)} (24 sa medyanına göre)`;
+  const where=R.pd?(R.px>R.pd.vah?"dünkü değer alanının üstünde":R.px<R.pd.val?"dünkü değer alanının altında":"dünkü değer alanının içinde"):"dünkü profil yok";
+  const pocD=(R.curPoc-R.px)/R.atr; const pocTxt=`${R.curDay?"günün":"24 saatin"} POC'si ${fmtP(R.curPoc)} (${pocD>=0?"+":""}${fx(pocD,1)} ATR)`;
+  const nk=R.naked?` · çıplak POC ${fmtP(R.naked)} (${fx((R.naked-R.px)/R.atr,1)} ATR)`:"";
+  const dl=`4 sa delta ${R.delta>=0?"+":""}${fx(R.delta*100,1)}%`;
+  const txt=`hacim ${trendTxt} (${fx(R.slope,2)}) · ${relTxt} · ${where} · ${pocTxt}${nk} · ${dl}`;
+  const why=[]; if(R.cap>0.15) why.push("düşüşte hacim artıyor: satıcılar boşalıyor, tepki gelir"); else if(R.cap<-0.15) why.push("düşüş azalan hacimle sürüyor, dip için erken");
+  if(Math.abs(R.poc)>0.15) why.push(R.poc>0?"fiyat günün POC'sinin altında, POC yukarı çeker":"fiyat günün POC'sinin üstünde, POC aşağı çeker");
+  const movTxt=Math.abs(R.r4)>0.5&&R.slope>0.35?` Son saatteki ${R.r4>0?"yükseliş":"düşüş"} artan hacimle geldi; geçmişte bu hareketler 4 saatte devam etmedi, teyit saymıyorum.`:"";
+  const c=clamp(0.45+0.4*Math.abs(R.s),0.45,0.85);
+  const say=`Hacim ${trendTxt}, ${relTxt}. Fiyat ${where}; ${pocTxt}${nk}. ${dl}.${movTxt} ${why.length?why.join("; ")+". ":""}${v>0.15?`Hacim tablosu ${dir} tarafını destekliyor.`:v<-0.15?`Hacim ${dir} için karşı.`:"Hacimden net bir yön çıkmıyor."}`;
+  return {v,c,abst:weak,txt:txt+(weak?" · net yön yok, çekimser":""),say,R};
+}
+
+/* ---------- Strateji doğrulayıcı Yusuf (masanın on ikinci üyesi, 6 Ekim 2026) ----------
+   İki iş: (1) zaman dilimi eşleşmesi: masa 15 dk mumla işlem açar; üst zaman diliminin yönü işlemle aynı mı?
+   (2) kurulum strateji tanımına uyuyor mu: Kerem bir süpürme kurulumunu destekliyorsa kuralın kendi şartlarını tek tek denetler.
+   Ölçüm (tests/research-mtf-volume.js mtf, 24 coin × 6 ay, iki yarı; stop 1 ATR, hedef 1,5 ATR, 16 mum, komisyon dahil):
+   - "15 dk'da işlem → 4 saate bak" kuralı zayıf: rastgele girişte 4 sa yönüyle aynı − ters = +0,031R / +0,001R (ikinci yarıda yok).
+   - Günlük yön her iki zaman diliminde en tutarlı süzgeç: 15 dk +0,049R / +0,016R, isabet %50,7 vs %48,7 / %50,0 vs %49,3;
+     1 sa işlemde +0,043R / +0,051R, isabet %50,5 vs %48,7 iki yarıda da. 1 sa işlem → 4 sa +0,056R / −0,009R; haftalık +0,014 / +0,019R.
+   - Etki küçük: 15 dk'da komisyon+kayma işlem başına ≈0,28R yer, süzgeç bunu kapatmaz. 1 sa mumda aynı rastgele giriş −0,14R (15 dk −0,30R).
+   Yön tanımı (kapanmış mumlarla): kapanış > EMA20 ve EMA20 5 mum öncesinden yüksek → yukarı; tersi aşağı; arası karışık.
+   Oy: 0,5 × günlük + 0,15 × 4 sa − 0,25 × (kurulum hatası sayısı); günlük veri yoksa ya da günlük karışık ve hata yoksa çekimser. Katsayı geriye dönük IC'den (bkz. DESK). */
+const TFC_CFG={wD:0.5,w4:0.15,wIssue:0.25,costMax:0.12};
+function htfDirOf(k){ if(!k||k.length<26) return null; const a=2/21; let e=k[0].c; const E=[]; for(const x of k){ e=x.c*a+e*(1-a); E.push(e); } const n=k.length-1;
+  const d=k[n].c>E[n]&&E[n]>E[n-5]?1:k[n].c<E[n]&&E[n]<E[n-5]?-1:0; return {d,ema:E[n],px:k[n].c}; }
+// "şimdi": canlıda saat, geriye dönük testte son 15 dk mumunun kapanışı (açık günlük/saatlik mum sayılmaz)
+function tfRead(A, now){
+  const s=A&&A.src||{}; const kl=s.k15L&&s.k15L[s.k15L.length-1]; now=now||Math.min(Date.now(),kl?kl.t+9e5:Infinity); const closed=(k,ms)=>k?k.filter(x=>x.t+ms<=now):null;
+  const d1=closed(s.k1d,864e5); const h1=closed(s.k1h,36e5); let h4=null;
+  if(h1&&h1.length>=8){ h4=[]; let i=0; while(i<h1.length&&h1[i].t%144e5) i++; for(;i+4<=h1.length;i+=4){ const g=h1.slice(i,i+4); h4.push({t:g[0].t,o:g[0].o,h:Math.max(...g.map(x=>x.h)),l:Math.min(...g.map(x=>x.l)),c:g[3].c}); } }
+  return {d1:htfDirOf(d1),h4:htfDirOf(h4),h1:htfDirOf(h1)};
+}
+// ctx: committee içinden {r: A.amd[dir], lv: Kerem'in oyu, sd: stop oranı, costR, q: A.rs[dir]}
+function tfMember(A, dir, ctx){
+  ctx=ctx||{}; const T=tfRead(A); const isL=dir==="long", sg=isL?1:-1; const D=isL?"long":"short";
+  const nm=x=>!x?"veri yok":x.d>0?"yukarı":x.d<0?"aşağı":"karışık";
+  const issues=[]; const r=ctx.r;
+  if(ctx.lv>0.5&&r){ // Kerem kurulumu destekliyor: tanımın şartları
+    if(A.trend==="flat") issues.push("günlük yön yatay: strateji tanımında model geçersiz");
+    else if(A.trend!==(isL?"up":"down")&&!(ctx.q&&ctx.q.rsOk)) issues.push("kurulum günlük yöne ters (Kurulum 1 yönle işlem ister)");
+    if(!r.kz&&!(ctx.q&&ctx.q.rsOk)) issues.push("süpürme kill zone dışında");
+    if(!(r.ofScore>=1)) issues.push("süpürmede emir akışı teyidi yok (en az 1 gerekir)");
+    if(isFinite(r.rr1)&&r.rr1<1.5) issues.push(`hedefe oran ${fx(r.rr1,2)}R, kural en az 1,5R`);
+    if(r.stageLive&&r.stage==="entry"&&r.stageLive!=="entry") issues.push("aşama eski: fiyat OTE bölgesinden çıkmış");
+  }
+  if(isFinite(ctx.costR)&&ctx.costR>TFC_CFG.costMax) issues.push(`15 dk'da maliyet ${fx(ctx.costR,2)}R: stop bu zaman dilimi için dar`);
+  if(!T.d1) return {v:0,c:0.2,abst:true,issues,T,txt:"günlük veri yetmiyor · çekimser",say:"Günlük mum geçmişi yetmiyor; üst zaman dilimini denetleyemem, çekimserim."};
+  const d1=T.d1.d*sg, h4=T.h4?T.h4.d*sg:0;
+  const v=clamp(TFC_CFG.wD*d1+TFC_CFG.w4*h4-TFC_CFG.wIssue*issues.length,-1,1); const c=issues.length?0.75:d1?0.6:0.4;
+  const txt=`işlem 15 dk · günlük ${nm(T.d1)}${d1>0?" (aynı)":d1<0?" (ters)":""} · 4 sa ${nm(T.h4)} · 1 sa ${nm(T.h1)}${issues.length?" · "+issues.length+" kural hatası: "+issues.join("; "):""}`;
+  const say=`Biz 15 dakikalık mumla işlem açıyoruz. Ölçtüğüm kadarıyla bu işlemler için en anlamlı üst zaman dilimi günlük; 4 saatlik süzgeç iki yarıdan yalnız birinde işe yaradı. Günlük ${nm(T.d1)}, 4 saat ${nm(T.h4)}, 1 saat ${nm(T.h1)}: ${d1>0?`${D} günlük yönle uyumlu.`:d1<0?`${D} günlük yöne karşı; bu, ortalamada işlem başına yaklaşık 0,03R kaybettiriyor.`:"günlük karışık, ne destek ne engel."}${issues.length?` Kurulumu strateji tanımıyla karşılaştırdım: ${issues.join("; ")}. ${issues.length>=3?"Bu haliyle kurulum kitaba uymuyor.":"Bunlar düzelmeden boyu büyütmeyin."}`:ctx.lv>0.5?" Kurulum strateji tanımının şartlarını karşılıyor.":""}`;
+  const idle=!d1&&!issues.length; // günlük karışık ve kural hatası yok: söyleyecek sözü yok, çekimser
+  return {v,c,abst:idle,issues,T,txt:txt+(idle?" · çekimser":""),say};
 }
 
 /* ---------- Tahmin defteri: Masa'nın her görüşü bir tahmindir (6 Ekim 2026) ----------
@@ -2871,7 +2966,7 @@ function botLive(){
   const gs=botGoal(); const rv=$("botRoiV"); if(rv){ rv.textContent="%"+Math.round(clamp(gs.prog,-9,9)*100); rv.className=gs.prog>=1?"up":gs.prog>=0?"":"down"; } const rb=$("botRoiBar"); if(rb) rb.style.width=clamp(gs.prog*100,0,100)+"%"; const rr=$("botRoiRem"); if(rr) rr.textContent=gs.need<=0||bot.goalHit?"ulaşıldı, kâr kilitli":"kalan "+fmtB(gs.need);
 }
 /* --- masa: sekiz kişilik, açılış → tartışma → karar dökümü --- */
-const DESK_COL={trend:"#39c6f2",liq:"#a78bfa",flow:"#2ee59d",macro:"#f5b53f",quant:"#f9a8d4",mom:"#ff8a3d",copy:"#60a5fa",audit:"#e2e8f0",risk:"#ff5c6c"};
+const DESK_COL={trend:"#39c6f2",liq:"#a78bfa",flow:"#2ee59d",macro:"#f5b53f",quant:"#f9a8d4",mom:"#ff8a3d",copy:"#60a5fa",audit:"#e2e8f0",lab:"#c4b5fd",vol:"#22d3ee",check:"#facc15",risk:"#ff5c6c"};
 function talkHtml(talk){
   if(!talk||!talk.length) return "";
   const stages=[["açılış","1. tur · açılış görüşleri"],["tartışma","2. tur · itirazlar"],["ikna","3. tur · ikna (tez, karşı tez, fikir değiştirenler)"],["karar","4. tur · karar"]];

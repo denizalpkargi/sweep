@@ -1,4 +1,4 @@
-/* ---------- Masa: on kişilik, dört tur ----------
+/* ---------- Masa: on iki kişilik, dört tur (Serkan · hacim: volume.js, Yusuf · strateji doğrulayıcı: tfcheck.js) ----------
    Analistler: Emre (trend), Kerem (likidite / ICT), Mert (emir akışı). Araştırmacılar: Arda (makro · BTC rejimi, kalabalık), Onur (kantitatif · kanıt, maliyet).
    Araştırma ekibi (research.js): Tolga (liderlerin coin uzlaşısı), Burak (liderlerin geçmişinden çıkan aday stratejiler ve kaçınılacak kalıplar). Denetçi: Murat.
    Traderlar: Baran (agresif, momentum), Can (baş trader · risk ve boy; veto hakkı).
@@ -18,6 +18,8 @@ const DESK=[
   {id:"copy",name:"Tolga",role:"Kopya trader araştırmacısı",w:1},
   {id:"lab",name:"Burak",role:"Strateji araştırmacısı",w:0.9},
   {id:"audit",name:"Murat",role:"Denetçi · hatalardan ders",w:1},
+  {id:"vol",name:"Serkan",role:"Hacim analisti",w:1.5},
+  {id:"check",name:"Yusuf",role:"Strateji doğrulayıcı",w:1},
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1.1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 // eşik, asgari evet ve katsayılar tests/backtest-masa.js ile seçildi (6 Ekim 2026, 24 coin × 6 ay, 169 bin toplantı); v: ayar sürümü (comMigrate)
@@ -38,7 +40,7 @@ function comTally(pre, opts){
   return {L,act,moves,yes,no,nAct:act.length,score:den?num/den:0};
 }
 // tartışma dökümü: tez (en güçlü destek), karşı tez (en güçlü itiraz), ikna olanlar, ikna olmayanlar
-const GEN={Emre:"Emre'nin",Kerem:"Kerem'in",Mert:"Mert'in",Arda:"Arda'nın",Onur:"Onur'un",Baran:"Baran'ın",Tolga:"Tolga'nın",Burak:"Burak'ın",Murat:"Murat'ın",Can:"Can'ın"};
+const GEN={Emre:"Emre'nin",Kerem:"Kerem'in",Mert:"Mert'in",Arda:"Arda'nın",Onur:"Onur'un",Baran:"Baran'ın",Tolga:"Tolga'nın",Burak:"Burak'ın",Murat:"Murat'ın",Serkan:"Serkan'ın",Yusuf:"Yusuf'un",Can:"Can'ın"};
 function comTalkLines(T, D){
   const out=[]; const nm=id=>(T.L.find(a=>a.id===id)||{}).name||id; const gen=id=>GEN[nm(id)]||nm(id)+"'in"; const f2=v=>(v>0?"+":"")+fx(v,2); const cap=t=>t?t.charAt(0).toUpperCase()+t.slice(1):t;
   const pro=[...T.act].filter(a=>a.v0>0.15).sort((a,b)=>b.w*b.c*b.v0-a.w*a.c*a.v0)[0], con=[...T.act].filter(a=>a.v0<-0.15).sort((a,b)=>a.w*a.c*a.v0-b.w*b.c*b.v0)[0];
@@ -131,6 +133,10 @@ function committee(A, dir, c24, opts){
     const sdMin=AUD&&AUD.sdMin>0.015?AUD.sdMin:0.015;
     if(sd<sdMin){ if(sdMin>0.015) say("audit","tartışma",`Kayıplarımızın çoğu gürültü stopu: fiyat lehimize gitmeden 45 dakikada stop oluyoruz. Stop tabanı %${fx(sdMin*100,1)}, boy ona göre küçülsün.`); else say("quant","tartışma",`Stop ${fx(sd*100,2)}% dar; testte %1,5 altı stoplar eksiydi. Stopu %1,5 tabanına çekelim, boy ona göre küçülür.`); sd=sdMin; say("risk","tartışma",`Tamam, stop %${fx(sdMin*100,1)}; pozisyon boyu buna göre.`); }
   }
+  /* ---- hacim analisti (volume.js) ve strateji doğrulayıcı (tfcheck.js): son stopla (tartışmadan sonra) ---- */
+  const vm=volMember(A,dir), tm=tfMember(A,dir,{r,lv:ag.liq.v,q,sd,costR:(BOT_CFG_DEF.feeTaker*2+BOT_CFG_DEF.slip)/sd});
+  set("vol",vm.v,vm.c,vm.txt); say("vol","açılış",vm.say); set("check",tm.v,tm.c,tm.txt); say("check","açılış",tm.say);
+  if(!veto&&tm.issues.length>=3&&ag.liq.v>0.5){ say("check","tartışma","Kerem, kurulumun üç şartı tutmuyor; bu kitaptaki süpürme değil. Güvenini kıs."); ag.liq.c=Math.max(0,ag.liq.c-0.2); chg.push("liq"); }
   /* ---- denetçi: kurulumu kapanmış işlemlerden çıkan derslerle karşılaştırır ---- */
   const au=audVoteFor(ag); ag.audit={id:"audit",v:au.v,c:au.c,txt:au.txt};
   // tahmin defteri (forecast.js): masanın evet dediği, sonradan tabandan kötü çıkan kalıplar
@@ -142,7 +148,7 @@ function committee(A, dir, c24, opts){
   // Burak'ın elinde eşleşen aday ya da kaçınılacak kalıp yoksa çekimserdir: ağırlığı 0, puanı sulandırmaz
   const labIdle=!best&&!bad;
   // çekimserler: verisi olmayan üye puana girmez, ortalamayı sulandırmaz (Tolga: lider verisi yok; Burak: eşleşen kalıp yok; Onur: coinde K3 kanıtı yok; Arda: BTC verisi yok; Murat: kayıt yok)
-  const abst={copy:!cs||!(((cs[dir]||{}).w||0)+((cs[isL?"short":"long"]||{}).w||0)>0),lab:labIdle,quant:n<3,macro:!B,audit:!au.w};
+  const abst={copy:!cs||!(((cs[dir]||{}).w||0)+((cs[isL?"short":"long"]||{}).w||0)>0),lab:labIdle,quant:n<3,macro:!B,audit:!au.w,vol:!!vm.abst,check:!!tm.abst};
   const pre=DESK.map(d=>{ const a=ag[d.id]; const m=clamp((AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1)*(typeof fcMult==='function'?fcMult(d.id):1),0.5,1.5); return {id:d.id,name:d.name,role:d.role,v:a.v,c:a.c,txt:a.txt,abst:!!abst[d.id],base:d.id==="audit"?(au.w?d.w:0):d.w,m}; });
   /* ---- 3. tur: ikna turu (fon toplantısı): tez, karşı tez, sonra kararsızlar en ikna edici argümana göre oyunu günceller ---- */
   const T=comTally(pre,opts);

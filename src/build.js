@@ -48,6 +48,8 @@ if(!eng.includes('function auditRun')) throw new Error('auditor insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'committee.js','utf8')+`
 // backtest: every completed sequence in the history`);
 if(!eng.includes('function committee')) throw new Error('committee insert failed');
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'volume.js','utf8')+'\n'+rd(P+'tfcheck.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function volMember')||!eng.includes('function tfMember')) throw new Error('volume/tfcheck insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'forecast.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function fcObserve')) throw new Error('forecast insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'goal.js','utf8')+`\n// backtest: every completed sequence in the history`);
