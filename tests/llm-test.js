@@ -1,11 +1,11 @@
-// Açık pozisyon toplantısı (13 üye) ve yerel dil modeli katmanı (src/llm.js) testi. Gerçek model yok: sahte bir Ollama/OpenAI sunucusu ayağa kalkar.
+// Açık pozisyon toplantısı (13 üye) ve yapay zekâ masası (src/llmdesk.js, istemci src/llm.js) testi. Gerçek model yok: sahte bir Ollama/OpenAI sunucusu ayağa kalkar.
 // Çalıştırma: node tests/llm-test.js  (npm test içinde; çıktıda "errors []" beklenir)
 const http=require('http'); const {loadEngine}=require('./engine-node.js'); const mock=require('./mock-binance.js');
 const errors=[]; const ok=(c,m)=>{ if(!c) errors.push(m); };
 const mem={}; const localStorage={getItem:k=>k in mem?mem[k]:null,setItem:(k,v)=>{ mem[k]=String(v); },removeItem:k=>{ delete mem[k]; }};
 // sahte model: istemi okur, üyeleri sayar, şemaya uygun cevap (ya da senaryoya göre bozuk/yavaş) verir
 let mode='good', seen=[];
-const reply=(body)=>{ const user=JSON.parse(body.messages[1].content); seen.push({body,user});
+const reply=(body)=>{ let user; try{ user=JSON.parse(body.messages[1].content); }catch(e){ return 'hazırım'; } seen.push({body,user});
   const uyeler=user.uyeler.filter(u=>!u.cekimser).map(u=>({id:u.id,oy:u.oy>0?0.4:-0.3,guven:0.6,soz:`${u.id} verisine göre ${u.oy>0?"destekliyorum":"karşıyım"}`}));
   uyeler.push({id:"hayalet",oy:1,guven:1,soz:"masada olmayan üye"});
   const pos=user.tur==="pozisyon"; const karar={oy:pos?-0.5:0.45,guven:0.7,eylem:pos?"kar_al":"gir",gerekce:"test gerekçesi"};
@@ -47,38 +47,39 @@ const srv=http.createServer((req,res)=>{ let b=''; req.on('data',d=>b+=d); req.o
   { const F=E.getFC(); const f=F.pend.find(x=>x.kind==="pos"); ok(f&&f.v["p:masa"]===rv.hold&&Object.keys(f.v).some(k=>k.startsWith("p:")&&k!=="p:masa"),'pozisyon anahtarları yok');
     const L=E.fcLearn([{...f,y:1},{sym:"X",dir:"long",t:now,score:0.4,go:true,v:{trend:0.5},f:{},y:0}]); ok(L.n===1,'pozisyon kaydı giriş istatistiğine karıştı: n='+L.n); ok(L.kinds.pos.n===1&&L.agents["p:masa"],'pozisyon becerisi ölçülmedi'); }
   /* --- 2. dil modeli: kapalıyken hiç çağrı yok --- */
-  ok(E.llmReady()==="kapalı",'varsayılan kapalı değil'); ok(!E.llmPosAsk(p,rv,A,2),'kapalıyken kuyruğa girdi'); ok(seen.length===0,'kapalıyken model çağrıldı');
+  E.llmSetCfg({on:false}); ok(E.lmdReady()&&/kapalı/.test(E.lmdReady()),'model kapalıyken hazır: '+E.lmdReady()); ok(!E.lmdPosAsk(p,rv,A,2),'kapalıyken kuyruğa girdi'); ok(seen.length===0,'kapalıyken model çağrıldı');
   /* --- 3. Ollama uç noktası: toplantı, doğrulama, kayıt --- */
-  E.llmSetCfg({on:true,api:"ollama",base,model:"test:7b",timeoutMs:5000,perHour:50});
-  const ping=await E.llmPing(); ok(ping.ok,'ping başarısız: '+ping.err);
-  seen=[]; const out=await E.llmMeet("pozisyon",p.sym,p.dir,A,null,rv,{...E.posCtx(p,null),id:p.id});
+  E.llmSetCfg({on:true,provider:"ollama",url:base,model:"test:7b",timeoutMs:5000}); E.lmdSetCfg({perHour:50});
+  const ping=await E.lmdPing(); ok(ping.ok,'ping başarısız: '+ping.err);
+  seen=[]; const out=await E.lmdMeet("pozisyon",p.sym,p.dir,A,null,rv,{...E.posCtx(p,null),id:p.id});
   ok(out.ok,'toplantı başarısız: '+(out.err||'')); const v=out.view||{members:{},dec:{},talk:[]};
-  ok(seen[0]&&seen[0].body.format==="json"&&seen[0].body.options&&seen[0].body.options.num_ctx===4096,'Ollama gövdesi yanlış');
+  ok(seen[0]&&seen[0].body.format&&seen[0].body.format.type==="object"&&seen[0].body.format.properties.karar,'Ollama gövdesinde şema yok');
   ok(seen[0]&&seen[0].body.messages[0].content.includes("Kerem")&&seen[0].user.pozisyon&&seen[0].user.kural_masasi.karar===rv.verdict,'istemde karakterler / pozisyon / kural kararı yok');
   ok(seen[0]&&seen[0].body.messages[1].content.length<6000,'istem çok uzun: '+(seen[0]&&seen[0].body.messages[1].content.length));
   ok(!v.members.hayalet,'masada olmayan üye kabul edildi'); ok(Object.keys(v.members).length>=5,'üye görüşleri alınmadı');
   ok(v.dec.act==="kâr al",'eylem normalize edilmedi: '+v.dec.act); ok(v.talk.length===1&&v.talk[0].to==="mom",'tartışma alınmadı');
-  ok(E.llmLines(v).length>=3,'döküm boş');
+  ok(E.lmdLines(v).length>=3,'döküm boş');
   { const F=E.getFC(); const f=F.pend.find(x=>x.kind==="llm"); ok(f&&f.v["llm:pos"]===-0.5&&Object.keys(f.v).some(k=>k.startsWith("lp:")),'dil modeli görüşü deftere yazılmadı'); }
   /* --- 4. OpenAI uyumlu uç, kod çitli cevap, giriş toplantısı --- */
-  E.llmSetCfg({api:"openai",base:base+"/v1"}); mode='fence'; seen=[];
-  const com=row.com.long; const o2=await E.llmMeet("giris","ENAUSDT","long",A,com,null,null);
+  E.llmSetCfg({provider:"openai",url:base}); mode='fence'; seen=[];
+  const com=row.com.long; const o2=await E.lmdMeet("giris","ENAUSDT","long",A,com,null,null);
   ok(o2.ok&&o2.view.dec.act==="gir",'kod çitli JSON okunamadı: '+(o2.err||JSON.stringify(o2.view&&o2.view.dec)));
-  ok(seen[0]&&seen[0].body.response_format&&seen[0].body.response_format.type==="json_object",'OpenAI gövdesi yanlış');
+  ok(seen[0]&&seen[0].body.response_format&&seen[0].body.response_format.type==="json_schema",'OpenAI gövdesi yanlış');
   /* --- 5. oy: kanıt yokken ağırlık 0; kanıt (≥200 görüş, beceri artı) ve ayar açıkken ağırlık > 0 --- */
-  ok(E.llmWeight("llm")===0,'kanıtsız ağırlık'); { const vt=E.llmVote("ENAUSDT","long","giris"); ok(vt&&vt.w===0,'taze görüş okunamadı'); }
+  ok(E.lmdWeight("llm")===0,'kanıtsız ağırlık'); { const vt=E.lmdVote("ENAUSDT","long","giris"); ok(vt&&vt.w===0,'taze görüş okunamadı'); }
   { const D=[]; for(let i=0;i<260;i++){ const y=i%5===0?0:1; D.push({sym:"X",dir:"long",t:now+i,score:0.4,kind:"llm",v:{llm:y?0.6:-0.4},f:{},y}); } E.getFC().learn=E.fcLearn(D); }
-  ok(E.llmWeight("llm")===0,'ayar kapalıyken oy verdi'); E.llmSetCfg({vote:true}); ok(E.llmWeight("llm")>0,'kanıtlı ve açıkken ağırlık 0');
+  ok(E.lmdWeight("llm")===0,'ayar kapalıyken oy verdi'); E.lmdSetCfg({vote:true}); ok(E.lmdWeight("llm")>0,'kanıtlı ve açıkken ağırlık 0');
   { const c1=E.committee(A,"long",2,{sym:"ENAUSDT"}); ok(c1.talk.some(t=>/Yapay zekâ masası/.test(t.text)),'kanıtlı görüş masada konuşmadı'); }
-  E.llmSetCfg({vote:false});
+  E.lmdSetCfg({vote:false});
   /* --- 6. bozuk cevap ve çöküş: masa kuralla devam, 3 hatada 10 dk ara, bütçe --- */
-  mode='bad'; const o3=await E.llmMeet("giris","ENAUSDT","long",A,com,null,null); ok(!o3.ok&&/JSON/.test(o3.err),'bozuk cevap kabul edildi');
-  mode='down'; for(let i=0;i<3;i++) await E.llmMeet("giris","ENAUSDT","long",A,com,null,null); ok(/ulaşılamıyor/.test(E.llmReady()||''),'3 hatadan sonra ara verilmedi: '+E.llmReady());
+  mode='bad'; const o3=await E.lmdMeet("giris","ENAUSDT","long",A,com,null,null); ok(!o3.ok&&/JSON/.test(o3.err),'bozuk cevap kabul edildi');
+  mode='down'; for(let i=0;i<3;i++) await E.lmdMeet("giris","ENAUSDT","long",A,com,null,null); ok(/ulaşılamıyor/.test(E.lmdReady()||''),'3 hatadan sonra ara verilmedi: '+E.llmReady());
   { const c2=E.committee(A,"long",2,{sym:"ENAUSDT"}); ok(isFinite(c2.score)&&c2.agents.length===E.DESK.length,'model yokken masa çalışmadı'); }
-  E.llm.downUntil=0; mode='slow'; E.llmSetCfg({timeoutMs:100}); const o4=await E.llmMeet("giris","ENAUSDT","long",A,com,null,null); ok(!o4.ok&&o4.err==="zaman aşımı",'zaman aşımı yakalanmadı: '+o4.err);
-  E.llm.downUntil=0; E.llm.fails=0; E.llmSetCfg({perHour:2,timeoutMs:5000}); mode='good'; E.llm.calls=[Date.now(),Date.now()]; ok(/bütçe/.test(E.llmReady()||''),'saatlik bütçe çalışmadı');
+  E.lmd.downUntil=0; mode='slow'; E.llmSetCfg({timeoutMs:100}); const o4=await E.lmdMeet("giris","ENAUSDT","long",A,com,null,null); ok(!o4.ok&&/zaman aşımı/.test(o4.err),'zaman aşımı yakalanmadı: '+o4.err);
+  E.lmd.downUntil=0; E.lmd.fails=0; E.llmSetCfg({timeoutMs:5000}); E.lmdSetCfg({perHour:2}); mode='good'; E.lmd.calls=[Date.now(),Date.now()]; ok(/bütçe/.test(E.lmdReady()||''),'saatlik bütçe çalışmadı');
+  E.llmSetCfg({provider:"claude"}); ok(/ücretli/.test(E.lmdReady()||''),'ücretli sağlayıcıda masa konuştu'); E.llmSetCfg({provider:"ollama",url:base});
   /* --- 7. kuyruk: tarama sonrası en iyi aday, coin+yön başına bir kez --- */
-  E.llm.calls=[]; E.llmSetCfg({perHour:10,minScore:-1}); seen=[]; const n1=E.llmScanAsk([row]); const n2=E.llmScanAsk([row]); ok(n1===1&&n2===0,'tarama kuyruğu: '+n1+'/'+n2);
-  for(let i=0;i<50&&(E.llm.busy||E.llm.q.length);i++) await new Promise(r=>setTimeout(r,20)); ok(seen.length===1&&E.llm.views["giris|ENAUSDT|"+seen[0].user.yon],'kuyruktaki toplantı çalışmadı');
+  E.lmd.calls=[]; E.lmdSetCfg({perHour:10,minScore:-1}); seen=[]; const n1=E.lmdScanAsk([row]); const n2=E.lmdScanAsk([row]); const n3=E.lmdScanAsk([row]); ok(n1===1&&n2===1&&n3===0,'tarama kuyruğu (yön başına bir kez): '+n1+'/'+n2+'/'+n3);
+  for(let i=0;i<50&&(E.lmd.busy||E.lmd.q.length);i++) await new Promise(r=>setTimeout(r,20)); ok(seen.length===2&&E.lmd.views["giris|ENAUSDT|"+seen[0].user.yon],'kuyruktaki toplantı çalışmadı');
   srv.close(); console.log('llm-test errors',JSON.stringify(errors)); if(errors.length) process.exit(1);
 })().catch(e=>{ console.error(e); srv.close(); process.exit(1); });

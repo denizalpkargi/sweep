@@ -2,11 +2,13 @@
 //   y = 4 saatte önce +1 ATR mi −1 ATR mi (tahmin defteri ölçüsü, rastgele ≈ %50)
 //   R = botun planı (market giriş, stop max(%1,5; 1,2 ATR), 1,5R'de yarısı + stop girişe, 3R'de %60 + iz, 8 sa; komisyon + kayma)
 // Zaman ortasından iki yarı. Faktör "aktif": iki yarıda da IC > 0 ve "evet" (v>0,3) isabeti tabanın üstünde; ağırlık 1 + 40·IC (0,5–2).
-// Çalıştırma: node tests/research-factors.js [adım=4]  → tests/factor-fit.json (FAC_FIT'e yazılacak tablo ekrana basılır)
+// Çalıştırma: node tests/research-factors.js [adım=4] [--lab tests/data/lab-rules.json]  → tests/factor-fit.json (FAC_FIT'e yazılacak tablo ekrana basılır)
 // Veri: tests/data/*.json (fetch-history.js; Binance bulut IP'lerine 403 döner, kendi makinende indir).
 const fs=require('fs'), path=require('path');
 const {loadEngine}=require('./engine-node.js'); const {loadData}=require('./bt-lib.js'); const {simBot,fcY}=require('./backtest-masa.js');
-const E=loadEngine(); const M15=9e5; const step=+(process.argv[2]||4);
+const E=loadEngine(); const M15=9e5; const argv=process.argv.slice(2); const li=argv.indexOf('--lab'); const step=+(argv.find((a,i)=>/^\d+$/.test(a)&&i!==li+1)||4);
+// --lab <lab-rules.json>: Burak'ın adayları ve Selim'in hipotezleri (research-node.js --real ya da ekransız bot research/lab-rules.json yazar) aynı ölçüye girer
+if(li>=0){ const R=JSON.parse(fs.readFileSync(argv[li+1],'utf8')); console.log('lider kuralları:',E.facSyncDyn(R.rules||[])); }
 const all=loadData().filter(d=>d&&d.k15); const btcD=all.find(d=>d.sym==="BTCUSDT"); const btc=E.K(btcD.k15), btc1d=E.K(btcD.k1d);
 const cfg=E.BOT_CFG_DEF; const S=[];
 function agg(g){ return {t:g[0].t,o:g[0].o,h:Math.max(...g.map(x=>x.h)),l:Math.min(...g.map(x=>x.l)),c:g[g.length-1].c,v:g.reduce((a,x)=>a+x.v,0),q:g.reduce((a,x)=>a+x.q,0),tb:g.reduce((a,x)=>a+x.tb,0)}; }

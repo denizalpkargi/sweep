@@ -30,8 +30,13 @@ app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 // Binance kopya trader (lider portföy) uç noktaları tarayıcıya CORS izni vermez; masaüstünde başlıkları düzeltiyoruz. Salt okunur, herkese açık veri.
 function corsBridge(){
-  const F={urls:['https://www.binance.com/bapi/*']}; const ses=session.defaultSession;
-  ses.webRequest.onBeforeSendHeaders(F,(d,cb)=>{ const h=d.requestHeaders||{}; h['Origin']='https://www.binance.com'; h['Referer']='https://www.binance.com/en/copy-trading'; cb({requestHeaders:h}); });
+  // Electron'da her webRequest olayına tek dinleyici bağlanabilir: Binance lider uç noktaları ve yerel LLM (Ollama 11434, LM Studio 1234) aynı süzgeçte.
+  const LOCAL=['http://localhost:11434/*','http://127.0.0.1:11434/*','http://localhost:1234/*','http://127.0.0.1:1234/*'];
+  const F={urls:['https://www.binance.com/bapi/*',...LOCAL]}; const ses=session.defaultSession; const isLocal=u=>/^http:\/\/(localhost|127\.0\.0\.1):(11434|1234)\//.test(u);
+  ses.webRequest.onBeforeSendHeaders(F,(d,cb)=>{ const h=d.requestHeaders||{};
+    if(isLocal(d.url)){ delete h['Origin']; delete h['origin']; } // file:// sayfasının Origin'i ("null") Ollama'da 403 alır
+    else { h['Origin']='https://www.binance.com'; h['Referer']='https://www.binance.com/en/copy-trading'; }
+    cb({requestHeaders:h}); });
   ses.webRequest.onHeadersReceived(F,(d,cb)=>{ const h=Object.assign({},d.responseHeaders||{}); for(const k of Object.keys(h)) if(/^access-control-/i.test(k)) delete h[k]; h['Access-Control-Allow-Origin']=['*']; h['Access-Control-Allow-Headers']=['*']; h['Access-Control-Allow-Methods']=['GET, POST, OPTIONS']; cb({responseHeaders:h,statusLine:d.method==='OPTIONS'?'HTTP/1.1 200 OK':d.statusLine}); });
 }
 

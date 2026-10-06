@@ -1305,12 +1305,12 @@ function committee(A, dir, c24, opts){
   if(cs){ const me=cs[dir]||{n:0,w:0,leaders:[]}, ot=cs[isL?"short":"long"]||{n:0,w:0,leaders:[]}; const tot=me.w+ot.w; if(tot>0){ cv=(me.w-ot.w)/tot; cc=Math.min(0.9,0.4+0.1*(me.n+ot.n)); ctxt=`${me.n} lider ${D} (${(me.leaders||[]).slice(0,3).join(", ")||"—"}), ${ot.n} lider ters yönde`; } }
   set("copy",cv,cc,ctxt);
   say("copy","açılış",cs&&(cs.long.n||cs.short.n)?`En iyi liderlerden ${ctxt}. ${cv>0.3?"Büyük paralar bizimle.":cv<-0.3?"Büyük paralar ters tarafta; dikkat.":"Liderler bölünmüş."}`:(LD&&LD.at?`Liderler ${sym?sym.replace("USDT",""):"bu coin"} ile ilgilenmiyor; ne destek ne engel.`:"Lider verisi henüz yok, bu turda çekimserim."));
-  const LM=(typeof labMatch==="function")?labMatch(A,dir,sym):null; const best=LM&&LM.hits.length?[...LM.hits].sort((a,b)=>b.sw*b.t-a.sw*a.t)[0]:null; const bad=LM&&LM.avoid.length?LM.avoid[0]:null;
+  const LM=(typeof labMatch==="function")?labMatch(A,dir,sym):null; const best=LM&&LM.hits.length?[...LM.hits].sort((a,b)=>b.sw*(b.tl??b.t)-a.sw*(a.tl??a.t))[0]:null; const bad=LM&&LM.avoid.length?LM.avoid[0]:null;
   let lbv=0,lbc=0.2,lbtxt=(typeof lab!=="undefined"&&lab.base)?"liderlerin kalıplarından biri eşleşmiyor":"araştırma henüz aday çıkarmadı";
-  if(best){ lbv=clamp((0.3+0.4*Math.min(1,best.t/4))*best.sw,0,0.9); lbc=0.3+0.5*Math.min(1,best.n/80); lbtxt=`aday eşleşti: ${best.name} (${best.n} işlem, ${best.leaders} lider, ort ${fx(best.mean,2)} ATR, ${best.status})`; }
+  if(best){ lbv=clamp((0.3+0.4*Math.min(1,(best.tl??best.t)/4))*best.sw,0,0.9); lbc=0.3+0.5*Math.min(1,best.n/80); lbtxt=`aday eşleşti: ${best.name} (${best.n} işlem, ${best.leaders} lider, ort ${fx(best.mean,2)} ATR, ${best.status})`; }
   if(bad){ lbv-=0.5; lbc=Math.max(lbc,0.3+0.5*Math.min(1,bad.n/80)); lbtxt=(best?lbtxt+" · ":"")+`kaçınılacak kalıp: ${bad.name} (ort ${fx(bad.mean,2)} ATR)`; }
   set("lab",lbv,lbc,lbtxt+(!best&&!bad?" · çekimser, puana girmez":""));
-  say("lab","açılış",best?`Liderlerin geçmişinde bu durum var: ${best.name}. ${best.n} işlem, ${best.leaders} farklı lider, kazanma %${Math.round(best.wr*100)}, ortalama ${fx(best.mean,2)} ATR; iki yarıda da artı. Medyan tutuş ${fx(best.hold,1)} saat. Durum: ${best.status}${best.status==="zayıf"?", bu yüzden oyum yok":""}.${bad?` Ama kaçınılacak bir kalıp da eşleşiyor: ${bad.name}.`:""}`:bad?`Liderler bu durumda kaybediyor: ${bad.name}, ${bad.n} işlemde ortalama ${fx(bad.mean,2)} ATR. Karşıyım.`:LM?"Şu anki tablo liderlerin kanıtlı kalıplarından hiçbirine uymuyor; ne destek ne engel.":(typeof lab!=="undefined"&&lab.base?"Bu coin için 1 saatlik veri yetmiyor, çekimserim.":"Araştırma ekibi henüz yeterli lider işlemi toplamadı; çekimserim."));
+  say("lab","açılış",best?`Liderlerin geçmişinde bu durum var: ${best.name}. ${best.n} işlem, ${best.leaders} farklı lider, kazanma %${Math.round(best.wr*100)}, ortalama ${fx(best.mean,2)} ATR; iki yarıda da artı. Medyan tutuş ${fx(best.hold,1)} saat. Durum: ${best.status}${best.status==="zayıf"?", bu yüzden oyum yok":""}.${bad?` Ama kaçınılacak bir kalıp da eşleşiyor: ${bad.name}.`:""}`:bad?`Liderler bu durumda kötü yapıyor: ${bad.name}, ${bad.n} işlemde ortalama ${fx(bad.mean,2)} ATR${isFinite(bad.lift)?`, aynı yöndeki tüm işlemlerinden ${fx(Math.abs(bad.lift),2)} ATR kötü`:""}. Karşıyım.`:LM?"Şu anki tablo liderlerin kanıtlı kalıplarından hiçbirine uymuyor; ne destek ne engel.":(typeof lab!=="undefined"&&lab.base?"Bu coin için 1 saatlik veri yetmiyor, çekimserim.":"Araştırma ekibi henüz yeterli lider işlemi toplamadı; çekimserim."));
   const S=A.rsStats&&A.rsStats[dir]; const n=S?S.A.n+S.B.n:0; const sum=S?(S.A.sum||0)+(S.B.sum||0):0;
   let qv=0,qc=0.5,qtxt="bu coinde kanıt yok"; if(n>=3){ qv=sum>0?0.35:sum<0?-0.35:0; qc=0.6+Math.min(0.3,n/30); qtxt=`K3 bu coinde ${n} işlem, toplam ${sum>=0?"+":""}${fx(sum,1)}R`; } else if(n>0){ qtxt=`K3 bu coinde ${n} işlem (az örnek)`; }
   const kb=A.src&&A.src.k15L; const atrRel=kb&&kb.length>20?atrAt(kb,kb.length)/A.px:A.med15; let sd=Math.max(0.012,1.2*(atrRel||0.01)); const costR=(0.0005+0.0005+0.0003)/sd;
@@ -1334,7 +1334,7 @@ function committee(A, dir, c24, opts){
     if(ag.trend.v<-0.3&&ag.liq.v>0.5){ say("trend","tartışma","Kerem, süpürme güzel ama günlük yön karşı. Karşı-trend işlemde hedef kısa tutulur."); ag.liq.c-=0.2; runR=2; say("liq","tartışma","Kabul: süpürme + MSS karşı trendde de çalışır ama koşucuyu 2R'de keselim, güvenimi düşürüyorum."); chg.push("liq"); }
     else if(ag.trend.v>0.3&&ag.liq.v>0.5){ say("liq","tartışma","Trend de bizimle; süpürme trend yönünde olunca en iyi örnekler bunlar."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
     if(ag.liq.v>0.5&&ag.flow.v<0){ say("flow","tartışma","Kerem, süpürmede emilim yok: CVD fiyatla birlikte dip yaptı. Satış gerçek olabilir, fiyat yeniden süpürebilir."); ag.liq.v-=0.2; say("liq","tartışma","Teyit zayıfsa ikinci süpürme riski var, oyumu bir kademe düşürüyorum."); chg.push("liq"); }
-    if(bad&&LM.f.yer==="kova"&&ag.mom.v>0.3){ say("lab","tartışma",`Baran, liderler bu konumda kovaladığında ortalama ${fx(bad.mean,2)} ATR kaybediyor. Fiyat 24 saatlik aralığın ucunda.`); ag.mom.v-=0.25; say("mom","tartışma","Veri bunu söylüyorsa oyumu kısıyorum."); chg.push("mom"); }
+    if(bad&&LM.f.yer==="kova"&&ag.mom.v>0.3){ say("lab","tartışma",`Baran, liderler bu konumda kovaladığında ortalama ${fx(bad.mean,2)} ATR alıyor${isFinite(bad.lift)?`, tabanlarından ${fx(Math.abs(bad.lift),2)} ATR kötü`:""}. Fiyat 24 saatlik aralığın ucunda.`); ag.mom.v-=0.25; say("mom","tartışma","Veri bunu söylüyorsa oyumu kısıyorum."); chg.push("mom"); }
     if(best&&LM.f.sw==="var"&&ag.liq.v>0.5){ say("lab","tartışma","Kerem, liderlerin kazanan işlemleri de süpürmeden sonra geliyor; senin okumanı destekliyor."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
     if(best&&best.conds.some(c=>c[0]==="btc")&&ag.macro.v>0){ say("macro","tartışma","Burak'ın adayı BTC yönüne bağlı; BTC tarafı da bizimle, güvenimi artırıyorum."); ag.macro.c=Math.min(1,ag.macro.c+0.1); chg.push("macro"); }
     if(n>=3&&sum<0){ say("quant","tartışma",`Bu coinde K3 geçmişi ${fx(sum,1)}R, yani eksi. Herkesin güvenini %15 kısıyorum; kanıtsız yere kalite A demeyelim.`); for(const k in ag) if(k!=="risk") ag[k].c*=0.85; chg.push("all"); }
@@ -1368,7 +1368,7 @@ function committee(A, dir, c24, opts){
   let score=den?num/den:0;
   if(!veto&&score>=opts.threshold-0.04&&score<opts.threshold&&yes>=opts.minYes&&ag.mom.v>0&&!abst.mom){ say("mom","ikna",`Eşiğin dibindeyiz (${pts(score)}), ${yes} evet var. Ben küçük boyla girerim; fırsatı kaçırmayalım.`); const m=agents.find(a=>a.id==="mom"); m.v=+Math.min(1,m.v+0.15).toFixed(2); num=0; for(const a of agents) num+=a.w*a.v*a.c; score=num/den; }
   // yerel dil modeli (llm.js): yalnız ayarda açık ve tahmin defterinde becerisi kanıtlanmışsa (llmWeight > 0) küçük ağırlıkla puana girer
-  const LV=typeof llmVote==='function'&&sym?llmVote(sym,dir,"giris"):null; if(LV&&LV.w>0){ score=(score*den+LV.w*LV.v*LV.c)/(den+LV.w); say("risk","ikna",`Yapay zekâ masası ${LV.act} diyor (oy ${LV.v>0?"+":""}${fx(LV.v,2)}, ağırlık ${fx(LV.w,2)}): ${LV.why}`); }
+  const LV=typeof lmdVote==='function'&&sym?lmdVote(sym,dir,"giris"):null; if(LV&&LV.w>0){ score=(score*den+LV.w*LV.v*LV.c)/(den+LV.w); say("risk","ikna",`Yapay zekâ masası ${LV.act} diyor (oy ${LV.v>0?"+":""}${fx(LV.v,2)}, ağırlık ${fx(LV.w,2)}): ${LV.why}`); }
   score=+score.toFixed(3);
   /* ---- 4. tur: karar ---- */
   const px=A.px; const holdH=best&&isFinite(best.hold)&&best.sw>0?clamp(Math.round(best.hold*1.5),2,12):null;
@@ -1447,7 +1447,7 @@ function positionReview(A, pos, orders, c24, opts){
   // tutma puanı ve eylem payları
   const mul=id=>clamp(typeof fcMult==='function'?fcMult("p:"+id):1,0.5,1.5);
   const views=DESK.map(d=>{ const x=V[d.id]; const w=x.abst?0:+(d.w*mul(d.id)).toFixed(3); return {id:d.id,name:d.name,role:d.role,v:+x.v.toFixed(2),c:+x.c.toFixed(2),w,act:x.act,txt:x.txt,abst:x.abst}; });
-  const LP=typeof llmVote==='function'&&pos.sym?llmVote(pos.sym,dir,"pozisyon"):null; if(LP&&LP.w>0) views.push({id:"llm",name:"Yapay zekâ",role:"Yerel dil modeli",v:+LP.v.toFixed(2),c:+LP.c.toFixed(2),w:LP.w,act:LP.act,txt:LP.why,abst:false});
+  const LP=typeof lmdVote==='function'&&pos.sym?lmdVote(pos.sym,dir,"pozisyon"):null; if(LP&&LP.w>0) views.push({id:"llm",name:"Yapay zekâ",role:"Yerel dil modeli",v:+LP.v.toFixed(2),c:+LP.c.toFixed(2),w:LP.w,act:LP.act,txt:LP.why,abst:false});
   let num=0,den=0; const share={}; for(const x of views){ if(!x.w) continue; num+=x.w*x.v*x.c; den+=x.w; share[x.act]=(share[x.act]||0)+x.w; } for(const k in share) share[k]=den?share[k]/den:0;
   const hold=den?+(num/den).toFixed(3):0; const exitShare=share["çık"]||0, tpShare=share["kâr al"]||0;
   let verdict; if((opp.decision==="giriş"&&hold<0)||hold<=PD_CFG.exit||(exitShare>=PD_CFG.exitShare&&hold<0)) verdict="çık"; else if(opp.decision==="giriş"||hold<PD_CFG.reduce) verdict="azalt"; else if(hold>=PD_CFG.hold) verdict="tut"; else verdict="tut, stop sık";
@@ -1723,7 +1723,7 @@ const FAC_FIT={
   fundz:{st:"izlemede",w:0,ic1:0,ic2:0,y1:null,y2:null,n:0}};
 const FAC_ST=id=>(FAC_FIT[id]&&FAC_FIT[id].st)||"izlemede";
 // canlı ağırlık: ölçüm × tahmin defteri. İzlemedeki faktör ≥200 canlı tahminde beceri artıysa küçük ağırlıkla oya girer.
-function facWeight(id){ const f=FAC_FIT[id]; const L=(typeof FC!=="undefined"&&FC&&FC.learn)?FC.learn.agents["f:"+id]:null; const m=L?L.m:1;
+function facWeight(id){ if(FACTORS.some(x=>x.id===id&&x.dyn)) return 0; /* lider kuralları (analyst.js facSyncDyn): yalnız tahmin defteri ölçer, oy Burak üzerinden */ const f=FAC_FIT[id]; const L=(typeof FC!=="undefined"&&FC&&FC.learn)?FC.learn.agents["f:"+id]:null; const m=L?L.m:1;
   if(f&&f.st==="aktif") return +(f.w*m).toFixed(3); if(L&&L.n>=200&&m>1) return +(m-1).toFixed(3); return 0; }
 // tüm faktörler: {id:{v,c,txt,w}} (yalnız oy verenler), oy ve güven; çekimserse null
 function facRead(x, dir){ const out={}; for(const F of FACTORS){ let r=null; try{ r=F.fn(x,dir); }catch(e){ r=null; } if(r&&isFinite(r.v)) out[F.id]={v:clamp(r.v,-1,1),c:clamp(r.c,0,1),txt:r.txt,w:facWeight(F.id)}; } return out; }
@@ -1949,21 +1949,20 @@ function goalTick(b, eq, cfg){ b.peak=Math.max(b.peak||b.start||100,eq); const g
 // karar ve aşamaları tek satırlık günlük metnine
 const stagesTxt=es=>es.stages.map(s=>`${s.st==="ok"?"✓":s.st==="warn"?"!":"✗"} ${s.k} (${s.who}): ${s.txt}`).join(" | ");
 
-/* ---------- Yerel dil modeli (LLM) katmanı: masaya "bilinç" (7 Ekim 2026) ----------
+/* ---------- Yapay zekâ masası: on üç karaktere yerel dil modeliyle "bilinç" (7 Ekim 2026) ----------
    Kural tabanlı üyeler yerinde kalır ve ölçülebilir oylarını üretir (committee.js, positionReview). Bu katman her toplantının verisini ve
-   üyelerin kural oylarını yerel bir dil modeline verir; model on üç karakteri kendi uzmanlıklarıyla konuşturur (görüş, itiraz, ikna) ve
-   yapılandırılmış bir görüş döndürür: üye başına oy (−1…+1) ve güven, masanın ortak oyu ve eylemi (giriş: gir/bekle/girme; pozisyon:
-   tut/kâr al/stop sık/azalt/çık). Bu görüş tahmin defterinde (forecast.js, kind "llm") kural masasından ayrı puanlanır.
-   Oy: varsayılan olarak yalnız konuşur ve kayda geçer. Defterde ≥200 sonuçlanmış görüşte becerisi artıysa (fcMult > 1) ve ayarlarda
-   "oy" açıksa (fcMult − 1) ağırlıkla puana girer (faktörlerdeki kuralın aynısı). Model yoksa, yavaşsa ya da saçmalarsa masa kuralla devam eder.
-   Sağlayıcı: Ollama'nın kendi uç noktası (/api/chat, num_ctx ve keep_alive ayarlanabilir) ya da OpenAI uyumlu /v1/chat/completions
-   (LM Studio, llama.cpp sunucusu, vLLM, OpenAI, OpenRouter). Anahtar yalnız bu cihazda (localStorage "st-llm").
-   Bütçe: model tek iş yapar (kuyruk sırayla), saatte en çok perHour çağrı, pozisyonlar girişlerden önce. Kullanıcının PC'sinde (Core Ultra 7 155H,
-   yalnız CPU) 7B Q4 model istemi ~30 tok/sn okur, ~5–7 tok/sn yazar: bir toplantı (~1200 tok istem, ~350 tok yanıt) ≈ 1,5–2 dk → 15 dk mumda en çok
-   ~6 toplantı; varsayılan saatte 12. Gerçek emir yok: model yalnız kâğıt masada konuşur. */
-const LLM_DEF={on:false,api:"ollama",base:"http://127.0.0.1:11434",model:"qwen2.5:7b-instruct",key:"",timeoutMs:240000,maxTokens:450,temp:0.4,ctx:4096,keepAlive:"30m",
-  perHour:12,entryTop:1,minScore:0.2,askGapMin:30,posEveryMin:30,vote:false,minN:200};
-const LLM_KEY="st-llm";
+   üyelerin kural oylarını dil modeline verir; model on üç karakteri kendi uzmanlıklarıyla konuşturur (görüş, itiraz, karar) ve
+   yapılandırılmış bir görüş döndürür (JSON şeması): üye başına oy (−1…+1) ve güven, masanın ortak oyu ve eylemi (giriş: gir/bekle/girme;
+   pozisyon: tut/kâr al/stop sık/azalt/çık). Bu görüş tahmin defterinde (forecast.js, kind "llm") kural masasından ayrı puanlanır.
+   Oy: varsayılan olarak yalnız konuşur ve kayda geçer. Defterde ≥200 sonuçlanmış görüşte becerisi artıysa (fcMult > 1) ve ayarda "oy" açıksa
+   (fcMult − 1) ağırlıkla puana girer (faktörlerdeki kuralın aynısı). Model yoksa, yavaşsa ya da saçmalarsa masa kuralla devam eder.
+   İstemci ve model ayarı src/llm.js (Selim ile tek ayar: sağlayıcı, adres, model, bağlam); burada yalnız masanın bütçesi (localStorage "st-llmdesk").
+   Ücretli sağlayıcı (Claude API) seçiliyse masa konuşmaz (allowPaid kapalı).
+   Bütçe: model tek iş yapar (kuyruk sırayla), saatte en çok perHour çağrı, pozisyonlar girişlerden önce, 3 hatada 10 dk ara. Kullanıcının PC'si
+   (Core Ultra 7 155H, 16 GB, yalnız CPU) 7–8B Q4 modelde istemi ~30 tok/sn okur, ~5–7 tok/sn yazar (6 Ekim ölçümü): bir toplantı (~1200 tok istem,
+   ~400 tok yanıt) ≈ 1,5–2 dk → 15 dk mumda en çok ~6 toplantı; varsayılan saatte 8. Gerçek emir yok: model yalnız kâğıt masada konuşur. */
+const LMD_DEF={on:true,maxTokens:700,perHour:8,entryTop:1,minScore:0.2,askGapMin:30,posEveryMin:30,vote:false,minN:200,allowPaid:false};
+const LMD_KEY="st-llmdesk";
 const LLM_ACT={giris:["gir","bekle","girme"],pozisyon:["tut","kâr al","stop sık","azalt","çık"]};
 // karakterler: üyenin uzmanlığı ve mizacı (sistem istemi sabit kalır; Ollama aynı öneki önbellekten okur)
 const LLM_PERSONA={trend:"günlük yön ve 1 saatlik yapıya bakar; sabırlı, trende karşı işlemi sevmez",liq:"likidite avcısı (ICT): havuz, süpürme, MSS, OTE; manipülasyon görmeden girmez",
@@ -1973,35 +1972,19 @@ const LLM_PERSONA={trend:"günlük yön ve 1 saatlik yapıya bakar; sabırlı, t
   audit:"denetçi: kapanmış işlemlerin hatalarıyla karşılaştırır, aynı hatayı tekrar ettirmez",vol:"hacim profili: POC, değer alanı, düşüşte artan hacim",
   check:"kural denetçisi: günlük ve 4 saatlik uyum, kurulum şartları, maliyet",fac:"ölçülmüş faktörler (10 günlük kapanış kırılımı, BTC 200 günlük ortalama)",
   risk:"baş trader: risk, likidasyon, stop; son kararı o verir, veto hakkı var"};
-const llm={cfg:null,q:[],busy:false,calls:[],fails:0,downUntil:0,last:[],views:{},asked:{},stats:{n:0,ok:0,bad:0,ms:0,tokIn:0,tokOut:0},err:null,onView:null};
-function llmCfg(){ if(!llm.cfg){ let sv=null; try{ sv=JSON.parse(localStorage.getItem(LLM_KEY)||"null"); }catch(e){} llm.cfg={...LLM_DEF,...(sv||{})}; } return llm.cfg; }
-function llmSetCfg(o){ llm.cfg={...llmCfg(),...(o||{})}; try{ localStorage.setItem(LLM_KEY,JSON.stringify(llm.cfg)); }catch(e){} return llm.cfg; }
-// modelin metninden JSON: kod çiti, baştaki/sondaki açıklama, sondaki virgül
-function llmJson(t){ if(!t) return null; let s=String(t).replace(/```(?:json)?/gi,"").trim(); try{ return JSON.parse(s); }catch(e){}
-  const a=s.indexOf("{"), b=s.lastIndexOf("}"); if(a<0||b<=a) return null; s=s.slice(a,b+1).replace(/,\s*([}\]])/g,"$1"); try{ return JSON.parse(s); }catch(e){ return null; } }
-/* tek çağrı: messages = [{role,content}], o = {json, maxTokens, temp, timeoutMs, model} → {ok, text, json, ms, tokIn, tokOut, err} */
-async function llmChat(messages, o){
-  o=o||{}; const C=llmCfg(); const base=String(C.base||"").replace(/\/+$/,""); const native=C.api==="ollama"; const t0=Date.now();
-  const ctl=typeof AbortController!=="undefined"?new AbortController():null; const to=setTimeout(()=>{ try{ ctl&&ctl.abort(); }catch(e){} },o.timeoutMs||C.timeoutMs);
-  try{ const h={"Content-Type":"application/json"}; if(C.key) h.Authorization="Bearer "+C.key; const model=o.model||C.model; const temp=o.temp!=null?o.temp:C.temp, max=o.maxTokens||C.maxTokens;
-    const url=native?base+"/api/chat":base.replace(/\/v1$/,"")+"/v1/chat/completions";
-    const body=native?{model,messages,stream:false,keep_alive:C.keepAlive,options:{temperature:temp,num_predict:max,num_ctx:C.ctx}}:{model,messages,temperature:temp,max_tokens:max,stream:false};
-    if(o.json){ if(native) body.format="json"; else body.response_format={type:"json_object"}; }
-    const r=await fetch(url,{method:"POST",headers:h,body:JSON.stringify(body),signal:ctl?ctl.signal:undefined}); const ms=Date.now()-t0;
-    if(!r.ok){ let tx=""; try{ tx=(await r.text()).slice(0,200); }catch(e){} return {ok:false,ms,err:`HTTP ${r.status}${tx?" · "+tx:""}`}; }
-    const d=await r.json(); const text=native?String(d&&d.message&&d.message.content||""):String(d&&d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"");
-    const tokIn=native?(d.prompt_eval_count||0):((d.usage&&d.usage.prompt_tokens)||0), tokOut=native?(d.eval_count||0):((d.usage&&d.usage.completion_tokens)||0);
-    return {ok:true,ms,text,json:o.json?llmJson(text):null,tokIn,tokOut}; }
-  catch(e){ return {ok:false,ms:Date.now()-t0,err:e&&e.name==="AbortError"?"zaman aşımı":String(e&&e.message||e)}; }
-  finally{ clearTimeout(to); }
-}
-// sağlık: model yüklü mü, ne kadar sürede cevap veriyor
-async function llmPing(){ const r=await llmChat([{role:"user",content:"Tek kelimeyle cevap ver: hazır mısın?"}],{maxTokens:8,timeoutMs:Math.max(60000,llmCfg().timeoutMs/2)}); llm.err=r.ok?null:r.err; return r; }
+const lmd={cfg:null,q:[],busy:false,calls:[],fails:0,downUntil:0,last:[],views:{},asked:{},stats:{n:0,ok:0,bad:0,ms:0,tokIn:0,tokOut:0},err:null,onView:null};
+function lmdCfg(){ if(!lmd.cfg){ let sv=null; try{ sv=JSON.parse(localStorage.getItem(LMD_KEY)||"null"); }catch(e){} lmd.cfg={...LMD_DEF,...(sv||{})}; } return lmd.cfg; }
+function lmdSetCfg(o){ lmd.cfg={...lmdCfg(),...(o||{})}; try{ localStorage.setItem(LMD_KEY,JSON.stringify(lmd.cfg)); }catch(e){} return lmd.cfg; }
+// istemci (src/llm.js, Selim ile ortak): hata fırlatır; burada {ok,...} biçimine çevrilir
+async function lmdCall(system, user, schema, maxTokens){ const t0=Date.now();
+  try{ const r=await llmChat({system,user,schema,name:"masa",maxTokens}); return {ok:true,ms:Date.now()-t0,text:r.text,json:r.out,tokIn:r.usage.in,tokOut:r.usage.out,model:r.model}; }
+  catch(e){ return {ok:false,ms:Date.now()-t0,err:String(e&&e.message||e)}; } }
+async function lmdPing(){ const r=await lmdCall("Kısa cevap ver.","Tek kelimeyle cevap ver: hazır mısın?",null,16); lmd.err=r.ok?null:r.err; return r; }
 // bütçe: kapalı, ulaşılamıyor (3 hatadan sonra 10 dk ara), saatlik sınır
-function llmReady(){ const C=llmCfg(); if(!C.on) return "kapalı"; if(Date.now()<llm.downUntil) return "ulaşılamıyor ("+(llm.err||"hata")+"), "+Math.ceil((llm.downUntil-Date.now())/60e3)+" dk sonra yeniden"; const h=Date.now()-36e5; llm.calls=llm.calls.filter(t=>t>h); if(llm.calls.length>=C.perHour) return `saatlik bütçe doldu (${C.perHour})`; return null; }
+function lmdReady(){ const C=lmdCfg(); if(!C.on) return "kapalı"; if(typeof llm==="undefined"||(llm.cfg.provider==="claude"&&!C.allowPaid)) return "ücretli sağlayıcı (Claude API) seçili; masa yalnız yerel modelle konuşur"; if(typeof llmReady!=="function"||!llmReady()) return "dil modeli ayarı kapalı (Araştırma sekmesi)"; if(Date.now()<lmd.downUntil) return "ulaşılamıyor ("+(lmd.err||"hata")+"), "+Math.ceil((lmd.downUntil-Date.now())/60e3)+" dk sonra yeniden"; const h=Date.now()-36e5; lmd.calls=lmd.calls.filter(t=>t>h); if(lmd.calls.length>=C.perHour) return `saatlik bütçe doldu (${C.perHour})`; return null; }
 /* ---------- toplantı istemi ---------- */
 const r3=v=>isFinite(v)?Math.round(v*1000)/1000:null;
-function llmSystem(kind){
+function lmdSystem(kind){
   const who=DESK.map(d=>`${d.id} = ${d.name} (${d.role}): ${LLM_PERSONA[d.id]||""}`).join("\n");
   return `Bir kripto vadeli işlem masasının toplantısını yürütüyorsun. Masada on üç kişi var, hepsi erkek; her biri yalnız kendi uzmanlığına bakar ve kendi mizacıyla konuşur:
 ${who}
@@ -2013,7 +1996,7 @@ Türkçe yaz. Yalnız JSON döndür, başka metin yok. Şema:
 "oy": ${kind==="pozisyon"?"pozisyonu tutmaya destek (+1 kesin tut, −1 hemen çık)":"bu yönde işleme destek (+1 kesin gir, −1 kesin karşı)"}. "eylem": ${(kind==="pozisyon"?LLM_ACT.pozisyon:LLM_ACT.giris).map(x=>'"'+x+'"').join(" | ")}.`;
 }
 // toplantının verisi: kısa anahtarlar, yuvarlanmış sayılar (istem ~1000–1300 token)
-function llmBrief(kind, sym, dir, A, com, rv, pos){
+function lmdBrief(kind, sym, dir, A, com, rv, pos){
   const B=A.btcReg&&A.btcReg[dir]; const list=kind==="pozisyon"&&rv&&rv.views?rv.views:(com&&com.agents)||[];
   const uyeler=list.map(a=>a.abst?{id:a.id,cekimser:true}:{id:a.id,oy:r3(a.v),guven:r3(a.c),not:String(a.txt||"").slice(0,160),...(a.act?{eylem:a.act}:{})});
   const piyasa={fiyat:A.px,gunluk_trend:A.trend,trend_puani:A.trendScore,saatlik_yapi:A.st,ruzgar:A.score,hacim_orani:r3(A.volRel),fonlama:r3(A.fund*100),taker_30dk:r3(A.tk30),oi:A.oiCase||null,
@@ -2024,8 +2007,13 @@ function llmBrief(kind, sym, dir, A, com, rv, pos){
   else if(com){ d.kural_masasi={puan:pts(com.score),esik:pts(COM_DEF.threshold),evet:com.yes,karar:com.decision,veto:com.veto||null,stop_yuzde:com.plan?r3(com.plan.sd*100):null}; }
   return d;
 }
+// çıktı şeması (Ollama "format", OpenAI uyumlu json_schema strict): küçük modeller bununla bozuk JSON üretmez
+function lmdSchema(kind){ const acts=kind==="pozisyon"?LLM_ACT.pozisyon:LLM_ACT.giris; const ids=DESK.map(d=>d.id); const S=(props)=>({type:"object",properties:props,required:Object.keys(props),additionalProperties:false});
+  return S({uyeler:{type:"array",items:S({id:{type:"string",enum:ids},oy:{type:"number"},guven:{type:"number"},soz:{type:"string"}})},
+    tartisma:{type:"array",items:S({id:{type:"string",enum:ids},kime:{type:"string",enum:ids},soz:{type:"string"}})},
+    karar:S({oy:{type:"number"},guven:{type:"number"},eylem:{type:"string",enum:acts},gerekce:{type:"string"}})}); }
 // modelin cevabını doğrula: bilinmeyen üye, aralık dışı sayı, izinsiz eylem atılır; karar yoksa geçersiz
-function llmParse(j, kind){
+function lmdParse(j, kind){
   if(!j||typeof j!=="object") return null; const ids=new Set(DESK.map(d=>d.id)); const num=(v,a,b)=>{ const x=+v; return isFinite(x)?clamp(x,a,b):null; };
   const acts=kind==="pozisyon"?LLM_ACT.pozisyon:LLM_ACT.giris; const normAct=a=>{ const s=String(a||"").toLowerCase().replace(/_/g," ").trim(); return acts.find(x=>x===s)||acts.find(x=>s.startsWith(x))||(s==="kar al"?"kâr al":s==="cik"?"çık":s==="giris"||s==="gir"?(acts.includes("gir")?"gir":null):null); };
   const members={}; for(const m of Array.isArray(j.uyeler)?j.uyeler:[]){ if(!m||!ids.has(m.id)) continue; const v=num(m.oy,-1,1), c=num(m.guven,0,1); if(v==null) continue; members[m.id]={v,c:c==null?0.5:c,say:String(m.soz||"").slice(0,240)}; }
@@ -2034,37 +2022,37 @@ function llmParse(j, kind){
   return {members,talk,dec:{v,c:num(k.guven,0,1)??0.5,act,why:String(k.gerekce||"").slice(0,300)}};
 }
 /* ---------- kuyruk: model tek iş yapar; pozisyonlar (öncelik 0) girişlerden (1) önce, aynı anahtar bir kez ---------- */
-function llmEnqueue(job){ if(llmReady()) return false; if(llm.q.some(x=>x.key===job.key)) return false; llm.q.push(job); llm.q.sort((a,b)=>a.prio-b.prio); if(llm.q.length>6) llm.q.length=6; llmPump(); return true; }
-async function llmPump(){ if(llm.busy) return; const job=llm.q.shift(); if(!job) return; if(llmReady()){ llm.q.length=0; return; } llm.busy=true; llm.calls.push(Date.now());
-  try{ await job.run(); }catch(e){ llm.err=String(e&&e.message||e); } finally{ llm.busy=false; setTimeout(llmPump,0); } }
+function lmdEnqueue(job){ if(lmdReady()) return false; if(lmd.q.some(x=>x.key===job.key)) return false; lmd.q.push(job); lmd.q.sort((a,b)=>a.prio-b.prio); if(lmd.q.length>6) lmd.q.length=6; lmdPump(); return true; }
+async function lmdPump(){ if(lmd.busy) return; const job=lmd.q.shift(); if(!job) return; if(lmdReady()){ lmd.q.length=0; return; } lmd.busy=true; lmd.calls.push(Date.now());
+  try{ await job.run(); }catch(e){ lmd.err=String(e&&e.message||e); } finally{ lmd.busy=false; setTimeout(lmdPump,0); } }
 // bir toplantı: istem → model → doğrulama → kayıt (tahmin defteri) → bildirim
-async function llmMeet(kind, sym, dir, A, com, rv, pos){
-  const C=llmCfg(); const brief=llmBrief(kind,sym,dir,A,com,rv,pos);
-  const r=await llmChat([{role:"system",content:llmSystem(kind)},{role:"user",content:JSON.stringify(brief)}],{json:true}); llm.stats.n++;
-  if(!r.ok){ llm.fails++; llm.err=r.err; if(llm.fails>=3){ llm.downUntil=Date.now()+10*60e3; llm.fails=0; } return {ok:false,err:r.err,ms:r.ms}; }
-  llm.fails=0; llm.err=null; llm.stats.ms+=r.ms; llm.stats.tokIn+=r.tokIn; llm.stats.tokOut+=r.tokOut;
-  const P=llmParse(r.json,kind); if(!P){ llm.stats.bad++; return {ok:false,err:"model geçerli JSON döndürmedi",ms:r.ms,text:r.text.slice(0,300)}; } llm.stats.ok++;
-  const view={t:Date.now(),kind,sym,dir,model:C.model,ms:r.ms,tokIn:r.tokIn,tokOut:r.tokOut,...P,rule:kind==="pozisyon"?{hold:rv&&rv.hold,verdict:rv&&rv.verdict}:{score:com&&com.score,decision:com&&com.decision}};
-  llm.views[kind+"|"+sym+"|"+dir]=view; llm.last.unshift(view); if(llm.last.length>12) llm.last.length=12;
+async function lmdMeet(kind, sym, dir, A, com, rv, pos){
+  const C=lmdCfg(); const brief=lmdBrief(kind,sym,dir,A,com,rv,pos);
+  const r=await lmdCall(lmdSystem(kind),JSON.stringify(brief),lmdSchema(kind),C.maxTokens); lmd.stats.n++;
+  if(!r.ok){ lmd.fails++; lmd.err=r.err; if(lmd.fails>=3){ lmd.downUntil=Date.now()+10*60e3; lmd.fails=0; } return {ok:false,err:r.err,ms:r.ms}; }
+  lmd.fails=0; lmd.err=null; lmd.stats.ms+=r.ms; lmd.stats.tokIn+=r.tokIn; lmd.stats.tokOut+=r.tokOut;
+  const P=lmdParse(r.json,kind); if(!P){ lmd.stats.bad++; return {ok:false,err:"model geçerli JSON döndürmedi",ms:r.ms,text:String(r.text||"").slice(0,300)}; } lmd.stats.ok++;
+  const view={t:Date.now(),kind,sym,dir,model:r.model||llm.cfg.model,ms:r.ms,tokIn:r.tokIn,tokOut:r.tokOut,...P,rule:kind==="pozisyon"?{hold:rv&&rv.hold,verdict:rv&&rv.verdict}:{score:com&&com.score,decision:com&&com.decision}};
+  lmd.views[kind+"|"+sym+"|"+dir]=view; lmd.last.unshift(view); if(lmd.last.length>12) lmd.last.length=12;
   if(typeof fcNote==='function'){ const v={}; v[kind==="pozisyon"?"llm:pos":"llm"]=P.dec.v; for(const id in P.members) v[(kind==="pozisyon"?"lp:":"l:")+id]=P.members[id].v; fcNote("llm",kind+"|"+(pos&&pos.id||sym)+"|"+dir,sym,dir,A,v,P.dec.v,view.t,{eylem:P.dec.act}); }
-  try{ llm.onView&&llm.onView(view); }catch(e){}
+  try{ lmd.onView&&lmd.onView(view); }catch(e){}
   return {ok:true,view};
 }
 // tarama sonrası: eşiğe en yakın adaylar (puan ≥ minScore), coin+yön başına askGapMin dakikada bir
-function llmScanAsk(rows){ const C=llmCfg(); if(llmReady()) return 0; const now=Date.now(); let n=0;
+function lmdScanAsk(rows){ const C=lmdCfg(); if(lmdReady()) return 0; const now=Date.now(); let n=0;
   const c=[]; for(const r of rows||[]) for(const d of ["long","short"]){ const x=r.com&&r.com[d]; if(x&&!x.veto&&x.score>=C.minScore&&r._f&&r._s) c.push({r,d,x}); }
   c.sort((a,b)=>b.x.score-a.x.score);
-  for(const {r,d,x} of c){ if(n>=C.entryTop) break; const key="giris|"+r.s+"|"+d; if(llm.asked[key]&&now-llm.asked[key]<C.askGapMin*6e4) continue; llm.asked[key]=now;
-    if(llmEnqueue({key,prio:1,run:async()=>{ const A=analyze(r._f,r._s); return llmMeet("giris",r.s,d,A,x,null,null); }})) n++; }
+  for(const {r,d,x} of c){ if(n>=C.entryTop) break; const key="giris|"+r.s+"|"+d; if(lmd.asked[key]&&now-lmd.asked[key]<C.askGapMin*6e4) continue; lmd.asked[key]=now;
+    if(lmdEnqueue({key,prio:1,run:async()=>{ const A=analyze(r._f,r._s); return lmdMeet("giris",r.s,d,A,x,null,null); }})) n++; }
   return n; }
 // açık pozisyon toplantısından sonra: pozisyon başına posEveryMin dakikada bir; sonuç p.lastReview.llm'e yazılır
-function llmPosAsk(p, rv, A, c24){ const C=llmCfg(); if(llmReady()) return false; const key="pozisyon|"+p.id; const now=Date.now(); if(llm.asked[key]&&now-llm.asked[key]<C.posEveryMin*6e4) return false; llm.asked[key]=now;
-  return llmEnqueue({key,prio:0,run:async()=>{ const out=await llmMeet("pozisyon",p.sym,p.dir,A,null,rv,{...posCtx(p,null),id:p.id}); if(out.ok&&p.lastReview) p.lastReview.llm=out.view; return out; }}); }
+function lmdPosAsk(p, rv, A, c24){ const C=lmdCfg(); if(lmdReady()) return false; const key="pozisyon|"+p.id; const now=Date.now(); if(lmd.asked[key]&&now-lmd.asked[key]<C.posEveryMin*6e4) return false; lmd.asked[key]=now;
+  return lmdEnqueue({key,prio:0,run:async()=>{ const out=await lmdMeet("pozisyon",p.sym,p.dir,A,null,rv,{...posCtx(p,null),id:p.id}); if(out.ok&&p.lastReview) p.lastReview.llm=out.view; return out; }}); }
 /* oya giriş: ayarda açık ve tahmin defterinde ≥ minN görüşte becerisi artı (fcMult > 1) → ağırlık fcMult − 1 (en çok 0,4); taze (≤ askGapMin) görüş gerekir */
-function llmWeight(key){ const C=llmCfg(); if(!C.vote) return 0; const L=(typeof FC!=="undefined"&&FC&&FC.learn)?FC.learn.agents[key]:null; return L&&L.n>=C.minN&&L.m>1?+(L.m-1).toFixed(3):0; }
-function llmVote(sym, dir, kind){ kind=kind||"giris"; const v=llm.views[kind+"|"+sym+"|"+dir]; if(!v||Date.now()-v.t>llmCfg().askGapMin*6e4*2) return null; const w=llmWeight(kind==="pozisyon"?"llm:pos":"llm"); return {v:v.dec.v,c:v.dec.c,act:v.dec.act,w,why:v.dec.why,t:v.t}; }
+function lmdWeight(key){ const C=lmdCfg(); if(!C.vote) return 0; const L=(typeof FC!=="undefined"&&FC&&FC.learn)?FC.learn.agents[key]:null; return L&&L.n>=C.minN&&L.m>1?+(L.m-1).toFixed(3):0; }
+function lmdVote(sym, dir, kind){ kind=kind||"giris"; const v=lmd.views[kind+"|"+sym+"|"+dir]; if(!v||Date.now()-v.t>lmdCfg().askGapMin*6e4*2) return null; const w=lmdWeight(kind==="pozisyon"?"llm:pos":"llm"); return {v:v.dec.v,c:v.dec.c,act:v.dec.act,w,why:v.dec.why,t:v.t}; }
 // okunur döküm (günlük, JSONL, ekran)
-function llmLines(view){ const nm=id=>(DESK.find(d=>d.id===id)||{}).name||id; const out=[]; for(const id of DESK.map(d=>d.id)){ const m=view.members[id]; if(m&&m.say) out.push({id,who:nm(id),text:`${m.say} (${m.v>0?"+":""}${fx(m.v,1)})`}); }
+function lmdLines(view){ const nm=id=>(DESK.find(d=>d.id===id)||{}).name||id; const out=[]; for(const id of DESK.map(d=>d.id)){ const m=view.members[id]; if(m&&m.say) out.push({id,who:nm(id),text:`${m.say} (${m.v>0?"+":""}${fx(m.v,1)})`}); }
   for(const t of view.talk) out.push({id:t.id,who:nm(t.id),text:(t.to?nm(t.to)+", ":"")+t.say,stage:"itiraz"}); out.push({id:"risk",who:nm("risk"),text:`Karar: ${view.dec.act.toUpperCase()} (oy ${view.dec.v>0?"+":""}${fx(view.dec.v,2)}, güven %${Math.round(view.dec.c*100)}). ${view.dec.why}`,stage:"karar"}); return out; }
 
 /* ---------- Trend sepeti: günlük trend takibi, oynaklığa göre boy (6 Ekim 2026) ----------
@@ -2280,6 +2268,8 @@ function acctStop(forget){ acct.on=false; clearInterval(acct.timer); clearInterv
    Türetilenler: lider başına kazanma oranı, ortalama ROI, medyan tutuş, ekleme ve kısmi kapatma oranı; açık pozisyon tahmini (emir akışından net miktar);
    coin başına yön uzlaşısı (açık pozisyon ağırlık 2, son 72 saatte kapanan 1). Masada "Tolga · kopya trader araştırmacısı" bunu kullanır. */
 const LD_BASE="https://www.binance.com/bapi/futures/v1/friendly/future/copy-trade/";
+// 6 Ekim 2026 gecesi: kullanıcı "20'den fazla başarılı lider var" dedi → liste 100 lider (5 sayfa), elekten en çok 40
+const LD_CFG={pages:5,max:40};
 const ld={at:0,list:[],leaders:{},profile:null,sym:{},err:null,busy:false,prog:""};
 try{ const sv=JSON.parse(localStorage.getItem("st-leaders")||"null"); if(sv&&sv.at){ ld.at=sv.at; ld.list=sv.list||[]; ld.leaders=sv.leaders||{}; ld.profile=sv.profile||null; ld.sym=sv.sym||{}; } }catch(e){}
 function ldSave(){ try{ localStorage.setItem("st-leaders",JSON.stringify({at:ld.at,list:ld.list,leaders:ld.leaders,profile:ld.profile,sym:ld.sym})); }catch(e){} }
@@ -2312,19 +2302,19 @@ function ldSymbols(){
     for(const r of x.recent||[]) if(!both.has(r.sym)) bump(r.sym,r.dir,1,x.nick); }
   return m;
 }
-// yenile: en iyi 60 lider (90 gün ROI) → elek → 20 lider → geçmişleri
+// yenile: en iyi 100 lider (90 gün ROI) → elek → en çok 40 lider → geçmişleri
 async function ldRefresh(force){
   if(ld.busy) return false; if(!force&&ld.at&&Date.now()-ld.at<3600e3) return false; ld.busy=true; ld.err=null; ld.prog="liste";
   try{
-    let all=[]; for(let pg=1;pg<=3;pg++){ const d=await ldPost("home-page/query-list",{pageNumber:pg,pageSize:20,timeRange:"90D",dataType:"ROI",favoriteOnly:false,hideFull:false,nickname:"",order:"DESC",userAsset:0,portfolioType:"ALL"}); all=all.concat(d.list||[]); }
-    const picked=all.filter(x=>+x.aum>=20000&&+x.currentCopyCount>=50&&+x.mdd<=60&&+x.winRate>=50).slice(0,20);
+    let all=[]; for(let pg=1;pg<=LD_CFG.pages;pg++){ const d=await ldPost("home-page/query-list",{pageNumber:pg,pageSize:20,timeRange:"90D",dataType:"ROI",favoriteOnly:false,hideFull:false,nickname:"",order:"DESC",userAsset:0,portfolioType:"ALL"}); all=all.concat(d.list||[]); }
+    const picked=all.filter(x=>+x.aum>=20000&&+x.currentCopyCount>=50&&+x.mdd<=60&&+x.winRate>=50).slice(0,LD_CFG.max);
     ld.list=picked.map(x=>({id:String(x.leadPortfolioId),nick:x.nickname,roi:+x.roi,pnl:+x.pnl,aum:+x.aum,mdd:+x.mdd,wr:+x.winRate,copiers:+x.currentCopyCount,sharpe:x.sharpRatio!=null?+x.sharpRatio:null}));
     const keep={}; let i=0;
     for(const L of ld.list){ i++; ld.prog=`${i}/${ld.list.length} ${L.nick}`; if(typeof ldOnProgress==="function") ldOnProgress();
       try{ const [ph,oh]=await Promise.all([ldPost("lead-portfolio/position-history",{portfolioId:L.id,pageNumber:1,pageSize:50}),ldPost("lead-portfolio/order-history",{portfolioId:L.id,pageNumber:1,pageSize:100})]); keep[L.id]=ldDigest(L,ph.list||[],oh.list||[]); if(typeof labIngest==="function") labIngest(L,ph.list||[]); }
       catch(e){ keep[L.id]=ld.leaders[L.id]&&!ld.leaders[L.id].err?ld.leaders[L.id]:{id:L.id,nick:L.nick,err:e.message}; }
       await new Promise(r=>setTimeout(r,300)); }
-    ld.leaders=keep; ld.profile=ldProfile(); ld.sym=ldSymbols(); ld.at=Date.now(); ld.prog=""; ldSave(); return true;
+    ld.leaders=keep; ld.profile=ldProfile(); ld.sym=ldSymbols(); ld.at=Date.now(); ld.prog=""; ldSave(); if(typeof labPosWatch==="function") try{ labPosWatch(); }catch(e){} return true;
   }catch(e){ ld.err=e.message; ld.prog=""; return false; }
   finally{ ld.busy=false; if(typeof ldOnProgress==="function") ldOnProgress(); }
 }
@@ -2341,7 +2331,7 @@ async function ldRefresh(force){
       Durum: aday → izlemede → onaylı (≥20 ileri işlem, ort > 0) / zayıf (≥20, ort ≤ 0).
    5. Masa: Burak (id "lab") eşleşen adayla oy verir, tartışmada Baran'ı kovalamaya karşı uyarır, Kerem'e süpürme kanıtı verir, zaman stopunu önerir.
    Lider verisi yalnızca masaüstü uygulamasında çekilir (CORS); mumlar her yerde çalışır. */
-const LAB_CFG={maxTrades:4000,firstPages:4,pageSize:50,harvestEveryH:6,minN:20,minLeaders:4,minHalf:6,klTtl:6*3600e3,shadowGapH:4,maxShadows:400,promoteN:20,clip:5};
+const LAB_CFG={maxTrades:4000,firstPages:4,pageSize:50,harvestEveryH:6,minN:20,minLeaders:4,minHalf:6,klTtl:6*3600e3,shadowGapH:4,maxShadows:400,promoteN:20,clip:5,minLift:0.15};
 const LAB_FEATS=[
   {k:"ses",name:"Seans",vals:{asya:"Asya 00–07",londra:"Londra 07–12",ny:"New York 12–20",gec:"Geç 20–24"}},
   {k:"tr",name:"1 sa trend",vals:{with:"lehte",against:"karşı",flat:"yatay"}},
@@ -2351,7 +2341,8 @@ const LAB_FEATS=[
   {k:"sw",name:"Süpürme (6 sa)",vals:{var:"süpürme sonrası",yok:"süpürme yok"}},
   {k:"vol",name:"Hacim (3 sa)",vals:{yuksek:"yüksek",normal:"normal"}}];
 const lab={trades:[],snaps:{},harvestAt:{},styles:{},factors:null,cands:[],avoid:[],fwd:{},shadows:[],notes:[],base:null,at:0,dirty:false,busy:false,prog:"",err:null,kl:{}};
-try{ const sv=JSON.parse(localStorage.getItem("st-lab")||"null"); if(sv&&sv.v===1){ for(const k of ["trades","snaps","harvestAt","fwd","shadows","notes"]) if(sv[k]) lab[k]=sv[k]; lab.dirty=true; } }catch(e){}
+try{ const sv=JSON.parse(localStorage.getItem("st-lab")||"null"); if(sv&&sv.v===1){ for(const k of ["trades","snaps","harvestAt","fwd","shadows","notes"]) if(sv[k]) lab[k]=sv[k]; lab.dirty=true;
+  for(const x of lab.trades) if(x.f&&typeof x.f==="object"&&!x.mc) x.f=null; } }catch(e){} // 7 Ekim 2026 öncesi kayıtlar kopya ölçüsüyle yeniden zenginleşir
 function labSave(){ try{ localStorage.setItem("st-lab",JSON.stringify({v:1,trades:lab.trades,snaps:lab.snaps,harvestAt:lab.harvestAt,fwd:lab.fwd,shadows:lab.shadows,notes:lab.notes.slice(-40)})); }catch(e){ lab.err="kayıt alanı doldu: "+e.message; } }
 function labNote(who,text){ const last=lab.notes[lab.notes.length-1]; if(last&&last.text===text) return; lab.notes.push({t:Date.now(),who,text}); lab.notes=lab.notes.slice(-40); }
 /* --- 1. toplama --- */
@@ -2398,19 +2389,39 @@ async function labEnrich(maxSyms){
   const todo={}; for(const x of lab.trades) if(x.f===null) (todo[x.sym]=todo[x.sym]||[]).push(x); const syms=Object.keys(todo); if(!syms.length) return 0;
   const b=await labKlines("BTCUSDT"); let n=0;
   for(const s of syms.slice(0,maxSyms)){ lab.prog=`mumlar: ${s}`; const k=await labKlines(s);
-    for(const x of todo[s]){ if(!k){ x.f="x"; continue; } if(x.open<k[0].t+51*36e5){ x.f="old"; continue; } const f=labFeat(k,b,x.open,x.dir); x.f=f||"x"; if(f){ const sg=x.dir==="long"?1:-1; const mv=x.entry>0&&x.exit>0?sg*(x.exit/x.entry-1):NaN; x.m=isFinite(mv)?+clamp(mv/f.atr,-LAB_CFG.clip,LAB_CFG.clip).toFixed(3):NaN; n++; } } }
+    for(const x of todo[s]){ if(!k){ x.f="x"; continue; } if(x.open<k[0].t+51*36e5){ x.f="old"; continue; } const f=labFeat(k,b,x.open,x.dir); x.f=f||"x"; if(f){ const sg=x.dir==="long"?1:-1; const cl=v=>isFinite(v)?+clamp(v/f.atr,-LAB_CFG.clip,LAB_CFG.clip).toFixed(3):NaN;
+        // m: kopya ölçüsü = açılış saatinin kapanışında gir (bir saat içinde kopyala), liderin kapanış fiyatından çık. m0: liderin kendi sonucu (ortalama maliyetten; ortalama düşürme dahil)
+        const ci=labIdx(k,x.open+36e5); const e1=ci>=0&&k[ci].t<=x.open?k[ci].c:NaN; x.m0=cl(x.entry>0&&x.exit>0?sg*(x.exit/x.entry-1):NaN); x.m=cl(e1>0&&x.exit>0?sg*(x.exit/e1-1):NaN); x.mc=1; n++; } } }
   if(n) lab.dirty=true; return n;
 }
 /* --- 3. analiz --- */
-function labStat(rows,wOf){ let W=0,S=0,S2=0,win=0,n=0; const ls=new Set(); for(const x of rows){ const w=wOf(x); W+=w; S+=w*x.m; S2+=w*x.m*x.m; if(x.pnl>0) win+=w; n++; ls.add(x.lid); } const mean=W?S/W:NaN; const sd=W?Math.sqrt(Math.max(0,S2/W-mean*mean)):NaN; const neff=Math.min(n,W*1.5); return {n,w:+W.toFixed(1),leaders:ls.size,mean:+mean.toFixed(3),wr:W?+(win/W).toFixed(3):NaN,t:sd>0?+(mean/(sd/Math.sqrt(Math.max(1,neff)))).toFixed(2):0}; }
+function labStat(rows,wOf){ let W=0,S=0,S2=0,win=0,n=0; const ls=new Set(); for(const x of rows){ const w=wOf(x); W+=w; S+=w*x.m; S2+=w*x.m*x.m; if(x.m>0) win+=w; n++; ls.add(x.lid); } const mean=W?S/W:NaN; const sd=W?Math.sqrt(Math.max(0,S2/W-mean*mean)):NaN; const neff=Math.min(n,W*1.5); const se=sd>0?sd/Math.sqrt(Math.max(1,neff)):NaN; return {n,w:+W.toFixed(1),leaders:ls.size,mean:+mean.toFixed(3),wr:W?+(win/W).toFixed(3):NaN,t:se>0?+(mean/se).toFixed(2):0,se}; }
 function labCondTxt(conds){ return conds.map(([f,v])=>{ const F=LAB_FEATS.find(x=>x.k===f); return F.name+": "+F.vals[v]; }).join(" + "); }
 function labMed(a){ const s=a.filter(isFinite).sort((x,y)=>x-y); return s.length?s[Math.floor(s.length/2)]:NaN; }
-function labAnalyze(){
-  const T=lab.trades.filter(x=>x.f&&typeof x.f==="object"&&isFinite(x.m)); lab.at=Date.now(); lab.dirty=false;
-  if(T.length<LAB_CFG.minN){ lab.base=null; lab.factors=null; lab.cands=[]; lab.avoid=[]; lab.styles={}; return; }
-  const perL={}; for(const x of T) perL[x.lid]=(perL[x.lid]||0)+1; const wOf=x=>Math.min(1,25/perL[x.lid]);
+// ortak ölçü bağlamı: zenginleşmiş işlemler, lider ağırlığı, zaman ortası, istatistik (Burak ve Selim aynı ölçüyü kullanır)
+function labCtx(){
+  const T=lab.trades.filter(x=>x.f&&typeof x.f==="object"&&isFinite(x.m)); const perL={}; for(const x of T) perL[x.lid]=(perL[x.lid]||0)+1; const wOf=x=>Math.min(1,25/perL[x.lid]);
   const tMid=labMed(T.map(x=>x.open));
   const st=rows=>{ const s=labStat(rows,wOf); const a=rows.filter(x=>x.open<tMid), b=rows.filter(x=>x.open>=tMid); s.h1=a.length?labStat(a,wOf).mean:NaN; s.h2=b.length?labStat(b,wOf).mean:NaN; s.n1=a.length; s.n2=b.length; s.hold=+labMed(rows.map(x=>x.hold)).toFixed(2); s.lev=labMed(rows.map(x=>x.lev)); return s; };
+  return {T,perL,wOf,tMid,st};
+}
+// bir kuralı (yön + koşullar) liderlerin geçmişinde ölç; aday kapıları labAnalyze ile aynı
+function labTest(dir,conds,C){
+  C=C||labCtx(); const rows=C.T.filter(x=>x.dir===dir&&conds.every(([f,v])=>x.f[f]===v)); if(!rows.length) return {n:0,leaders:0,mean:NaN,h1:NaN,h2:NaN,wr:NaN,t:0,tl:0,n1:0,n2:0,hold:NaN,lev:NaN,lift:NaN,good:false,bad:false};
+  const s=C.st(rows); const base=C.st(C.T.filter(x=>x.dir===dir)); return labGate(s,base);
+}
+/* aday kapıları (7 Ekim 2026'dan beri tabana göre): liderlerin kapanmış işlemleri ortalama artıdır (hayatta kalma, ortalama düşürme), bu yüzden
+   "artı mı" değil "aynı yöndeki tüm işlemlerden iyi mi" sorulur. İyi: ort > 0,1, taban üstü fark ≥ minLift, iki yarıda da kendi yarısının tabanı üstünde,
+   farkın t'si ≥ 1,5, kopya kazanma ≥ %50. Kötü: fark ≤ −minLift, iki yarıda da taban altında, t ≤ −1,5. */
+function labGate(s,base){
+  s.lift=+(s.mean-base.mean).toFixed(3); s.l1=s.h1-base.h1; s.l2=s.h2-base.h2; s.tl=s.se>0?+(s.lift/s.se).toFixed(2):0;
+  const enough=s.n>=LAB_CFG.minN&&s.leaders>=LAB_CFG.minLeaders&&s.n1>=LAB_CFG.minHalf&&s.n2>=LAB_CFG.minHalf;
+  s.good=enough&&s.mean>0.1&&s.h1>0&&s.h2>0&&s.wr>=0.5&&s.lift>=LAB_CFG.minLift&&s.l1>0&&s.l2>0&&s.tl>=1.5;
+  s.bad=enough&&s.lift<=-LAB_CFG.minLift&&s.l1<0&&s.l2<0&&s.tl<=-1.5; return s;
+}
+function labAnalyze(){
+  const C=labCtx(); const {T,perL,st}=C; lab.at=Date.now(); lab.dirty=false;
+  if(T.length<LAB_CFG.minN){ lab.base=null; lab.factors=null; lab.cands=[]; lab.avoid=[]; lab.styles={}; if(typeof selAfterAnalyze==="function") selAfterAnalyze(C); return; }
   lab.base={all:st(T),long:st(T.filter(x=>x.dir==="long")),short:st(T.filter(x=>x.dir==="short")),total:lab.trades.length,featured:T.length,leaders:Object.keys(perL).length,from:Math.min(...T.map(x=>x.open)),to:Math.max(...T.map(x=>x.close))};
   // faktör tablosu
   const factors=[]; for(const F of LAB_FEATS) for(const v of Object.keys(F.vals)) for(const d of ["long","short"]){ const rows=T.filter(x=>x.dir===d&&x.f[F.k]===v); if(rows.length) factors.push({f:F.k,v,dir:d,...st(rows)}); }
@@ -2419,13 +2430,13 @@ function labAnalyze(){
   const conds=[]; for(const F of LAB_FEATS) for(const v of Object.keys(F.vals)) conds.push([F.k,v]);
   const evals=[]; const m={};
   for(const d of ["long","short"]){ const D=T.filter(x=>x.dir===d); const base=lab.base[d];
-    const test=cs=>{ const rows=D.filter(x=>cs.every(([f,v])=>x.f[f]===v)); if(rows.length<LAB_CFG.minN) return null; const s=st(rows); if(s.leaders<LAB_CFG.minLeaders||s.n1<LAB_CFG.minHalf||s.n2<LAB_CFG.minHalf) return null; return {key:d+"|"+cs.map(c=>c.join("=")).join("&"),dir:d,conds:cs,name:labCondTxt(cs),lift:+(s.mean-base.mean).toFixed(3),...s}; };
+    const test=cs=>{ const rows=D.filter(x=>cs.every(([f,v])=>x.f[f]===v)); if(rows.length<LAB_CFG.minN) return null; const s=labGate(st(rows),base); if(s.leaders<LAB_CFG.minLeaders||s.n1<LAB_CFG.minHalf||s.n2<LAB_CFG.minHalf) return null; return {key:d+"|"+cs.map(c=>c.join("=")).join("&"),dir:d,conds:cs,name:labCondTxt(cs),...s}; };
     for(const c of conds){ const r=test([c]); if(r){ evals.push(r); m[r.key]=r; } }
     for(let i=0;i<conds.length;i++) for(let j=i+1;j<conds.length;j++){ if(conds[i][0]===conds[j][0]) continue; const r=test([conds[i],conds[j]]); if(!r) continue; const a=m[d+"|"+conds[i].join("=")], b=m[d+"|"+conds[j].join("=")];
       // ikili koşul yalnızca iki tekliden de belirgin iyiyse (ya da kötüyse) tutulur
       const better=(!a||r.mean>a.mean+0.1)&&(!b||r.mean>b.mean+0.1), worse=(!a||r.mean<a.mean-0.1)&&(!b||r.mean<b.mean-0.1); if(better||worse) evals.push(r); } }
-  const good=evals.filter(r=>r.mean>0.1&&r.h1>0&&r.h2>0&&r.wr>=0.5&&r.lift>0&&r.t>=1.5).sort((a,b)=>b.t-a.t);
-  const bad=evals.filter(r=>r.mean<0&&r.h1<0&&r.h2<0&&r.t<=-1.5).sort((a,b)=>a.t-b.t);
+  const good=evals.filter(r=>r.good).sort((a,b)=>b.tl-a.tl);
+  const bad=evals.filter(r=>r.bad).sort((a,b)=>a.tl-b.tl);
   const pick=(arr,max)=>{ const out=[]; for(const r of arr){ if(out.length>=max) break; if(out.some(o=>o.dir===r.dir&&o.conds.length===1&&r.conds.some(c=>c.join("=")===o.conds[0].join("="))&&Math.abs(o.mean-r.mean)<0.15)) continue; out.push(r); } return out; };
   const prevTop=lab.cands[0]&&lab.cands[0].key; lab.cands=pick(good,8); lab.avoid=pick(bad,6);
   for(const c of lab.cands.concat(lab.avoid)) c.status=labStatus(c.key);
@@ -2437,6 +2448,7 @@ function labAnalyze(){
   lab.styles=styles;
   const top=lab.cands[0]; if(top&&top.key!==prevTop) labNote("Burak",`Yeni en güçlü aday: ${top.dir==="long"?"LONG":"SHORT"} · ${top.name} → ${top.n} işlem, ${top.leaders} lider, kazanma %${Math.round(top.wr*100)}, ort ${fx(top.mean,2)} ATR (yarılar ${fx(top.h1,2)} / ${fx(top.h2,2)}).`);
   if(lab.avoid[0]) labNote("Burak",`Kaçınılacak: ${lab.avoid[0].dir==="long"?"LONG":"SHORT"} · ${lab.avoid[0].name} → liderler burada ort ${fx(lab.avoid[0].mean,2)} ATR kaybediyor (${lab.avoid[0].n} işlem).`);
+  if(typeof selAfterAnalyze==="function") selAfterAnalyze(C); // Selim'in hipotezleri yeni veriyle yeniden ölçülür, Kaan'ın kütüphanesi güncellenir
 }
 /* --- 4. ileri test --- */
 function labStatus(key){ const f=lab.fwd[key]; if(!f||!f.n) return "aday"; if(f.n<LAB_CFG.promoteN) return "izlemede"; return f.sum/f.n>0?"onaylı":"zayıf"; }
@@ -2457,11 +2469,13 @@ async function labEvalShadows(max){
 }
 /* --- canlı eşleşme: masanın kullandığı içgörü --- */
 function labMatch(A,dir,sym){
-  if(!lab.cands.length&&!lab.avoid.length) return null; const k=A&&A.src&&A.src.k1h; if(!k||k.length<60) return null;
+  if(!lab.cands.length&&!lab.avoid.length&&!(typeof sel!=="undefined"&&sel.hyps.some(h=>h.status==="aday"))) return null; const k=A&&A.src&&A.src.k1h; if(!k||k.length<60) return null;
   const b=A.src.btc15?labAgg1h(A.src.btc15):null; const t=k[k.length-1].t+36e5; // son kapanmış mumdan hemen sonra
   const f=labFeat(k,b,t,dir); if(!f) return null; const ok=c=>c.dir===dir&&c.conds.every(([ff,v])=>f[ff]===v);
   const hits=lab.cands.filter(ok).map(c=>({...c,sw:LAB_SW[c.status]??0.6})); const avoid=lab.avoid.filter(ok);
   if(sym) for(const c of hits) labShadow(c,sym,dir,A.px,f.atr);
+  // Selim'in (LLM) geçmişte tutan hipotezleri: eşleşince yalnız ileri teste yazılır; ancak Onur'un ileri testinde onaylanınca Burak'ın oyuna girer
+  if(typeof sel!=="undefined") for(const h of sel.hyps){ if(h.status!=="aday"||!ok(h)) continue; if(sym) labShadow(h,sym,dir,A.px,f.atr); if(labStatus(h.key)==="onaylı") hits.push({...h,sw:LAB_SW["onaylı"],sel:true}); }
   return {f,hits,avoid};
 }
 /* --- arka plan turu (ui.js dakikada bir çağırır) --- */
@@ -2473,9 +2487,218 @@ async function labTick(force){
     await labEnrich(force?12:4);
     await labEvalShadows(force?10:4);
     if(lab.dirty&&(force||Date.now()-lab.at>5*60e3)){ lab.prog="analiz"; labAnalyze(); }
-    labSave(); return true;
+    labSave();
+    if(typeof selTick==="function"){ lab.prog="Selim"; await selTick(false); } // günde bir LLM analizi (anahtar yoksa hiçbir şey yapmaz)
+    return true;
   }catch(e){ lab.err=e.message; return false; }
   finally{ lab.busy=false; lab.prog=""; if(typeof labOnProgress==="function") labOnProgress(); }
+}
+
+/* ---------- LLM istemcisi (sağlayıcıdan bağımsız, 7 Ekim 2026) ----------
+   Tek giriş noktası: llmChat({system, user, schema, maxTokens}) → {out (şema verildiyse ayrıştırılmış JSON), text, usage:{in,out,cost}, model, provider}.
+   Sağlayıcılar (llm.cfg.provider):
+     "ollama"  (varsayılan, ücretsiz, yerel) → http://localhost:11434/api/chat; şema "format" ile zorlanır, bağlam num_ctx ile açılır.
+     "openai"  herhangi bir OpenAI uyumlu yerel sunucu (LM Studio, llama.cpp server, vLLM) → <url>/v1/chat/completions, response_format json_schema.
+     "claude"  Anthropic Claude API (ücretli, isteğe bağlı) → api.anthropic.com/v1/messages, output_config.format json_schema.
+   Ayarlar localStorage["st-llm"] (anahtar hariç); Claude anahtarı yalnız "hatırla" seçilirse localStorage["st-llm-key"], ekransız botta ANTHROPIC_API_KEY
+   (bellekte kalır). Depoya hiçbir anahtar yazılmaz. Masanın yerel LLM üyeleri de bu modülü kullanabilir (tek istemci, tek ayar). */
+const LLM_DEF={on:true,provider:"ollama",url:"http://localhost:11434",model:"qwen3:8b",ctx:32768,temp:0.2,claudeModel:"claude-opus-5-5",effort:"high",timeoutMs:600e3};
+const LLM_PRICE={"claude-opus-5-5":{in:4,out:20}};
+const llm={cfg:{...LLM_DEF},envKey:null,last:null,err:null,models:null};
+try{ const sv=JSON.parse(localStorage.getItem("st-llm")||"null"); if(sv&&typeof sv==="object") Object.assign(llm.cfg,sv); }catch(e){}
+function llmSave(){ try{ localStorage.setItem("st-llm",JSON.stringify(llm.cfg)); }catch(e){} }
+function llmKey(){ if(llm.envKey) return llm.envKey; try{ return localStorage.getItem("st-llm-key")||null; }catch(e){ return null; } }
+// Claude anahtarı: remember=false → yalnız bu oturumda bellekte
+function llmSetKey(k,remember){ k=String(k||"").trim()||null; llm.envKey=k; try{ if(remember&&k) localStorage.setItem("st-llm-key",k); else localStorage.removeItem("st-llm-key"); }catch(e){} }
+function llmSetCfg(p){ Object.assign(llm.cfg,p||{}); llmSave(); }
+function llmReady(){ const c=llm.cfg; if(!c.on) return false; return c.provider==="claude"?!!llmKey():!!(c.url&&c.model); }
+function llmLabel(){ const c=llm.cfg; return c.provider==="claude"?`Claude API · ${c.claudeModel}`:`${c.provider==="ollama"?"Ollama":"yerel sunucu"} · ${c.model}`; }
+// yerel modellerin bir kısmı JSON'u ```json ... ``` ya da <think> bloğu içinde döndürür
+function llmJson(t){ let s=String(t||"").replace(/<think>[\s\S]*?<\/think>/g,"").trim(); const f=s.match(/```(?:json)?\s*([\s\S]*?)```/); if(f) s=f[1]; const a=s.indexOf("{"), b=s.lastIndexOf("}"); if(a<0||b<a) throw new Error("yanıt JSON değil"); return JSON.parse(s.slice(a,b+1)); }
+async function llmFetch(url,opt,what){ let r; const ac=typeof AbortController!=="undefined"?new AbortController():null; const to=ac?setTimeout(()=>ac.abort(),llm.cfg.timeoutMs):null;
+  try{ r=await fetch(url,{...opt,signal:ac?ac.signal:undefined}); }catch(e){ throw new Error(`${what} bağlanılamadı (${e.name==="AbortError"?"zaman aşımı":e.message})`); } finally{ if(to) clearTimeout(to); }
+  let jj=null; try{ jj=await r.json(); }catch(e){} if(!r.ok){ const m=jj&&(jj.error&&(jj.error.message||jj.error))||""; throw new Error(`${what} HTTP ${r.status}${r.status===401?" (anahtar geçersiz)":""}${m?" · "+String(m).slice(0,160):""}`); } return jj; }
+async function llmChat(o){
+  const c=llm.cfg; if(!c.on) throw new Error("LLM kapalı"); const sys=o.system||"", user=o.user||""; let text="", usage={in:0,out:0,cost:0}, model=c.model;
+  if(c.provider==="claude"){ const key=llmKey(); if(!key) throw new Error("Claude API anahtarı yok");
+    // Uygulama tek dosya ve harici paket yok: SDK yerine doğrudan HTTP. Uyumlu modelde reddedilen istek sunucu tarafında yedek modele düşer (fallbacks).
+    const body={model:c.claudeModel,max_tokens:o.maxTokens||16000,thinking:{type:"adaptive"},output_config:{effort:c.effort,...(o.schema?{format:{type:"json_schema",schema:o.schema}}:{})},fallbacks:"default",system:sys,messages:[{role:"user",content:user}]};
+    const jj=await llmFetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-beta":"server-side-fallback-2026-07-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify(body)},"Claude API");
+    if(jj.stop_reason==="refusal") throw new Error("model isteği reddetti"); if(jj.stop_reason==="max_tokens") throw new Error("yanıt belirteç sınırında kesildi");
+    text=(jj.content||[]).filter(b=>b.type==="text").map(b=>b.text).join(""); model=jj.model||c.claudeModel; const u=jj.usage||{}; const P=LLM_PRICE[c.claudeModel]||LLM_PRICE["claude-opus-5-5"];
+    usage={in:u.input_tokens||0,out:u.output_tokens||0,cost:+(((u.input_tokens||0)*P.in+(u.output_tokens||0)*P.out)/1e6).toFixed(4)}; }
+  else if(c.provider==="ollama"){ const url=c.url.replace(/\/+$/,"")+"/api/chat";
+    const jj=await llmFetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({model:c.model,stream:false,messages:[{role:"system",content:sys},{role:"user",content:user}],...(o.schema?{format:o.schema}:{}),options:{num_ctx:c.ctx,temperature:c.temp,num_predict:o.maxTokens||8000}})},"Ollama ("+c.url+")");
+    text=jj.message&&jj.message.content||""; usage={in:jj.prompt_eval_count||0,out:jj.eval_count||0,cost:0}; }
+  else { const url=c.url.replace(/\/+$/,"")+"/v1/chat/completions";
+    const jj=await llmFetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({model:c.model,temperature:c.temp,max_tokens:o.maxTokens||8000,messages:[{role:"system",content:sys},{role:"user",content:user}],...(o.schema?{response_format:{type:"json_schema",json_schema:{name:o.name||"cikti",schema:o.schema,strict:true}}}:{})})},"Yerel LLM sunucusu ("+c.url+")");
+    text=jj.choices&&jj.choices[0]&&jj.choices[0].message&&jj.choices[0].message.content||""; const u=jj.usage||{}; usage={in:u.prompt_tokens||0,out:u.completion_tokens||0,cost:0}; model=jj.model||c.model; }
+  const out=o.schema?llmJson(text):null; llm.last={t:Date.now(),model,provider:c.provider,usage}; return {out,text,usage,model,provider:c.provider};
+}
+// yerel sunucudaki modeller (Ollama /api/tags, OpenAI uyumlu /v1/models); ayar ekranı ve "bağlantıyı sına" için
+async function llmModels(){ const c=llm.cfg; if(c.provider==="claude") return [c.claudeModel];
+  const u=c.url.replace(/\/+$/,"")+(c.provider==="ollama"?"/api/tags":"/v1/models"); const jj=await llmFetch(u,{method:"GET"},c.provider==="ollama"?"Ollama":"Yerel LLM sunucusu");
+  llm.models=c.provider==="ollama"?(jj.models||[]).map(m=>m.name):(jj.data||[]).map(m=>m.id); return llm.models; }
+
+/* ---------- Selim · LLM lider analisti (araştırma ekibinin dördüncü kişisi, 7 Ekim 2026) ----------
+   Kullanıcı: "copy-trade liderlerini analiz eden arkadaşı otomasyona bağlayalım, bir LLM yapalım; en önemli başarılı strateji verisi orada."
+   Sonra: "yerelde ücretsiz çalıştırabileceğimiz bir LLM" → varsayılan sağlayıcı Ollama (llm.js); Claude API isteğe bağlı.
+   Akış (labTick içinde, dakikada bir kontrol; LLM koşusu günde bir):
+     1. Tolga liderlerin kapanmış işlemlerini toplar (40 lider, saatte bir liste), labEnrich her işleme girişten önceki piyasa durumunu ve
+        kopya ölçüsünü yazar (research.js: açılış saatinin kapanışında gir, liderin kapanış fiyatından çık; ortalama düşürme hariç).
+     2. Burak sayısal taramayla aday kural ve kaçınılacak kalıp çıkarır (labAnalyze; ölçü tabana göre fark).
+     3. Selim (LLM) aynı veriyi okur: işlem tablosu, faktör tablosu, Burak'ın adayları, lider stilleri ve kendi önceki hipotezlerinin sonuçları.
+        Çıktısı makinece okunur JSON'dur: hipotez = yön + 1–3 koşul, yalnız LAB_FEATS sözlüğünden. Kod yazmaz, kod çalıştırmaz; sözlükte olmayan koşul atılır.
+     4. Her hipotez Burak'ın kapılarıyla (labTest/labGate) liderlerin geçmişinde ölçülür. Tutmayan "elendi" olur ve masaya hiç gelmez.
+        Tutan "aday" olur: canlı taramada eşleştikçe Onur gölge sinyal yazar (ileri test).
+     5. Oy: Selim masada oturmaz. Hipotezi ileri testte onaylanınca (≥20 sonuç, ort > 0) Burak'ın adayları arasına girer ve Burak onunla oy verir.
+     6. Kaan'ın faktör kütüphanesi: Burak'ın adayları/kaçınları ve Selim'in hipotezleri FACTORS'a "lab_*" faktörü olarak eklenir (dyn, ağırlık 0).
+        Tahmin defteri her birini "f:lab_*" adıyla puanlar; tests/research-factors.js --lab <lab-rules.json> aynı kuralları geçmiş mumlarda ölçer.
+     7. Açık pozisyonlar: liderler her yenilendiğinde (saatte bir) Tolga, bizim açık kâğıt pozisyonlarımızın coininde liderlerin açtığını/kapattığını
+        not eder (labPosWatch); ldPosView(sym,dir) aynı görüşü pozisyon yönetimine verir.
+   Maliyet: Ollama/yerel sunucu ücretsiz (bilgisayarın işlemcisi/ekran kartı). Claude API seçilirse bir koşu ≈ 25–35 bin girdi + 5–10 bin çıktı
+   belirteci, Opus 5.5 ($4 / $20 milyon) ≈ 0,2–0,35 $, günde bir ≈ ayda 6–10 $.
+   Uyarı: liderlerin kazandığı koşul bizim için kanıt değildir (hayatta kalma yanlılığı, stopsuz ortalama düşürme; bkz. arastirma/neden-kaybediyoruz).
+   Selim'in hipotezi de böyledir; kanıt yalnızca ileri testtir. */
+const SEL_CFG={everyH:24,minNew:40,minTrades:60,sample:{claude:800,local:250},maxHyps:40,maxTokens:16000};
+const sel={hyps:[],runs:[],at:0,lastN:0,summary:"",styleNotes:[],dataAsks:[],err:null,busy:false,posProvider:null,posSeen:{}};
+try{ const sv=JSON.parse(localStorage.getItem("st-sel")||"null"); if(sv&&sv.v===1){ for(const k of ["hyps","runs","at","lastN","summary","styleNotes","dataAsks","posSeen"]) if(sv[k]!=null) sel[k]=sv[k]; } }catch(e){}
+function selSave(){ try{ localStorage.setItem("st-sel",JSON.stringify({v:1,hyps:sel.hyps,runs:sel.runs.slice(-30),at:sel.at,lastN:sel.lastN,summary:sel.summary,styleNotes:sel.styleNotes,dataAsks:sel.dataAsks,posSeen:sel.posSeen})); }catch(e){} }
+const selFeatTxt=()=>LAB_FEATS.map(F=>`${F.k} (${F.name}): `+Object.entries(F.vals).map(([v,t])=>`${v}=${t}`).join(", ")).join("\n");
+const SEL_SYS=`Sen Selim'sin: bir kripto vadeli işlem araştırma ekibinde kopya trader liderlerinin işlem geçmişini inceleyen analistsin. Türkçe yazarsın.
+Görevin: Binance kopya trading liderlerinin kapanmış işlemlerinden, bizim de kural olarak uygulayabileceğimiz, test edilebilir giriş koşulları çıkarmak.
+Veri hakkında bilmen gerekenler:
+- Her satır bir liderin kapanmış pozisyonudur. "m" = kaldıraçsız fiyat hareketi ÷ girişteki 1 saatlik ATR (±5'e kırpılır); artı = lider o yönde kazandı. "kazandi" lider PnL'inin işaretidir.
+- Koşul sütunları girişten ÖNCE kapanmış 1 saatlik mumlardan hesaplanır (bakış ileri yok). Sözlük:
+{FEATS}
+- Liderler panodaki en iyi 20 kişidir: hayatta kalma yanlılığı var; çoğu stopsuz ortalama düşürür, bu yüzden kazanma oranı yüksek ama kayıpları büyüktür. Yüksek kazanma oranını değil ATR cinsinden ortalamayı ve iki zaman yarısında tutarlılığı önemse.
+- Senin önerdiğin her hipotez kod tarafından aynı veride ölçülür: en az 20 işlem, en az 4 farklı lider, zaman sırasına göre iki yarıda da artı ortalama, t ≥ 1,5. Tutmayan elenir. Tutan, canlı piyasada 20 ileri sinyalle sınanır; ancak orada da artı kalırsa işlemde kullanılır.
+- Bir önceki koşularındaki hipotezlerin ve sonuçları veride var; elenenleri tekrar önerme, tutanları geliştir.
+Kurallar: koşullar yalnız sözlükteki anahtar=değer çiftleri olabilir, hipotez başına 1–3 koşul. Burak'ın (sayısal tarama) zaten bulduğu adayları aynen tekrar etme; ya farklı bir kombinasyon öner ya da neden işe yaradığını açıklayıp daralt. Çok sayıda koşul taranınca şans eseri tutan kalıplar çıkar; az ama mantığı olan hipotez öner (en çok 8 hipotez, en çok 4 kaçınılacak kalıp). Gerekçeyi liderlerin davranışıyla bağla (kim, hangi tarzda, neden).
+"ozet": kullanıcıya 3–5 cümlelik sade Türkçe özet (yeni başlayan bir yatırımcıya, uyarı ve sorumluluk reddi cümlesi yazmadan). "veri_istekleri": sözlükte olmayan ama bakmak istediğin veri (ör. fonlama, açık pozisyon), en çok 3.`;
+const SEL_HYP=()=>{ const F=LAB_FEATS.map(f=>f.k); const V=[...new Set(LAB_FEATS.flatMap(f=>Object.keys(f.vals)))];
+  return {type:"object",additionalProperties:false,required:["ad","yon","kosullar","gerekce"],properties:{ad:{type:"string"},yon:{type:"string",enum:["long","short"]},
+    kosullar:{type:"array",items:{type:"object",additionalProperties:false,required:["f","v"],properties:{f:{type:"string",enum:F},v:{type:"string",enum:V}}}},gerekce:{type:"string"}}}; };
+const SEL_SCHEMA=()=>({type:"object",additionalProperties:false,required:["ozet","hipotezler","kacin","stil_notlari","veri_istekleri"],properties:{
+  ozet:{type:"string"},hipotezler:{type:"array",items:SEL_HYP()},kacin:{type:"array",items:SEL_HYP()},stil_notlari:{type:"array",items:{type:"string"}},veri_istekleri:{type:"array",items:{type:"string"}}}});
+const selKeyOf=(dir,conds)=>"sel|"+dir+"|"+conds.map(c=>c.join("=")).sort().join("&");
+// LLM çıktısındaki koşulları sözlüğe göre temizle: bilinmeyen anahtar/değer, aynı anahtar iki kez, 3'ten fazla koşul → atılır
+function selConds(list){ const out=[]; const seen=new Set(); for(const c of list||[]){ const F=LAB_FEATS.find(f=>f.k===c.f); if(!F||!(c.v in F.vals)||seen.has(c.f)) return null; seen.add(c.f); out.push([c.f,c.v]); } return out.length>=1&&out.length<=3?out:null; }
+/* --- veri paketi: Selim'in okuduğu her şey (yalnız sayılar ve takma adlar; anahtar ya da hesap bilgisi yok) --- */
+function selPayload(C){
+  C=C||labCtx(); const T=C.T.slice(-SEL_CFG.sample[llm.cfg.provider==="claude"?"claude":"local"]); const nick={}; let li=0; const lidOf=x=>nick[x.lid]||(nick[x.lid]="L"+(++li));
+  const fk=LAB_FEATS.map(f=>f.k); const sgn=v=>isFinite(v)?(+v).toFixed(2):"";
+  const rows=["lider,coin,yon,acilis_utc,tutus_sa,kaldirac,m,kazandi,"+fk.join(",")].concat(T.map(x=>[lidOf(x),x.sym.replace("USDT",""),x.dir,new Date(x.open).toISOString().slice(0,13),sgn(x.hold),x.lev||"",sgn(x.m),x.pnl>0?1:0,...fk.map(k=>x.f[k])].join(",")));
+  const B=lab.base; const st=s=>s?{n:s.n,lider:s.leaders,ort:s.mean,kazanma:s.wr,yari1:s.h1,yari2:s.h2,t:s.t,tutus_sa:s.hold}:null;
+  const cand=c=>({kural:c.name,yon:c.dir,kosullar:c.conds.map(x=>x.join("=")),...st(c),ileri_test:lab.fwd[c.key]||null,durum:c.status});
+  const styles=Object.entries(lab.styles||{}).map(([lid,s])=>({lider:nick[lid]||(nick[lid]="L"+(++li)),takma_ad:s.nick,n:s.n,kazanma:+s.wr.toFixed(2),ort:+s.mean.toFixed(2),tutus_sa:+(+s.hold).toFixed(1),kaldirac:s.lev,etiket:s.tags}));
+  const prev=sel.hyps.map(h=>({ad:h.ad,yon:h.dir,kosullar:h.conds.map(x=>x.join("=")),kacin:!!h.avoid,durum:h.status,olcum:st(h.ins),ileri_test:lab.fwd[h.key]||null}));
+  const fac=(lab.factors||[]).map(f=>`${f.dir},${f.f}=${f.v},n=${f.n},ort=${f.mean},kaz=${f.wr},y1=${f.h1},y2=${f.h2}`);
+  const txt=`TABAN (tüm zenginleşmiş işlemler): ${JSON.stringify({tum:st(B&&B.all),long:st(B&&B.long),short:st(B&&B.short),lider:B&&B.leaders,islem:B&&B.featured,aralik:B?[new Date(B.from).toISOString().slice(0,10),new Date(B.to).toISOString().slice(0,10)]:null})}
+FAKTÖR TABLOSU (yön, koşul, işlem, ort m, kazanma, yarı1, yarı2):
+${fac.join("\n")}
+BURAK'IN ADAYLARI: ${JSON.stringify(lab.cands.map(cand))}
+BURAK'IN KAÇINILACAKLARI: ${JSON.stringify(lab.avoid.map(cand))}
+LİDER STİLLERİ: ${JSON.stringify(styles)}
+SENİN ÖNCEKİ HİPOTEZLERİN VE SONUÇLARI: ${JSON.stringify(prev)}
+İŞLEMLER (son ${T.length}, eskiden yeniye):
+${rows.join("\n")}`;
+  return txt;
+}
+/* --- LLM çağrısı (llm.js: Ollama / yerel OpenAI uyumlu sunucu / Claude API), yapılandırılmış JSON çıktısı --- */
+async function selCall(payload){
+  const r=await llmChat({system:SEL_SYS.replace("{FEATS}",selFeatTxt()),user:payload+"\n\nBu veriden hipotezlerini çıkar. Yalnız istenen JSON nesnesini döndür.",schema:SEL_SCHEMA(),maxTokens:SEL_CFG.maxTokens,name:"selim"});
+  return {out:r.out,usage:r.usage,model:r.model,provider:r.provider};
+}
+/* --- hipotezleri liderlerin geçmişinde ölç (her analizde yeniden; veri büyüdükçe durum değişebilir) --- */
+function selScore(h,C){ const s=labTest(h.dir,h.conds,C); const keep=["n","leaders","mean","wr","h1","h2","t","tl","n1","n2","hold","lev","lift"]; h.ins=Object.fromEntries(keep.map(k=>[k,s[k]]));
+  for(const k of ["n","leaders","mean","wr","h1","h2","t","tl","lift","hold","lev"]) h[k]=s[k]; // labShadow/Burak aday alanlarıyla aynı adlar
+  h.status=h.avoid?(s.bad?"aday":"elendi"):(s.good?"aday":"elendi"); return h; }
+function selAfterAnalyze(C){ if(sel.hyps.length){ for(const h of sel.hyps) selScore(h,C); } facSyncDyn(); }
+function selIngest(res,C){
+  const o=res.out||{}; const now=Date.now(); const run={t:now,model:res.model,provider:res.provider,usage:res.usage,n:C.T.length,hyps:0,kept:0,dropped:0};
+  const add=(arr,avoid)=>{ for(const x of (arr||[]).slice(0,avoid?4:8)){ const conds=selConds(x.kosullar); if(!conds||!(x.yon==="long"||x.yon==="short")){ run.dropped++; continue; }
+      const key=selKeyOf(x.yon,conds); if(!avoid&&lab.cands.some(c=>c.dir===x.yon&&c.conds.map(z=>z.join("=")).sort().join("&")===conds.map(z=>z.join("=")).sort().join("&"))){ run.dropped++; continue; } // Burak'ta zaten var
+      let h=sel.hyps.find(z=>z.key===key); if(!h){ h={key,dir:x.yon,conds,avoid,at:now}; sel.hyps.push(h); }
+      h.ad=String(x.ad||"").slice(0,120); h.why=String(x.gerekce||"").slice(0,600); h.run=now; h.name="Selim · "+labCondTxt(conds); selScore(h,C); run.hyps++; if(h.status==="aday") run.kept++; } };
+  add(o.hipotezler,false); add(o.kacin,true);
+  // eskiler: elenmiş ve en eski olanlar düşer
+  if(sel.hyps.length>SEL_CFG.maxHyps){ sel.hyps.sort((a,b)=>(a.status==="elendi")-(b.status==="elendi")||b.run-a.run); sel.hyps=sel.hyps.slice(0,SEL_CFG.maxHyps); }
+  sel.summary=String(o.ozet||"").slice(0,1500); sel.styleNotes=(o.stil_notlari||[]).slice(0,8).map(s=>String(s).slice(0,300)); sel.dataAsks=(o.veri_istekleri||[]).slice(0,3).map(s=>String(s).slice(0,200));
+  sel.runs.push(run); sel.at=now; sel.lastN=C.T.length; facSyncDyn(); selSave();
+  labNote("Selim",`${run.hyps} hipotez (${run.kept} liderlerin geçmişinde tuttu, ileri teste girdi${run.dropped?`, ${run.dropped} geçersiz/tekrar atıldı`:""}) · ${res.model} · ${res.usage.in+res.usage.out} belirteç${res.usage.cost?` ≈ ${fx(res.usage.cost,2)} $`:", ücretsiz (yerel)"}.`);
+  return run;
+}
+// force: süreyi beklemeden (UI düğmesi). Anahtar yoksa ya da veri azsa hiçbir şey yapmaz.
+async function selTick(force){
+  if(sel.busy||!llmReady()) return null; const C=labCtx(); if(C.T.length<SEL_CFG.minTrades) return null;
+  const due=force||(!sel.at||Date.now()-sel.at>SEL_CFG.everyH*36e5)&&(!sel.lastN||C.T.length-sel.lastN>=SEL_CFG.minNew||Date.now()-sel.at>7*864e5);
+  const lastErr=sel.runs.length&&sel.runs[sel.runs.length-1].err; if(!due||(!force&&lastErr&&Date.now()-sel.runs[sel.runs.length-1].t<3*36e5)) return null; // hata sonrası 3 saat bekle
+  sel.busy=true; sel.err=null; if(typeof labOnProgress==="function") labOnProgress();
+  try{ if(lab.dirty) labAnalyze(); const res=await selCall(selPayload(C)); return selIngest(res,labCtx()); }
+  catch(e){ sel.err=e.message; sel.runs.push({t:Date.now(),err:e.message}); selSave(); labNote("Selim",`Çalışamadım: ${e.message}.`); return null; }
+  finally{ sel.busy=false; if(typeof labOnProgress==="function") labOnProgress(); }
+}
+/* --- Kaan'ın kütüphanesine dinamik faktörler: Burak'ın aday/kaçınları ve Selim'in hipotezleri (oy vermez; tahmin defteri ölçer) --- */
+function selHash(s){ let h=2166136261; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return (h>>>0).toString(36); }
+function facLabRules(){ const out=[]; const push=(r,who,avoid)=>out.push({key:r.key,dir:r.dir,conds:r.conds,name:r.name,who,avoid});
+  for(const c of lab.cands) push(c,"Burak",false); for(const c of lab.avoid) push(c,"Burak",true); for(const h of sel.hyps) if(h.status==="aday") push(h,"Selim (LLM)",!!h.avoid); return out; }
+function facLabFeat(x,dir){ x._lab=x._lab||{}; if(dir in x._lab) return x._lab[dir]; const k=labAgg1h(x.k); const b=x.btc?labAgg1h(x.btc):null; let f=null;
+  if(k&&k.length>=60) f=labFeat(k,b,k[k.length-1].t+36e5,dir); return (x._lab[dir]=f); }
+// rules: verilmezse canlı durumdan (Burak + Selim); tests/research-factors.js --lab dosyasından verir
+function facSyncDyn(rules){
+  rules=rules||facLabRules(); for(let i=FACTORS.length-1;i>=0;i--) if(FACTORS[i].dyn) FACTORS.splice(i,1); const seen=new Set();
+  for(const r of rules){ const id="lab_"+selHash(r.key); if(seen.has(id)) continue; seen.add(id); const s=r.avoid?-1:1; const D=r.dir; const conds=r.conds;
+    FACTORS.push({id,ad:`${r.avoid?"Kaçın":"Lider kuralı"}: ${D==="long"?"LONG":"SHORT"} · ${r.name.replace(/^Selim · /,"")}`,kaynak:`${r.who}, kopya trader liderlerinin geçmişi`,veri:"1 sa (15 dk'dan)",dyn:true,rule:{key:r.key,dir:D,conds,avoid:!!r.avoid},
+      fn(x,dir){ const f=facLabFeat(x,D); if(!f||!conds.every(([k,v])=>f[k]===v)) return null; const v=(dir===D?1:-1)*s*0.6; return {v,c:0.5,txt:`${r.avoid?"liderlerin kaybettiği":"liderlerin kazandığı"} koşul: ${D==="long"?"long":"short"} · ${r.name.replace(/^Selim · /,"")}`}; }}); }
+  return FACTORS.filter(f=>f.dyn).length;
+}
+/* --- günlük rapor (Markdown): ekransız bot research/rapor-YYYY-MM-DD.md yazar, uygulama indirir --- */
+function labReport(){
+  const B=lab.base; const d=t=>new Date(t).toISOString().slice(0,10); const sg=v=>isFinite(v)?(v>0?"+":"")+(+v).toFixed(2):"—"; const pc=v=>isFinite(v)?"%"+Math.round(v*100):"—";
+  const fw=k=>{ const f=lab.fwd[k]; return f&&f.n?`${f.n} sinyal, ${sg(f.sum/f.n)} ATR, %${Math.round(f.win/f.n*100)}`:"henüz yok"; };
+  const row=c=>`| ${c.dir.toUpperCase()} | ${c.name.replace(/^Selim · /,"")} | ${c.n} | ${c.leaders} | ${pc(c.wr)} | ${sg(c.mean)} | ${sg(c.lift)} | ${sg(c.h1)} / ${sg(c.h2)} | ${isFinite(c.tl)?(+c.tl).toFixed(1):"—"} | ${isFinite(c.hold)?(+c.hold).toFixed(1)+" sa":"—"} | ${fw(c.key)} | ${c.status||"aday"} |`;
+  const head="| Yön | Kural | İşlem | Lider | Kazanma | Ort ATR | Tabana göre | 1. / 2. yarı | t (fark) | Tutuş | İleri test | Durum |\n|---|---|---|---|---|---|---|---|---|---|---|---|";
+  const L=[`# Lider araştırması · ${d(Date.now())}`,"",
+    B?`${B.leaders} lider, ${B.featured} zenginleşmiş işlem (toplam ${B.total}), ${d(B.from)} – ${d(B.to)}. Taban: long ${sg(B.long.mean)} ATR (kazanma ${pc(B.long.wr)}, ${B.long.n} işlem), short ${sg(B.short.mean)} ATR (kazanma ${pc(B.short.wr)}, ${B.short.n} işlem).`:`Analiz için yeterli işlem yok (${lab.trades.length} saklı, en az ${LAB_CFG.minN} zenginleşmiş gerekir).`,"",
+    "Ölçü (kopya ölçüsü): liderin açtığı saatin kapanışında girip liderin kapanış fiyatından çıksaydık kaldıraçsız hareket ÷ girişteki 1 saatlik ATR; ortalama düşürme hariç. Kazanma bu ölçüyle. Kural kapısı tabana göredir: aynı yöndeki tüm işlemlerden en az +0,15 ATR iyi, iki yarıda da, farkın t değeri ≥ 1,5. Liderler panodaki en iyiler (hayatta kalma yanlılığı, çoğu stopsuz ortalama düşürür); burada tutan kural kanıt değil, ileri testte sınanır.","",
+    "## Burak · aday kurallar",lab.cands.length?head+"\n"+lab.cands.map(row).join("\n"):"Aday yok.","",
+    "## Burak · kaçınılacak kalıplar",lab.avoid.length?head+"\n"+lab.avoid.map(row).join("\n"):"Kaçınılacak kalıp yok.",""];
+  const H=sel.hyps; const lr=sel.runs.filter(r=>!r.err).slice(-1)[0];
+  L.push("## Selim · LLM analisti",llmReady()||H.length?(lr?`Son koşu ${new Date(lr.t).toISOString().slice(0,16).replace("T"," ")} UTC · ${lr.model} · ${lr.usage.in+lr.usage.out} belirteç${lr.usage.cost?` ≈ ${lr.usage.cost.toFixed(2)} $`:lr.provider==="manual"?"":" (yerel, ücretsiz)"} · ${lr.hyps} hipotez, ${lr.kept} tuttu.`:`Henüz koşu yok (${llmLabel()}).`):"LLM kapalı ya da ayarlanmadı; Selim çalışmıyor.","");
+  if(sel.err) L.push(`Son hata: ${sel.err}`,"");
+  if(sel.summary) L.push(sel.summary,"");
+  const hk=H.filter(h=>!h.avoid), ha=H.filter(h=>h.avoid);
+  if(hk.length) L.push("### Hipotezler",head,...hk.map(h=>row({...h,name:h.ad?`${h.ad} (${h.name.replace(/^Selim · /,"")})`:h.name})),"",...hk.filter(h=>h.why).map(h=>`- **${h.ad||h.name}**: ${h.why}`),"");
+  if(ha.length) L.push("### Kaçınılacaklar",head,...ha.map(h=>row({...h,name:h.ad?`${h.ad} (${h.name.replace(/^Selim · /,"")})`:h.name})),"");
+  if(sel.styleNotes.length) L.push("### Lider stilleri üzerine",...sel.styleNotes.map(s=>"- "+s),"");
+  if(sel.dataAsks.length) L.push("### Selim'in istediği ek veri",...sel.dataAsks.map(s=>"- "+s),"");
+  const sty=Object.values(lab.styles||{}).sort((a,b)=>b.mean-a.mean);
+  if(sty.length) L.push("## Lider stilleri","| Lider | İşlem | Kazanma | Ort ATR | Tutuş | Kaldıraç | Etiketler |","|---|---|---|---|---|---|---|",...sty.map(s=>`| ${s.nick} | ${s.n} | ${pc(s.wr)} | ${sg(s.mean)} | ${(+s.hold).toFixed(1)} sa | ${isFinite(s.lev)?s.lev+"x":"—"} | ${s.tags.join(", ")} |`),"");
+  const dyn=FACTORS.filter(f=>f.dyn); if(dyn.length) L.push("## Kaan'ın kütüphanesine eklenen lider kuralları",`${dyn.length} kural tahmin defterinde izlemede (oy vermez): `+dyn.map(f=>"`"+f.id+"` "+f.ad).join("; "),"");
+  if(lab.notes.length) L.push("## Ekip notları",...lab.notes.slice(-15).map(n=>`- ${new Date(n.t).toISOString().slice(0,16).replace("T"," ")} **${n.who}**: ${n.text}`),"");
+  return L.join("\n");
+}
+// tests/research-factors.js --lab için: kuralların dışa aktarımı
+function labRulesExport(){ return {at:Date.now(),rules:facLabRules()}; }
+/* --- açık pozisyonlar: liderler bu coinde ne yapıyor (Tolga, saatte bir) --- */
+// ldPosView: bizim pozisyonumuzun coininde liderlerin açık pozisyonları (emir akışından tahmin) ve son 6 saatte kapattıkları
+function ldPosView(sym,dir){
+  const same=[],opp=[],closed=[]; const now=Date.now();
+  for(const x of Object.values((typeof ld!=="undefined"&&ld.leaders)||{})){ if(!x||x.err) continue;
+    for(const o of x.open||[]) if(o.sym===sym) (o.dir===dir?same:opp).push({nick:x.nick,avg:o.avg,since:o.since,adds:o.adds});
+    for(const r of x.recent||[]) if(r.sym===sym&&now-r.close<6*36e5) closed.push({nick:x.nick,dir:r.dir,roi:r.roi,close:r.close}); }
+  const D=dir==="long"?"long":"short"; const nm=a=>a.slice(0,3).map(z=>z.nick).join(", ");
+  let txt=same.length||opp.length?`${same.length} lider aynı yönde açık${same.length?" ("+nm(same)+")":""}, ${opp.length} lider ters yönde${opp.length?" ("+nm(opp)+")":""}`:"liderlerin bu coinde açık pozisyonu yok";
+  const cs=closed.filter(c=>c.dir===dir); if(cs.length) txt+=` · son 6 saatte ${cs.length} lider ${D} kapattı (${cs.slice(0,3).map(c=>c.nick+" "+(c.roi>0?"+":"")+fx(c.roi,0)+"%").join(", ")})`;
+  const v=same.length+opp.length?(same.length-opp.length)/(same.length+opp.length):0; return {sym,dir,same,opp,closed,v,txt};
+}
+// labPosWatch: ldRefresh sonrası; pozisyonlarımızın coininde liderlerin görüşü değiştiyse Tolga not düşer (sel.posProvider → [{sym,dir}])
+function labPosWatch(){
+  const P=typeof sel.posProvider==="function"?(sel.posProvider()||[]):[]; const seen={}; const out=[];
+  for(const p of P){ const k=p.sym+"|"+p.dir; const w=ldPosView(p.sym,p.dir); out.push(w); const sig=w.same.length+"/"+w.opp.length+"/"+w.closed.filter(c=>c.dir===p.dir).length; seen[k]=sig;
+    if(sel.posSeen[k]!==undefined&&sel.posSeen[k]!==sig) labNote("Tolga",`Açık ${p.dir==="long"?"LONG":"SHORT"} ${p.sym.replace("USDT","")}: ${w.txt}.`); }
+  sel.posSeen=seen; selSave(); return out;
 }
 
 // backtest: every completed sequence in the history, graded with CVD-only order flow (OI/taker series are too short), outcome within 48 candles after the entry touch
@@ -2930,7 +3153,7 @@ async function runScan(){
     const cand=out.filter(r=>DEEP_STAGES.has(r.stageL)||DEEP_STAGES.has(r.stageS)||r.pick||r.pickS).sort((a,b)=>b.qv-a.qv).slice(0,24);
     if(cand.length){ let d2=0; const q2=[...cand]; const w2=async()=>{ while(q2.length){ await hold(); const r=q2.shift(); try{ const deep=await scanDeep(r); if(deep) Object.assign(r,deep); }catch(e){} d2++; bar.style.width=(63+d2/cand.length*37)+"%"; st.textContent=`${d2}/${cand.length} aday derin tarandı`; } }; await Promise.all(Array.from({length:2},w2)); }
     scan.rows=out; const now=Date.now(); const prev={}; out.forEach(r=>prev[r.s]={score:r.score,t:now}); scan.prev=prev; LS("rp-scan-prev",JSON.stringify(prev));
-    const n=signalsFromRows(out); renderFeed(); renderWatch(); renderScanTable(); try{ botDecide("scan"); }catch(e){ console.error("SWEEP · bot",e); } try{ llmScanAsk(out); }catch(e){}
+    const n=signalsFromRows(out); renderFeed(); renderWatch(); renderScanTable(); try{ botDecide("scan"); }catch(e){ console.error("SWEEP · bot",e); } try{ lmdScanAsk(out); }catch(e){}
     st.textContent=`${out.length} coin · ${new Date().toLocaleTimeString("tr-TR")}${failed?" · "+failed+" okunamadı":""}${n?" · "+n+" yeni sinyal":""}`;
   }catch(e){ st.textContent="tarama hatası: "+e.message; }
   finally{ scan.running=false; $("scanNow").disabled=false; setTimeout(()=>bar.style.width="0",600); }
@@ -3322,9 +3545,9 @@ function renderLab(){
   const sgn=v=>isFinite(v)?(v>0?"+":"")+fx(v,2):"—"; const cls=v=>v>0?"up":v<0?"down":"";
   const stBadge=s=>`<span class="chip ${s==="onaylı"?"up":s==="zayıf"?"down":s==="izlemede"?"warn":"neutral"} sm">${s}</span>`;
   const fw=k=>{ const f=lab.fwd[k]; return f&&f.n?`${f.n} sinyal · ${sgn(f.sum/f.n)} ATR · %${Math.round(f.win/f.n*100)}`:'<span class="muted">henüz yok</span>'; };
-  const cRow=c=>`<tr><td>${dl(c.dir)} ${esc(c.name)}</td><td class="num">${c.n}<br><span class="muted" style="font-size:10.5px">${c.leaders} lider</span></td><td class="num">%${Math.round(c.wr*100)}</td><td class="num ${cls(c.mean)}">${sgn(c.mean)}</td><td class="num"><span class="${cls(c.h1)}">${sgn(c.h1)}</span> / <span class="${cls(c.h2)}">${sgn(c.h2)}</span></td><td class="num">${fx(c.t,1)}</td><td class="num">${fx(c.hold,1)} sa<br><span class="muted" style="font-size:10.5px">${isFinite(c.lev)?c.lev+"x":""}</span></td><td style="font-size:11px">${fw(c.key)}</td><td>${stBadge(c.status||"aday")}</td></tr>`;
-  const head=`<tr><th>Kural</th><th>İşlem</th><th>Kazanma</th><th>Ort ATR</th><th>1. / 2. yarı</th><th>t</th><th>Tutuş</th><th>İleri test</th><th>Durum</th></tr>`;
-  const cands=lab.cands.length?`<table class="t"><thead>${head}</thead><tbody>${lab.cands.map(cRow).join("")}</tbody></table>`:`<div class="empty">Henüz aday yok. Bir kuralın aday olması için ≥ ${LAB_CFG.minN} işlem, ≥ ${LAB_CFG.minLeaders} farklı lider, zaman sırasına göre iki yarıda da artı ortalama ve t ≥ 1,5 gerekir.</div>`;
+  const cRow=c=>`<tr><td>${dl(c.dir)} ${esc(c.name)}</td><td class="num">${c.n}<br><span class="muted" style="font-size:10.5px">${c.leaders} lider</span></td><td class="num">%${Math.round(c.wr*100)}</td><td class="num ${cls(c.mean)}">${sgn(c.mean)}<br><span class="muted ${cls(c.lift)}" style="font-size:10.5px">${sgn(c.lift)} tabana göre</span></td><td class="num"><span class="${cls(c.h1)}">${sgn(c.h1)}</span> / <span class="${cls(c.h2)}">${sgn(c.h2)}</span></td><td class="num">${fx(isFinite(c.tl)?c.tl:c.t,1)}</td><td class="num">${fx(c.hold,1)} sa<br><span class="muted" style="font-size:10.5px">${isFinite(c.lev)?c.lev+"x":""}</span></td><td style="font-size:11px">${fw(c.key)}</td><td>${stBadge(c.status||"aday")}</td></tr>`;
+  const head=`<tr><th>Kural</th><th>İşlem</th><th>Kazanma</th><th>Ort ATR</th><th>1. / 2. yarı</th><th>t (fark)</th><th>Tutuş</th><th>İleri test</th><th>Durum</th></tr>`;
+  const cands=lab.cands.length?`<table class="t"><thead>${head}</thead><tbody>${lab.cands.map(cRow).join("")}</tbody></table>`:`<div class="empty">Henüz aday yok. Bir kuralın aday olması için ≥ ${LAB_CFG.minN} işlem, ≥ ${LAB_CFG.minLeaders} farklı lider ve aynı yöndeki tüm işlemlerden iki yarıda da iyi olması (fark ≥ +${fx(LAB_CFG.minLift,2)} ATR, farkın t değeri ≥ 1,5) gerekir.</div>`;
   const avoid=lab.avoid.length?`<table class="t"><thead>${head}</thead><tbody>${lab.avoid.map(cRow).join("")}</tbody></table>`:'<div class="empty">Kaçınılacak kalıp bulunmadı.</div>';
   let fac=""; if(lab.factors&&lab.factors.length){ fac=LAB_FEATS.map(F=>{ const cells=Object.keys(F.vals).map(v=>{ const g=d=>lab.factors.find(x=>x.f===F.k&&x.v===v&&x.dir===d); const L=g("long"),S=g("short"); const c=x=>x?`<span class="${cls(x.mean)}">${sgn(x.mean)}</span> <span class="muted" style="font-size:10.5px">${x.n} · %${Math.round(x.wr*100)}</span>`:'<span class="muted">—</span>'; return `<tr><td>${esc(F.vals[v])}</td><td class="num">${c(L)}</td><td class="num">${c(S)}</td></tr>`; }).join(""); return `<div><div class="muted" style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin:4px 0">${esc(F.name)}</div><table class="t"><thead><tr><th></th><th>Long · ATR · n · kazanma</th><th>Short</th></tr></thead><tbody>${cells}</tbody></table></div>`; }).join(""); fac=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px">${fac}</div>`; }
   const sty=Object.values(lab.styles||{}).sort((a,b)=>b.mean-a.mean).map(s=>`<tr><td><b>${esc(s.nick)}</b><br><span class="muted" style="font-size:10.5px">${esc(s.tags.join(" · "))}</span></td><td class="num">${s.n}</td><td class="num">%${Math.round(s.wr*100)}</td><td class="num ${cls(s.mean)}">${sgn(s.mean)}</td><td class="num">${fx(s.hold,1)} sa</td><td class="num">${isFinite(s.lev)?s.lev+"x":"—"}</td><td class="num">%${Math.round(s.trendSh*100)} / %${Math.round(s.dipSh*100)} / %${Math.round(s.swSh*100)}</td><td class="num">%${Math.round(s.longSh*100)}</td></tr>`).join("");
@@ -3338,11 +3561,50 @@ function renderLab(){
   </div>
   <h4 style="margin:6px 0">Aday stratejiler <span class="muted" style="font-weight:400;font-size:11.5px">liderlerin kazandığı koşullar · masada Burak bunlarla oy verir</span></h4>${cands}
   <h4 style="margin:12px 0 6px">Kaçınılacak kalıplar <span class="muted" style="font-weight:400;font-size:11.5px">liderlerin iki yarıda da kaybettiği koşullar · Burak karşı oy verir, Baran'ı uyarır</span></h4>${avoid}
+  ${selHtml()}
   ${notes?`<h4 style="margin:12px 0 6px">Ekip notları</h4>${notes}`:""}
   ${sty?`<details style="margin-top:10px"><summary class="muted" style="cursor:pointer;font-size:12px">Lider stilleri · ${Object.keys(lab.styles).length} lider</summary><table class="t" style="margin-top:6px"><thead><tr><th>Lider</th><th>İşlem</th><th>Kazanma</th><th>Ort ATR</th><th>Tutuş</th><th>Kaldıraç</th><th>Trend / geri çekilme / süpürme</th><th>Long payı</th></tr></thead><tbody>${sty}</tbody></table></details>`:""}
   ${fac?`<details style="margin-top:10px"><summary class="muted" style="cursor:pointer;font-size:12px">Faktör tablosu · her koşulda liderlerin ortalama sonucu</summary>${fac}</details>`:""}
-  <p class="muted" style="font-size:11px;margin:10px 0 0">Ölçü: kaldıraçsız fiyat hareketi ÷ girişteki 1 saatlik ATR (ATR); kaldıraç ve boy farkı karışmaz. Faktörler girişten önce kapanmış 1 saatlik mumlardan: seans (UTC), SMA20/50 trendi, 24 saatlik aralıktaki yer, coinin 24 saatlik hareketi, BTC 4 saat, son 6 saatte süpürme, 3 saatlik hacim. Çok işlem yapan liderin ağırlığı 25 işleme kısılır. Liderlerin kazandığı koşul bizim için kanıt değildir; aday, canlı taramada eşleştikçe gölge sinyalle ileriye dönük test edilir ve ${LAB_CFG.promoteN} sonuçtan sonra onaylanır ya da düşer.</p>`;
+  <p class="muted" style="font-size:11px;margin:10px 0 0">Ölçü (kopya ölçüsü): liderin açtığı saatin kapanışında girip liderin kapanış fiyatından çıksaydık kaldıraçsız hareket ÷ girişteki 1 saatlik ATR; liderin ortalama düşürmesi hariç, kazanma da bu ölçüyle. Kural kapısı tabana göre (aynı yöndeki tüm lider işlemleri), çünkü liderlerin kapanmış işlemleri zaten ortalama artı. Faktörler girişten önce kapanmış 1 saatlik mumlardan: seans (UTC), SMA20/50 trendi, 24 saatlik aralıktaki yer, coinin 24 saatlik hareketi, BTC 4 saat, son 6 saatte süpürme, 3 saatlik hacim. Çok işlem yapan liderin ağırlığı 25 işleme kısılır. Liderlerin kazandığı koşul bizim için kanıt değildir; aday, canlı taramada eşleştikçe gölge sinyalle ileriye dönük test edilir ve ${LAB_CFG.promoteN} sonuçtan sonra onaylanır ya da düşer.</p>`;
   $("labNow").addEventListener("click",()=>{ labTick(true).then(()=>{ if(lab.dirty) labAnalyze(); renderLab(); }); renderLab(); });
+  selBind();
+}
+/* --- Selim (LLM lider analisti) kartı: sağlayıcı ayarı, hipotezler, açık pozisyonlarımızda liderlerin görüşü, günlük rapor --- */
+function selHtml(){
+  const c=llm.cfg; const lr=sel.runs.filter(r=>!r.err).slice(-1)[0]; const sgn=v=>isFinite(v)?(v>0?"+":"")+fx(v,2):"—"; const cls=v=>v>0?"up":v<0?"down":"";
+  const st=sel.busy?`<span class="warn">● Selim düşünüyor (${esc(llmLabel())})</span>`:sel.err?`<span class="down">● ${esc(sel.err)}</span>`:lr?`<span class="up">● son koşu ${tl(lr.t)} · ${esc(lr.model)} · ${lr.hyps} hipotez, ${lr.kept} tuttu${lr.usage&&lr.usage.cost?` · ${fx(lr.usage.cost,2)} $`:lr.provider==="manual"?"":" · ücretsiz"}</span>`:llmReady()?`<span class="muted">● henüz koşmadı · ${esc(llmLabel())} · en az ${SEL_CFG.minTrades} zenginleşmiş işlem gerekir, sonra günde bir</span>`:'<span class="muted">● LLM kapalı ya da anahtar yok</span>';
+  const fw=k=>{ const f=lab.fwd[k]; return f&&f.n?`${f.n} sinyal · ${sgn(f.sum/f.n)} ATR`:'<span class="muted">henüz yok</span>'; };
+  const badge=h=>{ const s=h.status==="elendi"?"elendi":labStatus(h.key); return `<span class="chip ${s==="onaylı"?"up":s==="zayıf"||s==="elendi"?"down":s==="izlemede"?"warn":"neutral"} sm">${h.avoid&&s!=="elendi"?"kaçın":s}</span>`; };
+  const rows=sel.hyps.map(h=>`<tr><td>${h.dir==="long"?chip("up sm","L"):chip("down sm","S")} <b>${esc(h.ad||"")}</b><br><span class="muted" style="font-size:10.5px">${esc(h.name.replace(/^Selim · /,""))}</span>${h.why?`<br><span style="font-size:11px">${esc(h.why)}</span>`:""}</td><td class="num">${h.n||0}</td><td class="num ${cls(h.mean)}">${sgn(h.mean)}</td><td class="num ${cls(h.lift)}">${sgn(h.lift)}</td><td class="num">${isFinite(h.tl)?fx(h.tl,1):"—"}</td><td style="font-size:11px">${fw(h.key)}</td><td>${badge(h)}</td></tr>`).join("");
+  const pos=(typeof bot!=="undefined"?bot.positions:[]).map(p=>{ const w=ldPosView(p.sym,p.dir); return `<div style="font-size:11.5px;margin:2px 0">${p.dir==="long"?chip("up sm","L"):chip("down sm","S")} <b>${esc(p.sym.replace("USDT",""))}</b> · ${esc(w.txt)}</div>`; }).join("");
+  const opt=(v,t)=>`<option value="${v}" ${c.provider===v?"selected":""}>${t}</option>`;
+  return `<h4 style="margin:12px 0 6px">Selim · LLM lider analisti <span class="muted" style="font-weight:400;font-size:11.5px">liderlerin işlemlerini okuyup test edilebilir kural önerir · tutmayan elenir, tutan ileri teste girer, onaylanınca Burak onunla oy verir</span></h4>
+  <div style="font-size:11.5px;margin-bottom:6px">${st}</div>
+  ${sel.summary?`<p style="font-size:12px;margin:4px 0 8px">${esc(sel.summary)}</p>`:""}
+  ${rows?`<table class="t"><thead><tr><th>Hipotez</th><th>İşlem</th><th>Ort ATR</th><th>Tabana göre</th><th>t</th><th>İleri test</th><th>Durum</th></tr></thead><tbody>${rows}</tbody></table>`:""}
+  ${sel.dataAsks.length?`<p class="muted" style="font-size:11px;margin:6px 0 0">Selim'in istediği ek veri: ${esc(sel.dataAsks.join(" · "))}</p>`:""}
+  ${pos?`<h4 style="margin:12px 0 6px">Açık pozisyonlarımız · liderler ne yapıyor <span class="muted" style="font-weight:400;font-size:11.5px">saatte bir, değişince Tolga not düşer</span></h4>${pos}`:""}
+  <details style="margin-top:10px"><summary class="muted" style="cursor:pointer;font-size:12px">LLM ayarı · ${esc(llmLabel())}</summary>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:12px">
+      <label><input type="checkbox" id="llmOn" ${c.on?"checked":""}> açık</label>
+      <select id="llmProv">${opt("ollama","Ollama (yerel, ücretsiz)")}${opt("openai","OpenAI uyumlu yerel sunucu (LM Studio, llama.cpp)")}${opt("claude","Claude API (ücretli)")}</select>
+      <input id="llmUrl" placeholder="http://localhost:11434" value="${esc(c.url)}" style="width:190px" ${c.provider==="claude"?"hidden":""}>
+      <input id="llmModel" placeholder="qwen3:8b" value="${esc(c.provider==="claude"?c.claudeModel:c.model)}" style="width:150px">
+      <span ${c.provider==="claude"?"":"hidden"}><input id="llmKey" type="password" placeholder="${llmKey()?"anahtar kayıtlı":"sk-ant-…"}" style="width:170px" autocomplete="off"> <label><input type="checkbox" id="llmRem" checked> bu cihazda hatırla</label></span>
+      <button type="button" id="llmSave">Kaydet</button> <button type="button" id="llmTest">Bağlantıyı sına</button> <button type="button" class="primary" id="selNow" ${sel.busy||!llmReady()?"disabled":""}>Selim'i şimdi çalıştır</button>
+      <span id="llmMsg" class="muted"></span></div>
+    <p class="muted" style="font-size:11px;margin:6px 0 0">Ücretsiz yol: ollama.com'dan Ollama'yı kur, komut satırında <code>ollama pull qwen3:8b</code>. Masaüstü uygulaması http://localhost:11434 adresine bağlanır. Daha güçlü ekran kartı varsa daha büyük bir model adı yaz. Claude API anahtarı yalnız bu cihazda saklanır; hiçbir yere gönderilmez, yalnız api.anthropic.com'a başlıkta gider.</p></details>
+  <div style="margin-top:8px"><button type="button" id="labReport">Günlük raporu indir (.md)</button></div>`;
+}
+function selBind(){
+  const g=id=>$(id); if(!g("llmSave")) return; const msg=t=>{ g("llmMsg").textContent=t; };
+  const save=()=>{ const prov=g("llmProv").value; const p={on:g("llmOn").checked,provider:prov}; if(prov==="claude") p.claudeModel=g("llmModel").value.trim()||LLM_DEF.claudeModel; else { p.url=g("llmUrl").value.trim()||LLM_DEF.url; p.model=g("llmModel").value.trim()||LLM_DEF.model; }
+    llmSetCfg(p); const k=g("llmKey")&&g("llmKey").value.trim(); if(prov==="claude"&&k) llmSetKey(k,g("llmRem").checked); };
+  g("llmProv").addEventListener("change",()=>{ llmSetCfg({provider:g("llmProv").value}); renderLab(); const d=document.querySelector("#dLab details:last-of-type"); if(d) d.open=true; });
+  g("llmSave").addEventListener("click",()=>{ save(); renderLab(); });
+  g("llmTest").addEventListener("click",()=>{ save(); msg("sınanıyor…"); llmModels().then(m=>msg(llm.cfg.provider==="claude"?"anahtar kayıtlı":`bağlandı · ${m.length} model${m.length?": "+m.slice(0,6).join(", "):""}${m.length&&!m.includes(llm.cfg.model)?` · "${llm.cfg.model}" yok, önce ollama pull`:""}`)).catch(e=>msg(e.message)); });
+  g("selNow").addEventListener("click",()=>{ save(); selTick(true).then(()=>renderLab()); renderLab(); });
+  g("labReport").addEventListener("click",()=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([labReport()],{type:"text/markdown"})); a.download="lider-arastirmasi-"+new Date().toISOString().slice(0,10)+".md"; a.click(); });
 }
 /* --- liderler paneli: en iyi 20 kopya trader lideri, davranış profili, coin uzlaşısı --- */
 function ldOnProgress(){ if(ui.drawerOpen&&ui.drawerTab==="bot"){ const b=$("ldBox"); if(b) b.outerHTML=renderLeaders(); const r=$("ldRefresh"); if(r) r.addEventListener("click",()=>{ ldRefresh(true); }); } }
@@ -3362,27 +3624,25 @@ const tlHM=t=>new Date(t).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-d
 /* --- açık pozisyon toplantısının son hali: 13 üyenin pozisyon görüşü ve (varsa) yapay zekâ masasının konuşması --- */
 function botRevRow(p){ const rv=p.lastReview; if(!rv||!rv.views) return ""; const L=rv.llm;
   const chips=rv.views.map(a=>`<span class="chip ${a.abst?"neutral":a.v>0.15?"up":a.v<-0.15?"down":"neutral"} sm" title="${esc((a.act||"")+": "+(a.txt||""))}">${esc(a.name)} ${a.abst?"—":(a.act&&a.act!=="tut"?esc(a.act):(a.v>0?"+":"")+fx(a.v,1))}</span>`).join(" ");
-  const ai=L?`<div style="font-size:11.5px;margin-top:4px"><b>Yapay zekâ masası</b> <span class="muted">(${esc(L.model)}, ${Math.round(L.ms/1000)} sn, ${tlHM(L.t)})</span>: <b>${esc(L.dec.act.toUpperCase())}</b> · ${esc(L.dec.why)}<details><summary class="muted" style="cursor:pointer">konuşma</summary>${llmLines(L).map(l=>`<div style="display:flex;gap:6px;margin:2px 0"><b style="min-width:52px;color:${DESK_COL[l.id]||"var(--ink)"}">${esc(l.who)}</b><span>${esc(l.text)}</span></div>`).join("")}</details></div>`:"";
+  const ai=L?`<div style="font-size:11.5px;margin-top:4px"><b>Yapay zekâ masası</b> <span class="muted">(${esc(L.model)}, ${Math.round(L.ms/1000)} sn, ${tlHM(L.t)})</span>: <b>${esc(L.dec.act.toUpperCase())}</b> · ${esc(L.dec.why)}<details><summary class="muted" style="cursor:pointer">konuşma</summary>${lmdLines(L).map(l=>`<div style="display:flex;gap:6px;margin:2px 0"><b style="min-width:52px;color:${DESK_COL[l.id]||"var(--ink)"}">${esc(l.who)}</b><span>${esc(l.text)}</span></div>`).join("")}</details></div>`:"";
   return `<tr><td colspan="9" style="padding:2px 8px 8px;font-size:11.5px"><span class="muted">Masa ${tlHM(rv.t)}: <b>${esc(String(rv.verdict).toUpperCase())}</b> · tutma ${ptsT(rv.hold)} · ${rv.rNow>=0?"+":""}${fx(rv.rNow,2)}R</span> ${chips}${ai}</td></tr>`; }
-/* --- Yerel dil modeli kartı (src/llm.js) --- */
-function renderLlm(){ const C=llmCfg(); const S=llm.stats; const rd=llmReady(); const L=(typeof FC!=="undefined"&&FC&&FC.learn)?FC.learn:null; const K=L&&L.kinds&&L.kinds.llm; const ag=k=>L&&L.agents[k];
+/* --- Yapay zekâ masası kartı (src/llmdesk.js; model ayarı src/llm.js, Araştırma sekmesinde Selim ile ortak) --- */
+function renderLmd(){ const C=lmdCfg(); const S=lmd.stats; const rd=lmdReady(); const L=(typeof FC!=="undefined"&&FC&&FC.learn)?FC.learn:null; const K=L&&L.kinds&&L.kinds.llm; const ag=k=>L&&L.agents[k];
   const sk=k=>{ const a=ag(k); return a?`${a.n} görüş · beceri ${a.skill>=0?"+":""}${fx(a.skill,2)}${a.n>=C.minN?(a.m>1?' · <span class="up">oya hazır</span>':' · <span class="muted">artı değil</span>'):` · ${a.n}/${C.minN}`}`:"henüz sonuç yok"; };
-  const last=llm.last.slice(0,4).map(v=>`<details style="margin:4px 0"><summary style="cursor:pointer;font-size:12px">${tlHM(v.t)} · <b>${esc(v.sym.replace("USDT",""))}</b> ${v.dir} · ${v.kind==="pozisyon"?"açık pozisyon":"giriş"} → <b>${esc(v.dec.act.toUpperCase())}</b> <span class="muted">(kural masası: ${v.kind==="pozisyon"?esc(v.rule.verdict||"")+" "+pts(v.rule.hold||0):esc(v.rule.decision||"")+" "+pts(v.rule.score||0)} · ${Math.round(v.ms/1000)} sn)</span></summary>${llmLines(v).map(l=>`<div style="display:flex;gap:6px;font-size:11.5px;margin:2px 0"><b style="min-width:56px;color:${DESK_COL[l.id]||"var(--ink)"}">${esc(l.who)}</b><span>${esc(l.text)}</span></div>`).join("")}</details>`).join("");
-  return `<div class="card" style="margin-bottom:10px"><h4 style="margin:0 0 4px">Yapay zekâ masası · yerel dil modeli</h4>
-  <div class="muted" style="font-size:12px;margin-bottom:6px">Kural masasının ölçümlerini ve piyasa verisini bilgisayarındaki dil modeline verir; on üç üye kendi uzmanlığıyla konuşur, itiraz eder, Can karar verir. Görüşü tahmin defterinde ayrıca puanlanır; ${C.minN} görüşte becerisi artıysa ve "oy" açıksa küçük ağırlıkla puana girer. Model yoksa masa kuralla çalışır. Ollama: <code>ollama pull ${esc(C.model)}</code>.</div>
+  const last=lmd.last.slice(0,4).map(v=>`<details style="margin:4px 0"><summary style="cursor:pointer;font-size:12px">${tlHM(v.t)} · <b>${esc(v.sym.replace("USDT",""))}</b> ${v.dir} · ${v.kind==="pozisyon"?"açık pozisyon":"giriş"} → <b>${esc(v.dec.act.toUpperCase())}</b> <span class="muted">(kural masası: ${v.kind==="pozisyon"?esc(v.rule.verdict||"")+" "+pts(v.rule.hold||0):esc(v.rule.decision||"")+" "+pts(v.rule.score||0)} · ${Math.round(v.ms/1000)} sn)</span></summary>${lmdLines(v).map(l=>`<div style="display:flex;gap:6px;font-size:11.5px;margin:2px 0"><b style="min-width:56px;color:${DESK_COL[l.id]||"var(--ink)"}">${esc(l.who)}</b><span>${esc(l.text)}</span></div>`).join("")}</details>`).join("");
+  return `<div class="card" style="margin-bottom:10px"><h4 style="margin:0 0 4px">Yapay zekâ masası · ${esc(llmLabel())}</h4>
+  <div class="muted" style="font-size:12px;margin-bottom:6px">Kural masasının ölçümlerini ve piyasa verisini dil modeline verir; on üç üye kendi uzmanlığıyla konuşur, itiraz eder, Can karar verir. Hem giriş adaylarında hem açık pozisyonlarda toplanır. Görüşü tahmin defterinde ayrıca puanlanır; ${C.minN} görüşte becerisi artıysa ve "oy" açıksa küçük ağırlıkla puana girer. Model ayarı Araştırma sekmesinde (Selim ile ortak). Model yoksa masa kuralla çalışır.</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
-    <label style="font-size:12px"><input type="checkbox" id="llmOn" ${C.on?"checked":""} style="width:auto"> açık</label>
-    <label style="font-size:12px;color:var(--ink-2)">Uç <select id="llmApi"><option value="ollama" ${C.api==="ollama"?"selected":""}>Ollama</option><option value="openai" ${C.api!=="ollama"?"selected":""}>OpenAI uyumlu</option></select></label>
-    <input id="llmBase" value="${esc(C.base)}" style="width:190px;font-size:12px" title="adres"> <input id="llmModel" value="${esc(C.model)}" style="width:160px;font-size:12px" title="model">
-    <label style="font-size:12px;color:var(--ink-2)">Saatte <input type="number" id="llmPerHour" value="${C.perHour}" min="1" max="200" style="width:52px"></label>
-    <label style="font-size:12px"><input type="checkbox" id="llmVote" ${C.vote?"checked":""} style="width:auto"> kanıtlanınca oy versin</label>
-    <button type="button" class="ghost" id="llmPing">Bağlantıyı dene</button> <span class="muted" id="llmPingR" style="font-size:11.5px"></span></div>
-  <div style="font-size:12px;margin-bottom:4px">Durum: <b>${rd?esc(rd):'<span class="up">hazır</span>'}</b>${llm.busy?" · toplantıda":""}${llm.q.length?` · sırada ${llm.q.length}`:""} · ${S.n} çağrı, ${S.ok} geçerli${S.bad?`, ${S.bad} bozuk`:""}${S.ok?` · ortalama ${Math.round(S.ms/S.ok/1000)} sn`:""}${llm.err?` · <span class="down">${esc(llm.err)}</span>`:""}</div>
+    <label style="font-size:12px"><input type="checkbox" id="lmdOn" ${C.on?"checked":""} style="width:auto"> masada konuşsun</label>
+    <label style="font-size:12px;color:var(--ink-2)">Saatte en çok <input type="number" id="lmdPerHour" value="${C.perHour}" min="1" max="200" style="width:52px"> toplantı</label>
+    <label style="font-size:12px"><input type="checkbox" id="lmdVote" ${C.vote?"checked":""} style="width:auto"> kanıtlanınca oy versin</label>
+    <button type="button" class="ghost" id="lmdPing">Bağlantıyı dene</button> <span class="muted" id="lmdPingR" style="font-size:11.5px"></span></div>
+  <div style="font-size:12px;margin-bottom:4px">Durum: <b>${rd?esc(rd):'<span class="up">hazır</span>'}</b>${lmd.busy?" · toplantıda":""}${lmd.q.length?` · sırada ${lmd.q.length}`:""} · ${S.n} çağrı, ${S.ok} geçerli${S.bad?`, ${S.bad} bozuk`:""}${S.ok?` · ortalama ${Math.round(S.ms/S.ok/1000)} sn`:""}${lmd.err?` · <span class="down">${esc(lmd.err)}</span>`:""}</div>
   <div style="font-size:12px;margin-bottom:4px">Tahmin defteri: giriş görüşü ${sk("llm")} · pozisyon görüşü ${sk("llm:pos")}${K&&K.n?` · ${K.n} sonuç, isabet %${Math.round(K.hit*100)}`:""}</div>${last||'<div class="empty">Henüz toplantı yok.</div>'}</div>`; }
-function llmBind(){ const on=$("llmOn"); if(!on) return; const save=()=>{ llmSetCfg({on:$("llmOn").checked,api:$("llmApi").value,base:$("llmBase").value.trim(),model:$("llmModel").value.trim(),perHour:clamp(+$("llmPerHour").value||12,1,200),vote:$("llmVote").checked}); };
-  for(const id of ["llmOn","llmApi","llmBase","llmModel","llmPerHour","llmVote"]) $(id).addEventListener("change",()=>{ save(); if(id==="llmOn"||id==="llmVote") renderBot(); });
-  $("llmPing").addEventListener("click",async()=>{ save(); const o=$("llmPingR"); o.textContent="deneniyor (ilk yükleme 15–30 sn sürebilir)…"; const r=await llmPing(); o.textContent=r.ok?`cevap ${fx(r.ms/1000,1)} sn: "${r.text.trim().slice(0,40)}"`:`hata: ${r.err}`; }); }
-llm.onView=v=>{ botLog("llm",v.sym,`Yapay zekâ masası · ${v.kind==="pozisyon"?"açık pozisyon":"giriş"} ${v.dir} → ${v.dec.act.toUpperCase()} (oy ${v.dec.v>0?"+":""}${fx(v.dec.v,2)}, ${Math.round(v.ms/1000)} sn): ${v.dec.why}`); if(ui.drawerOpen&&ui.drawerTab==="bot") renderBot(); };
+function lmdBind(){ const on=$("lmdOn"); if(!on) return; const save=()=>{ lmdSetCfg({on:$("lmdOn").checked,perHour:clamp(+$("lmdPerHour").value||8,1,200),vote:$("lmdVote").checked}); };
+  for(const id of ["lmdOn","lmdPerHour","lmdVote"]) $(id).addEventListener("change",()=>{ save(); if(id!=="lmdPerHour") renderBot(); });
+  $("lmdPing").addEventListener("click",async()=>{ const o=$("lmdPingR"); o.textContent="deneniyor (ilk yükleme 15–30 sn sürebilir)…"; const r=await lmdPing(); o.textContent=r.ok?`cevap ${fx(r.ms/1000,1)} sn: "${String(r.text||"").trim().slice(0,40)}"`:`hata: ${r.err}`; }); }
+lmd.onView=v=>{ botLog("llm",v.sym,`Yapay zekâ masası · ${v.kind==="pozisyon"?"açık pozisyon":"giriş"} ${v.dir} → ${v.dec.act.toUpperCase()} (oy ${v.dec.v>0?"+":""}${fx(v.dec.v,2)}, ${Math.round(v.ms/1000)} sn): ${v.dec.why}`); if(ui.drawerOpen&&ui.drawerTab==="bot") renderBot(); };
 function renderForecast(){
   const F=fcLoad(); const L=F.learn; const head=`<h4 style="margin:0 0 4px">Tahmin defteri · masa doğru mu görüyor?</h4>`;
   const intro=`<div class="muted" style="font-size:12px;margin-bottom:6px">İşlem açılsın açılmasın, taranan her coinde masanın long ve short görüşü saatte bir kaydedilir; 4 saat sonra bakılır: fiyat önce 1 ATR lehe mi gitti, 1 ATR aleyhe mi? Rastgele mumda isabet %48–50 (6 aylık veri). Masanın puanı yükseldikçe isabet artmıyorsa sinyal yok demektir. Üyelerin ağırlığı ve Murat'ın dersleri buradan da öğrenir.</div>`;
@@ -3451,11 +3711,11 @@ function renderBot(){
   const audit=renderAudit();
   const tr=bot.trades.slice(-12).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b> ${chip(t.dir==="long"?"up sm":"down sm",t.dir==="long"?"L":"S")} <span class="muted">${t.model} ${t.grade} ${t.lev}x</span></td><td class="num">${fmtP(t.entry)}</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="num ${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${fx(t.r,2)}R</td></tr>`).join("");
   const lg=bot.log.slice(-40).reverse().map(l=>`<div class="tp ${{fill:"buy",tp1:"buy",tp2:"buy",stop:"sell",time:"",desk:"",audit:"",goal:"buy",add:"buy",cancel:"",skip:"",order:"",close:"",sys:"",move:"",fund:""}[l.type]||""}" style="grid-template-columns:110px 70px 1fr"><span class="when">${new Date(l.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><span class="k ${{fill:"up",tp1:"up",tp2:"up",close:"",stop:"down",time:"warn",desk:"cyan",audit:"warn",goal:"up",add:"up",cancel:"warn",skip:"muted",order:"cyan",sys:"muted",move:"cyan",fund:"muted"}[l.type]||""}">${{fill:"DOLDU",tp1:"HEDEF 1",tp2:"HEDEF 2",stop:"STOP",time:"ZAMAN",desk:"MASA",audit:"DENETÇİ",goal:"HEDEF",add:"EKLEME",cancel:"İPTAL",skip:"BEKLE",order:"EMİR",close:"KAPANDI",sys:"SİSTEM",move:"STOP↑",fund:"FONLAMA"}[l.type]||l.type}</span><span>${l.sym?"<b>"+l.sym.replace("USDT","")+"</b> · ":""}${l.text}</span></div>`).join("");
-  el.innerHTML=head+room+renderForecast()+renderLlm()+audit+(c.mode==="komite"?renderLeaders():"")+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`+renderTrend()+renderDip();
+  el.innerHTML=head+room+renderForecast()+renderLmd()+audit+(c.mode==="komite"?renderLeaders():"")+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`+renderTrend()+renderDip();
   $("botTgl").addEventListener("click",()=>{ bot.on?botStop():botStart(); renderBot(); }); $("botCsv").addEventListener("click",botCsv); $("botReset").addEventListener("click",botReset); $("botCloseAll").addEventListener("click",botCloseAll);
   $("botMode").addEventListener("change",e=>{ bot.cfg.mode=e.target.value; botSave(); renderBot(); });
   const rs=$("botRoomSel"); if(rs) rs.addEventListener("change",e=>{ bot.roomSel=e.target.value; renderBot(); });
-  trendBind(); dipBind(); llmBind();
+  trendBind(); dipBind(); lmdBind();
   const lr=$("ldRefresh"); if(lr) lr.addEventListener("click",()=>{ ldRefresh(true); });
   const num=(id,key,f)=>{ const n=$(id); if(n) n.addEventListener("change",e=>{ const v=+e.target.value; if(isFinite(v)){ bot.cfg[key]=f?f(v):v; botSave(); } }); };
   num("botRisk","risk",v=>clamp(v,0.5,25)/100); num("botRiskMax","riskMax",v=>clamp(v,0.5,25)/100);num("botLev","lev",v=>clamp(Math.round(v),1,50)); num("botMaxPos","maxPos",v=>clamp(Math.round(v),1,10)); num("botThr","threshold",v=>clamp(v,0,SCORE_MAX)/SCORE_MAX); num("botMinYes","minYes",v=>clamp(Math.round(v),1,DESK.length)); num("botHold","holdH",v=>clamp(Math.round(v),1,72)); num("botMaxOpens","maxOpens",v=>clamp(Math.round(v),1,50)); num("botMaxLosses","maxLosses",v=>clamp(Math.round(v),1,50)); num("botGoal","goal",v=>clamp(v,110,100000)); num("botSameDir","maxSameDir",v=>clamp(Math.round(v),1,10)); num("botBeR","beR",v=>clamp(v,0,3));
@@ -3487,7 +3747,7 @@ async function botManage(){
     const rNow=rv.rNow, peakR=rv.peakR, held=rv.held; const medHold=(typeof ld!=="undefined"&&ld.profile&&isFinite(ld.profile.medHold))?ld.profile.medHold:bot.cfg.holdH/2;
     const against=rv.views.filter(a=>a.w&&a.v<-0.15).map(a=>a.name).join(", ")||"kimse"; const say=(who,t)=>botLog("desk",p.sym,`${who}: ${t}`);
     p.lastReview={t:Date.now(),verdict:rv.verdict,hold:rv.hold,score:rv.score,oppScore:rv.oppScore,rNow:+rNow.toFixed(2),views:rv.views.map(x=>({id:x.id,name:x.name,v:x.v,c:x.c,act:x.act,abst:x.abst,txt:x.txt})),llm:p.lastReview&&p.lastReview.llm};
-    fcPosNote(p.id,p.sym,p.dir,A,rv); llmPosAsk(p,rv,A,c24);
+    fcPosNote(p.id,p.sym,p.dir,A,rv); lmdPosAsk(p,rv,A,c24);
     const taker=isL?px*(1-bot.cfg.slip):px*(1+bot.cfg.slip);
     // dinamik hedef/stop (goal.js): başabaş, dirence göre hedef 1, koşucuyu uzat/kısalt, yapısal stop, 200 $'a taşıyan hedef 1'de tamamı
     const adj=deskAdjust(p,{cfg:bot.cfg,px,rv,lvl:isL?(A.R&&A.R[0]):(A.S&&A.S[0]),thr:botThr(),gs:botGoal(),aud:AUD}); for(const a of adj){ deskApply(p,a,px,Date.now()); say(a.who,a.txt); } if(adj.length) botSave();
@@ -3692,6 +3952,7 @@ if(acct.key&&acct.secret&&acct.remember){ acctStart(acct.key,acct.secret,true).t
   setInterval(()=>{ if(live.ws&&live.ok&&Date.now()-live.lastMsg>25000){ wsStatus(false,"akış sustu, yenileniyor"); try{ live.ws.close(); }catch(e){} } },10000);
   renderFeed(); renderWatch(); renderJournal(); scheduleScan();
   setTimeout(()=>{ ldRefresh(false).catch(()=>{}); },3000); setInterval(()=>{ ldRefresh(false).catch(()=>{}); },10*60e3);
+  sel.posProvider=()=>bot.positions.map(p=>({sym:p.sym,dir:p.dir})); // Tolga açık pozisyonlarımızın coininde liderleri izler
   setTimeout(()=>{ labTick(false).catch(()=>{}); },20000); setInterval(()=>{ labTick(false).catch(()=>{}); },60e3);
   start(); setTimeout(()=>{ if(!scan.rows.length&&!scan.running) runScan(); },2500);
   // sayfa yeniden yüklendiyse (çökme/donma/bellek sonrası) bot kaldığı yerden devam etsin

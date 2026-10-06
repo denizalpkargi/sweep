@@ -148,7 +148,7 @@ function createBot(E, opt){
       const rNow=rv.rNow, peakR=rv.peakR, held=rv.held; const medHold=(LD&&LD.profile&&isFinite(LD.profile.medHold))?LD.profile.medHold:cfg.holdH/2;
       const against=rv.views.filter(a=>a.w&&a.v<-0.15).map(a=>a.name).join(", ")||"kimse"; const sayD=(who,t)=>log("desk",p.sym,`${who}: ${t}`,{id:p.id});
       p.lastReview={t:Date.now(),verdict:rv.verdict,hold:rv.hold,score:rv.score,oppScore:rv.oppScore,rNow:+rNow.toFixed(2),views:rv.views.map(x=>({id:x.id,name:x.name,v:x.v,c:x.c,act:x.act,abst:x.abst,txt:x.txt})),llm:p.lastReview&&p.lastReview.llm}; p.reviews=(p.reviews||0)+1;
-      E.fcPosNote(p.id,p.sym,p.dir,A,rv); E.llmPosAsk(p,rv,A,c24);
+      E.fcPosNote(p.id,p.sym,p.dir,A,rv); E.lmdPosAsk(p,rv,A,c24);
       const taker=isL?px*(1-cfg.slip):px*(1+cfg.slip);
       // dinamik hedef/stop (goal.js): başabaş, dirence göre hedef 1, koşucuyu uzat/kısalt, yapısal stop, 200 $'a taşıyan hedef 1'de tamamı
       const adj=E.deskAdjust(p,{cfg,px,rv,lvl:isL?(A.R&&A.R[0]):(A.S&&A.S[0]),thr:thr(),gs:gsNow(),aud:A0()});
