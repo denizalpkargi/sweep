@@ -5,11 +5,12 @@
   "description": "SWEEP · Likidite Terminali — Binance USDⓈ-M vadeli için AMD / likidite süpürmesi / emir akışı analiz terminali ve kâğıt bot",
   "scripts": {
     "build": "node src/build.js",
-    "test": "npm run build && node tests/dom-scenario.js",
+    "test": "npm run build && node tests/dom-scenario.js && node tests/headless-scenario.js",
     "shot": "npm run build && node tests/screenshot.js",
     "shot:bot": "npm run build && node tests/screenshot-bot.js",
     "serve": "npx --yes http-server site -p 8080 -c-1",
-    "pack:win": "npm run build && node -e \"require('fs').copyFileSync('site/index.html','electron/index.html')\" && npx --yes @electron/packager ./electron SWEEP --platform=win32 --arch=x64 --out=dist --overwrite --icon=electron/icon.ico --electron-version=44.5.1"
+    "pack:win": "npm run build && node -e \"require('fs').copyFileSync('site/index.html','electron/index.html')\" && npx --yes @electron/packager ./electron SWEEP --platform=win32 --arch=x64 --out=dist --overwrite --icon=electron/icon.ico --electron-version=44.5.1",
+    "bot": "node headless/run.js"
   },
   "devDependencies": {
     "jsdom": "^25.0.1",

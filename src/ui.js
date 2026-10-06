@@ -464,7 +464,6 @@ function renderTape(A){
 
 /* ================= kâğıt bot: gerçek fiyat, sanal bakiye · komite modu (çoklu pozisyon, market giriş) ya da kapı modu ================= */
 const fmtB=v=>(isFinite(v)?(+v).toFixed(2).replace(".",","):"—")+" $";
-const BOT_CFG_DEF={mode:"komite",risk:0.03,lev:20,maxLev:20,maxPos:3,maxOpens:12,maxLosses:6,threshold:0.3,minYes:4,holdH:8,cooldownMin:90,strict:false,useBR:true,useRS:true,feeMaker:0.0002,feeTaker:0.0005,slip:0.0003};
 const bot={on:false,startT:null,bal:100,start:100,positions:[],orders:[],trades:[],log:[],eq:[],day:{key:null,opens:0,losses:0},ws:null,wsKey:null,px:{},mark:{},book:{},fund:{},cool:{},lastTick:0,lastMark:0,_lastTrade:{},cfg:{...BOT_CFG_DEF},lastDecision:0,lastVotes:[]};
 try{ const saved=JSON.parse(LS("st-bot")||"null"); if(saved){ const cfg={...BOT_CFG_DEF,...(saved.cfg||{})}; if(!saved.cfg||saved.cfg.mode===undefined){ Object.assign(cfg,{mode:"komite",risk:BOT_CFG_DEF.risk,maxOpens:BOT_CFG_DEF.maxOpens,maxLosses:BOT_CFG_DEF.maxLosses,maxPos:BOT_CFG_DEF.maxPos,strict:false}); } Object.assign(bot,saved); bot.cfg=cfg; bot.ws=null; bot.wsKey=null;
   if(!Array.isArray(bot.positions)) bot.positions=[]; if(!Array.isArray(bot.orders)) bot.orders=[]; if(saved.pos) bot.positions.push(saved.pos); if(saved.order) bot.orders.push(saved.order); delete bot.pos; delete bot.order;
@@ -565,17 +564,13 @@ function botOnPrice(sym,px,T){
     bot.orders=bot.orders.filter(x=>x!==o);
     if(isL? px<=o.stop : px>=o.stop){ botLog("cancel",o.sym,`Fiyat stop seviyesine giriş olmadan geldi; emir iptal.`); botWsSync(); continue; }
     const fill=o.entry; const qty=o.notional/fill; const fee=o.notional*cfg.feeMaker; bot.bal-=fee; botDay().opens++;
-    bot.positions.push({...o,entry:fill,qty,qty0:qty,fees:fee,openT:T||now,expiresAt:now+cfg.holdH*3600e3,stage:"open",hi:fill,lo:fill,realized:0});
+    bot.positions.push({...o,entry:fill,qty,qty0:qty,risk0:Math.abs(fill-o.stop),stop0:o.stop,fees:fee,openT:T||now,expiresAt:now+cfg.holdH*3600e3,stage:"open",hi:fill,lo:fill,realized:0});
     botLog("fill",o.sym,`Limit doldu ${fmtP(fill)} · ${o.dir==="long"?"LONG":"SHORT"} ${o.lev}x · ${fmtB(o.notional)} · komisyon ${fmtB(fee)}.`); botSave(); }
-  for(const p of [...bot.positions]){ if(p.sym!==sym) continue; const isL=p.dir==="long"; p.hi=Math.max(p.hi,px); p.lo=Math.min(p.lo,px);
+  for(const p of [...bot.positions]){ if(p.sym!==sym) continue; const isL=p.dir==="long";
     const close=(part,price,why,taker)=>{ const q=p.qty*part; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*(taker?cfg.feeTaker:cfg.feeMaker); bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty-=q; botLog(why.k,p.sym,`${why.t} ${fmtP(price)} · %${Math.round(part*100)} kapandı · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); };
-    const risk=Math.abs(p.entry-p.stop);
-    if(isL? px<=p.stop : px>=p.stop){ const price=isL?p.stop*(1-cfg.slip):p.stop*(1+cfg.slip); close(1,price,{k:"stop",t:p.stage==="open"?"Stop":"Kalan stop"},true); botClosePos(p); continue; }
-    if(p.stage==="open" && (isL? px>=p.t1 : px<=p.t1)){ close(0.5,p.t1,{k:"tp1",t:"Hedef 1"},false); p.stage="tp1"; p.stop=p.entry; botLog("move",p.sym,`Stop girişe çekildi (${fmtP(p.entry)}).`); botSave(); continue; }
-    if(p.stage==="tp1"){ if(p.t2 && (isL? px>=p.t2 : px<=p.t2)){ close(0.6,p.t2,{k:"tp2",t:"Hedef 2"},false); p.stage="tp2"; }
-      const trail = isL ? p.hi-1*risk : p.lo+1*risk; if(isL? trail>p.stop : trail<p.stop){ p.stop=trail; } }
-    if(p.stage==="tp2"){ const trail = isL ? p.hi-0.7*risk : p.lo+0.7*risk; if(isL? trail>p.stop : trail<p.stop) p.stop=trail; }
-    if(p.expiresAt && now>p.expiresAt){ const price=isL?px*(1-cfg.slip):px*(1+cfg.slip); close(1,price,{k:"time",t:"Zaman stopu"},true); botClosePos(p); continue; }
+    const acts=paperStep(p,px,now,cfg); let fin=false;
+    for(const a of acts){ if(a.k==="move"){ botLog("move",p.sym,a.t); continue; } close(a.part,a.price,{k:a.k,t:a.t},a.taker); if(a.final){ fin=true; break; } }
+    if(fin) botClosePos(p); else if(acts.length) botSave();
   }
   const eq=botEquity(); const last=bot.eq[bot.eq.length-1]; if(!last||now-last.t>60e3){ bot.eq.push({t:now,v:eq}); }
   botLive();
