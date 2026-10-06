@@ -1,8 +1,8 @@
-/* ---------- Denetçi (Zeynep): kapanan işlemleri inceler, hataları etiketler, dersleri masaya geri verir (6 Ekim 2026) ----------
+/* ---------- Denetçi (Murat): kapanan işlemleri inceler, hataları etiketler, dersleri masaya geri verir (6 Ekim 2026) ----------
    Her kapanan kâğıt işlemde girişteki oylar (snap), stop mesafesi, en iyi/en kötü gidiş (mfe/mae, R) ve çıkış nedenleri saklanır.
    auditRun(trades): her işlemi etiketler (giriş anında görülebilen hatalar + sonradan görülen hatalar), etiket başına ortalama R'yi
    küçülterek (sum/(n+4)) hesaplar ve yeterli örnekte "ders" çıkarır. Dersler masaya kolla bağlanır:
-   oy etiketleri → Zeynep o kalıba benzeyen kuruluma karşı oy verir (çok kötüyse veto); eşikte giriş → eşik +0,05/+0,10;
+   oy etiketleri → Murat o kalıba benzeyen kuruluma karşı oy verir (çok kötüyse veto); eşikte giriş → eşik +0,05/+0,10;
    tek başına çoğunluk → asgari oy +1; aynı yönde yığılma → aynı yönde en fazla 1 pozisyon; kayıp ardından giriş → 60 dk ara;
    gürültü stopu → stop tabanı %1,5 → %2; kârı geri verme → 1R görünce momentuma bakmadan yarısını al.
    Ajan ağırlıkları: oy ile sonuç R'si arasındaki ilişki (≥8 işlem) ağırlığı 0,6–1,4 arasında çarpar. Kanıt değil; örnek büyüdükçe güçlenir. */
@@ -66,7 +66,7 @@ function auditRun(trades, log, opts){
     const s=has.reduce((a,x)=>a+x.t.r,0), s2=not.reduce((a,x)=>a+x.t.r,0);
     out.tags[k]={n:has.length,sum:s,avg:has.length?s/has.length:0,shr:s/(has.length+4),nNot:not.length,avgNot:not.length?s2/not.length:0,lossShare:losses.length?has.filter(x=>x.t.r<0).length/losses.length:0}; }
   const T=out.tags; const bad=k=>T[k].n>=AUD_MIN&&T[k].shr<=-0.25&&T[k].avg<T[k].avgNot-0.25; const lesson=(k,lever)=>out.lessons.push({k,t:AUD_TAGS[k].t,why:AUD_TAGS[k].why,n:T[k].n,avg:T[k].avg,avgNot:T[k].avgNot,lever});
-  for(const k in AUD_VOTE) if(bad(k)){ const strong=T[k].n>=10&&T[k].shr<=-0.5; out.vote[k]=clamp(T[k].shr*1.5,-1,-0.3); if(strong) out.veto[k]=true; lesson(k,strong?"Zeynep bu kalıba veto koyar":"Zeynep bu kalıba karşı oy verir"); }
+  for(const k in AUD_VOTE) if(bad(k)){ const strong=T[k].n>=10&&T[k].shr<=-0.5; out.vote[k]=clamp(T[k].shr*1.5,-1,-0.3); if(strong) out.veto[k]=true; lesson(k,strong?"Murat bu kalıba veto koyar":"Murat bu kalıba karşı oy verir"); }
   if(bad("thin")){ out.thrBump=T.thin.shr<=-0.5?0.1:0.05; lesson("thin",`eşik +${fx(out.thrBump,2)}`); }
   if(bad("lone")){ out.minYesBump=1; lesson("lone","asgari evet oyu +1"); }
   if(bad("cluster")){ out.maxSameDir=1; lesson("cluster","aynı yönde en fazla 1 pozisyon"); }
@@ -81,7 +81,7 @@ function auditRun(trades, log, opts){
   out.findings=tagged.filter(x=>x.t.r<0).slice(-12).reverse().map(x=>({sym:x.t.sym,dir:x.t.dir,r:x.t.r,openT:x.t.openT,closeT:x.t.closeT,tags:x.tags,exits:x.t.exits||[],mfe:x.t.mfe}));
   return out;
 }
-/* komite içinden: Zeynep'in oyu, kurulumu kayıtlı hatalarla karşılaştırarak */
+/* komite içinden: Murat'ın oyu, kurulumu kayıtlı hatalarla karşılaştırarak */
 function audVoteFor(ag){
   const a={}; for(const k in ag) a[k]=ag[k].v;
   if(!AUD||!AUD.summary||AUD.summary.snap<AUD_MIN) return {v:0,c:0,w:0,hits:[],veto:null,txt:AUD&&AUD.summary?`${AUD.summary.n} işlem kayıtlı, ders için en az ${AUD_MIN} oylu işlem gerekir`:"henüz kapanmış işlem yok"};

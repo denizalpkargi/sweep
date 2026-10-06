@@ -1,4 +1,4 @@
-// Denetçi (Zeynep) birim testi: yapay kapanmış işlemlerle etiketler, dersler, kollar, oy ve eski kayıtların günlükten okunması.
+// Denetçi (Murat) birim testi: yapay kapanmış işlemlerle etiketler, dersler, kollar, oy ve eski kayıtların günlükten okunması.
 // Çalıştırma: npm run build && node tests/auditor-test.js
 const {loadEngine}=require('./engine-node.js'); const E=loadEngine(); const assert=require('assert');
 const H=3600e3, M=60e3; let t0=Date.UTC(2026,9,5,18); const trades=[];
