@@ -5,7 +5,7 @@
    1. tur açılış: herkes verisine bakıp oy (v −1..+1) ve güven (c 0..1) verir. 2. tur itirazlar: kurallı karşılıklı itirazlar oyları ve güvenleri değiştirir, plan kısalabilir.
    3. tur ikna (comTally): en güçlü destekçi tezini, en güçlü karşı çıkan karşı tezini söyler; her üye diğerlerinin güvenle ağırlıklı görüşünü dinler ve güveni düşükse oyunu
    ona doğru çeker (kim ikna ettiyse söylenir). Verisi olmayan üye çekimserdir: puana da paydaya da girmez. 4. tur karar: Can veto eder ya da boyu ve planı yazar.
-   Puan = Σ w·v·c / Σ w (yalnız oy kullananlar). Bot: puan ≥ eşik ve evet ≥ asgari ve veto yok → market giriş; boy = inanç (eşikte yarım, eşik + sizeSpan'de tam risk).
+   Puan = Σ w·v·c / Σ w (yalnız oy kullananlar). Bot: puan ≥ eşik ve evet ≥ asgari ve veto yok → market giriş; boy = masanın güveni (goal.js deskConf: puan payı × not; taban risk → riskMax).
    Katsayılar (w) geriye dönük testten: tests/backtest-masa.js, 24 coin × 6 ay, saatte bir toplantı; üyenin oy×güven'inin sonuçla bilgi katsayısı (IC) → w = 1 + 40·IC.
    Emre 1,8 · Baran 2,0 · Arda 1,3 · Can 1,1 · Kerem 0,9 · Mert 0,9; Onur/Tolga/Burak/Murat geçmişte ölçülemedi (çoğunlukla çekimser), yerinde kaldı. */
 const DESK=[
@@ -21,7 +21,7 @@ const DESK=[
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1.1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 // eşik, asgari evet ve katsayılar tests/backtest-masa.js ile seçildi (6 Ekim 2026, 24 coin × 6 ay, 169 bin toplantı); v: ayar sürümü (comMigrate)
-const COM_DEF={threshold:0.35,minYes:3,sizeSpan:0.2,v:2};
+const COM_DEF={threshold:0.35,minYes:3,v:2};
 /* ---------- İkna turu ----------
    Her üye, diğerlerinin güvenle ağırlıklı görüşünü (Σ w·c·v / Σ w·c) dinler. Güveni düşük olan çok, yüksek olan az değişir:
    v ← v + pull · (1 − c) · (diğerlerinin ortalama güveni) · (diğerlerinin görüşü − v), rounds tur. Çekimserler dinlemez, konuşmaz.
@@ -149,11 +149,12 @@ function committee(A, dir, c24, opts){
   score=+score.toFixed(3);
   /* ---- 4. tur: karar ---- */
   const px=A.px; const holdH=best&&isFinite(best.hold)&&best.sw>0?clamp(Math.round(best.hold*1.5),2,12):null;
-  const conv=clamp(0.5+(score-opts.threshold)/(2*(COM_DEF.sizeSpan||0.2)),0.5,1); // inanç boyu: eşikte yarım risk, eşik + 0,20'de tam risk
-  const plan=veto?null:{holdH,size:+conv.toFixed(2),entry:px,sd,stop:isL?px*(1-sd):px*(1+sd),t1:isL?px*(1+1.5*sd):px*(1-1.5*sd),t2:isL?px*(1+runR*sd):px*(1-runR*sd),rr1:1.5,rr2:runR};
+  const gl=agents.find(a=>a.id==="liq"), gf=agents.find(a=>a.id==="flow"); const swp=!!(gl&&!gl.abst&&gl.v>0.3), ofk=!!(gf&&!gf.abst&&gf.v>0); const grade=score>=opts.threshold+0.15&&swp&&ofk?"A":(swp||ofk)?"B":"C"; // goal.js aşama 2 ile aynı not
+  const cf=typeof deskConf==="function"?deskConf({score,yes},opts.threshold,opts.minYes,grade,{confSpan:opts.confSpan}):null; const conf=cf?+cf.conf.toFixed(2):0; // masanın güveni (puan payı × not): risk tabanla tavan arasında bu oranda (goal.js aşama 3)
+  const plan=veto?null:{holdH,conf,grade,entry:px,sd,stop:isL?px*(1-sd):px*(1+sd),t1:isL?px*(1+1.5*sd):px*(1-1.5*sd),t2:isL?px*(1+runR*sd):px*(1-runR*sd),rr1:1.5,rr2:runR};
   const go=!veto&&score>=opts.threshold&&yes>=opts.minYes;
   const decision=veto?"veto":go?"giriş":score>=opts.threshold?"oy eksik":"bekle";
-  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/${T.nAct} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Burak: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy: inanç ${Math.round(conv*100)}% (eşikte yarım, eşik +${fx(COM_DEF.sizeSpan||0.2,2)}'de tam risk), 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
+  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/${T.nAct} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Burak: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy: masanın güveni %${Math.round(conf*100)} (puan eşiğin ${fx(score-opts.threshold,2)} üstünde, not ${grade}); risk tabandan tavana bu oranda, 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
   // ham girdiler: karar günlüğünde (headless JSONL) sonradan analiz için
   const r4=v=>isFinite(v)?+(+v).toFixed(4):null;
   const feat={px:A.px,c24:r4(c24),trend:A.trend,trendScore:A.trendScore,st:A.st,stage:r?r.stage:null,grade:r?r.grade:null,kz:r&&r.kz||null,pool:r&&r.pool?r.pool.name:null,poolW:r&&r.pool?r.pool.w:null,rsOk:!!(q&&q.rsOk),rsStage:q?q.stage:null,

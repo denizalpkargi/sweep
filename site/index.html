@@ -411,7 +411,8 @@ table.t tr.near td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
             <tr><td><b>yeni (varsayılan)</b></td><td><b>0,35</b></td><td><b>76 / 79</b></td><td><b>−0,104</b></td><td><b>−0,095</b></td><td><b>%51,1 / %49,2</b></td></tr>
             <tr><td>yeni</td><td>0,40</td><td>62 / 66</td><td>−0,092</td><td>−0,079</td><td>%52,0 / %49,4</td></tr>
             <tr><td>yeni</td><td>0,45</td><td>50 / 54</td><td>−0,111</td><td>−0,067</td><td>%50,7 / %49,8</td></tr></table>
-          <p>Eşik yükseldikçe R daha az eksi oluyor ama hiçbir eşikte artıya geçmiyor; 0,35 ile 0,45 arasındaki fark (0,03R) standart hatanın içinde. <b>0,35 seçildi</b>: eski masanın 0,30'una göre %58 daha çok sinyal, aynı beklenti. Yeni puanlama toplantıların %25'inde 0,30'u geçiyor (eskisi %12), yani masa iki kat daha sık konuşuyor. Asgari evet 3 (yalnız oy kullananlar sayılır). <b>İnanç boyu:</b> risk, eşikte yarım, eşik + 0,20'de tam; testte ortalama boy 0,78 ve boy ağırlıklı R −0,072 (düz −0,099): yüksek puanlı toplantılar biraz daha iyi. <b>Risk varsayılanı %3'te kaldı</b> (kullanıcının seçimi, 6 Ekim 2026; öneri %1 idi: efsane futures trader'larının ortak kuralı işlem başına %1–2). Hesap: −0,1R'lik işlemlerde %3 risk ayda ~%15 kayıp, %1'de ~%5; inanç boyu bunu ortalama 0,78 ile çarpar.</p>
+          <p>Eşik yükseldikçe R daha az eksi oluyor ama hiçbir eşikte artıya geçmiyor; 0,35 ile 0,45 arasındaki fark (0,03R) standart hatanın içinde. <b>0,35 seçildi</b>: eski masanın 0,30'una göre %58 daha çok sinyal, aynı beklenti. Yeni puanlama toplantıların %25'inde 0,30'u geçiyor (eskisi %12), yani masa iki kat daha sık konuşuyor. Asgari evet 3 (yalnız oy kullananlar sayılır). <b>Risk varsayılanı %3'te kaldı</b> (kullanıcının seçimi, 6 Ekim 2026; öneri %1 idi: efsane futures trader'larının ortak kuralı işlem başına %1–2). Hesap: −0,1R'lik işlemlerde %3 risk ayda ~%15 kayıp, %1'de ~%5.</p>
+          <p><b>Masanın güveniyle risk (6 Ekim 2026 akşamı; kullanıcı "risk %10'a kadar artabilir, önemli olan masanın işleme ne kadar güvendiği" dedi):</b> taban risk %3, tavan %10 (ayarlar: "Taban risk %", "Güvenle risk en çok %"). Güven = puan payı (eşik → 0, eşik + 0,35 → 1) × not (A 1, B 0,5, C 0); tahmin defterinde masanın "gir" dediklerinin isabeti %50'nin altına inerse güven yarıya iner. Bileşenler aynı 173 bin toplantıdan seçildi (eşik 0,35, 11.701 sinyal): oy birliğinin bilgisi yok (oybirliğiyle alınan kararlar −0,07/−0,06R, bölünmüş masa −0,07/−0,10R, arası −0,14/−0,12R; bu yüzden formülde yok), not A iki yarıda da daha az kaybediyor (A −0,09/−0,02R, B −0,10/−0,11R, C −0,14/−0,11R), puan payı yalnız ikinci yarıda biraz iyi (güven ≥0,75 dilimi −0,11/+0,02R). Dürüst sonuç: hiçbir güven diliminde artı R yok; bu eşlemede ortalama risk %4,65, işlem başına bakiye kaybı −%0,45/−%0,36 (düz %3: −%0,31/−%0,29), yani büyütme beklenen kaybı ~1,4 kat artırıyor; eşit ağırlıklı ya da oybirlikli formüller ~2 kat. Eski "inanç boyu" (eşikte yarım risk) kaldırıldı; açık risk sınırı %9 → %15 (tek bir %10'luk işleme yer kalsın diye). Güven kazananı önceden gösteriyor mu, kâğıt bot ve tahmin defteri ölçecek.</p>
           <p><b>Rejim her şeyi belirliyor:</b> eşik 0,35'te longlar yukarı trendde ilk yarı −0,15R, ikinci yarı −0,03R; shortlar aşağı trendde ilk yarı −0,07R, ikinci yarı −0,20R. Yani masanın kârı hangi yarıda piyasanın hangi yöne gittiğine bağlı, kendi seçiminden gelen pay küçük. <b>Sonuç:</b> masadaki hiçbir üyenin 15 dakikalık okumasında 4 saatlik ufukta ölçülebilir bir kenar yok; masa puanı zayıf bir sıralama veriyor (en iyi dilim rastgeleden ~0,08R iyi) ama komisyon + kayma (~0,11R) bunu yiyor. İşareti değiştirebilecek şeyler: maliyeti düşürmek (limit/maker giriş, daha uzun tutuş, daha geniş stop) ya da geçmişte ölçülemeyen canlı verinin (OI, fonlama, kalabalık, liderler) gerçekten bilgi taşıması; bunu tahmin defteri ileriye dönük ölçüyor. Daha çok işlem = daha çok kayıt; bedeli işlem başına ~0,1R.</p></div>
         <div class="card"><h4>Trend sepeti · günlük trend takibi (6 Ekim 2026)</h4>
           <p><b>Kural:</b> BTC, ETH, SOL, BNB. Her coin günlük kapanışı 10/20/50/100 günlük ortalamaların kaçının üstündeyse o oranda long (0, ¼, ½, ¾, 1). BTC 50 günlük ortalamanın altındaysa hepsi nakit. Ağırlık = puan × min(hedef oynaklık ÷ 30 günlük oynaklık, üst sınır) ÷ 4; hedef oynaklık 1,4 (varsayılan; 6 Ekim'de 0,8 → 1,2 → 1,4), üst sınır 7; bakiye 200 $'a varınca 0,8'e iner (hedef modu); borsa kaldıracı 20x cross yalnız teminatı küçültür, etkin kaldıraç ortalama ≈1,9x. Günde bir, UTC 00:00'dan sonra dengelenir; fark hedefin %20'sinden azsa işlem yok. Stop ve hedef yok, trend dönünce satar. Masa'dan ayrı 100 $ sanal bakiye; Bot sekmesinde kart, ekransız botta <code>logs/trend-*.jsonl</code>.</p>
@@ -1200,7 +1201,7 @@ function audVoteFor(ag){
    1. tur açılış: herkes verisine bakıp oy (v −1..+1) ve güven (c 0..1) verir. 2. tur itirazlar: kurallı karşılıklı itirazlar oyları ve güvenleri değiştirir, plan kısalabilir.
    3. tur ikna (comTally): en güçlü destekçi tezini, en güçlü karşı çıkan karşı tezini söyler; her üye diğerlerinin güvenle ağırlıklı görüşünü dinler ve güveni düşükse oyunu
    ona doğru çeker (kim ikna ettiyse söylenir). Verisi olmayan üye çekimserdir: puana da paydaya da girmez. 4. tur karar: Can veto eder ya da boyu ve planı yazar.
-   Puan = Σ w·v·c / Σ w (yalnız oy kullananlar). Bot: puan ≥ eşik ve evet ≥ asgari ve veto yok → market giriş; boy = inanç (eşikte yarım, eşik + sizeSpan'de tam risk).
+   Puan = Σ w·v·c / Σ w (yalnız oy kullananlar). Bot: puan ≥ eşik ve evet ≥ asgari ve veto yok → market giriş; boy = masanın güveni (goal.js deskConf: puan payı × not; taban risk → riskMax).
    Katsayılar (w) geriye dönük testten: tests/backtest-masa.js, 24 coin × 6 ay, saatte bir toplantı; üyenin oy×güven'inin sonuçla bilgi katsayısı (IC) → w = 1 + 40·IC.
    Emre 1,8 · Baran 2,0 · Arda 1,3 · Can 1,1 · Kerem 0,9 · Mert 0,9; Onur/Tolga/Burak/Murat geçmişte ölçülemedi (çoğunlukla çekimser), yerinde kaldı. */
 const DESK=[
@@ -1216,7 +1217,7 @@ const DESK=[
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1.1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 // eşik, asgari evet ve katsayılar tests/backtest-masa.js ile seçildi (6 Ekim 2026, 24 coin × 6 ay, 169 bin toplantı); v: ayar sürümü (comMigrate)
-const COM_DEF={threshold:0.35,minYes:3,sizeSpan:0.2,v:2};
+const COM_DEF={threshold:0.35,minYes:3,v:2};
 /* ---------- İkna turu ----------
    Her üye, diğerlerinin güvenle ağırlıklı görüşünü (Σ w·c·v / Σ w·c) dinler. Güveni düşük olan çok, yüksek olan az değişir:
    v ← v + pull · (1 − c) · (diğerlerinin ortalama güveni) · (diğerlerinin görüşü − v), rounds tur. Çekimserler dinlemez, konuşmaz.
@@ -1344,11 +1345,12 @@ function committee(A, dir, c24, opts){
   score=+score.toFixed(3);
   /* ---- 4. tur: karar ---- */
   const px=A.px; const holdH=best&&isFinite(best.hold)&&best.sw>0?clamp(Math.round(best.hold*1.5),2,12):null;
-  const conv=clamp(0.5+(score-opts.threshold)/(2*(COM_DEF.sizeSpan||0.2)),0.5,1); // inanç boyu: eşikte yarım risk, eşik + 0,20'de tam risk
-  const plan=veto?null:{holdH,size:+conv.toFixed(2),entry:px,sd,stop:isL?px*(1-sd):px*(1+sd),t1:isL?px*(1+1.5*sd):px*(1-1.5*sd),t2:isL?px*(1+runR*sd):px*(1-runR*sd),rr1:1.5,rr2:runR};
+  const gl=agents.find(a=>a.id==="liq"), gf=agents.find(a=>a.id==="flow"); const swp=!!(gl&&!gl.abst&&gl.v>0.3), ofk=!!(gf&&!gf.abst&&gf.v>0); const grade=score>=opts.threshold+0.15&&swp&&ofk?"A":(swp||ofk)?"B":"C"; // goal.js aşama 2 ile aynı not
+  const cf=typeof deskConf==="function"?deskConf({score,yes},opts.threshold,opts.minYes,grade,{confSpan:opts.confSpan}):null; const conf=cf?+cf.conf.toFixed(2):0; // masanın güveni (puan payı × not): risk tabanla tavan arasında bu oranda (goal.js aşama 3)
+  const plan=veto?null:{holdH,conf,grade,entry:px,sd,stop:isL?px*(1-sd):px*(1+sd),t1:isL?px*(1+1.5*sd):px*(1-1.5*sd),t2:isL?px*(1+runR*sd):px*(1-runR*sd),rr1:1.5,rr2:runR};
   const go=!veto&&score>=opts.threshold&&yes>=opts.minYes;
   const decision=veto?"veto":go?"giriş":score>=opts.threshold?"oy eksik":"bekle";
-  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/${T.nAct} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Burak: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy: inanç ${Math.round(conv*100)}% (eşikte yarım, eşik +${fx(COM_DEF.sizeSpan||0.2,2)}'de tam risk), 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
+  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/${T.nAct} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Burak: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy: masanın güveni %${Math.round(conf*100)} (puan eşiğin ${fx(score-opts.threshold,2)} üstünde, not ${grade}); risk tabandan tavana bu oranda, 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
   // ham girdiler: karar günlüğünde (headless JSONL) sonradan analiz için
   const r4=v=>isFinite(v)?+(+v).toFixed(4):null;
   const feat={px:A.px,c24:r4(c24),trend:A.trend,trendScore:A.trendScore,st:A.st,stage:r?r.stage:null,grade:r?r.grade:null,kz:r&&r.kz||null,pool:r&&r.pool?r.pool.name:null,poolW:r&&r.pool?r.pool.w:null,rsOk:!!(q&&q.rsOk),rsStage:q?q.stage:null,
@@ -1542,9 +1544,26 @@ function fcVoteFor(dir,feat){ const L=(FC||fcLoad()).learn; if(!L||!L.lessons.le
    3. freePlan: teminat ya da yer yetmiyorsa ve yeni kurulum açıktakilerden belirgin iyiyse, kârdaki ya da sönmüş pozisyondan kâr alıp yer açar.
    4. deskAdjust: açık pozisyonda hedef ve stopu günceller (başabaş, dirence göre hedef 1, koşucuyu uzat/kısalt, yapısal stop, hedefi 200 $'a taşıyan hedef 1'de tamamını al).
    Murat (auditor.js) her kararı sonradan puanlar; kötü çıkan kolu kapatır (AUD.off). */
-const GOAL_DEF={goal:200,ddGuard:0.10,nearGoal:0.85,lockGoal:true,maxOpenRisk:0.09,maxSameDir:2,dirGapMin:15,lossGapMin:30,
-  freeMargin:true,freeEdge:0.08,freeMinR:0.3,beR:0,shortRule:"warn",warnMult:0.75,maxWarn:2,dyn:true};
+const GOAL_DEF={goal:200,ddGuard:0.10,nearGoal:0.85,lockGoal:true,maxOpenRisk:0.15,maxSameDir:2,dirGapMin:15,lossGapMin:30,
+  freeMargin:true,freeEdge:0.08,freeMinR:0.3,beR:0,shortRule:"warn",warnMult:0.75,maxWarn:2,dyn:true,riskMax:0.10,confSpan:0.35};
 Object.assign(BOT_CFG_DEF,GOAL_DEF);
+// kayıtlı eski ayar (riskMax yok): açık risk sınırı %9'du, tek bir %10'luk işleme yer kalmazdı → yeni varsayılana taşınır
+function cfgMigrate(saved,cfg){ if(saved&&saved.riskMax==null) cfg.maxOpenRisk=GOAL_DEF.maxOpenRisk; return cfg; }
+/* Masanın güveni (6 Ekim 2026, kullanıcı: "risk %10'a kadar artabilir, önemli olan masanın işleme ne kadar güvendiği"):
+   güven = puan payı (eşik → 0, eşik + confSpan 0,35 → 1) × not çarpanı (A 1, B 0,5, C 0);
+   tahmin defterinde masanın "gir" dediklerinin isabeti (≥30 tahmin) %50 altındaysa güven ×0,5, %55 altındaysa ×0,75.
+   risk = taban risk + (riskMax − taban) × güven; sonra mod çarpanı, uyarılar ve açık risk sınırı uygulanır.
+   Bileşenler gerçek oylarla seçildi (tests/backtest-masa.js örnekleri, 8 May–6 Eki 2026, eşik 0,35, 11.701 sinyal): oy birliğinin bilgisi yok
+   (oybirliğiyle alınan kararlar −0,07/−0,06R, bölünmüş masa −0,07/−0,10R, arası −0,14/−0,12R; sıralama yok, formülde değil), not A iki yarıda da
+   daha az kaybediyor (A −0,09/−0,02R, B −0,10/−0,11R, C −0,14/−0,11R), puan payı yalnız ikinci yarıda biraz iyi. Hiçbir güven diliminde artı R yok;
+   bu eşlemede ortalama risk %4,65 ve işlem başına bakiye kaybı −%0,45/−%0,36 (düz %3: −%0,31/−%0,29). Kanıt değil: tahmin defteri ve Murat ölçecek. */
+function deskConf(x, thr, minYes, grade, cfg){
+  cfg=cfg||{}; const s=clamp((x.score-thr)/(cfg.confSpan||0.35),0,1), g=grade==="A"?1:grade==="B"?0.5:0;
+  let conf=s*g, fcm=1, fcTxt=""; let L=null; try{ L=typeof FC!=="undefined"&&FC&&FC.learn; }catch(e){}
+  if(L&&L.go&&L.go.n>=30&&L.go.hit!=null){ fcm=L.go.hit<0.5?0.5:L.go.hit<0.55?0.75:1; fcTxt=`tahmin defteri "gir" isabeti %${Math.round(L.go.hit*100)} (${L.go.n})${fcm<1?` → güven ×${fx(fcm,2)}`:""}`; }
+  conf=clamp(conf*fcm,0,1); const base=cfg.risk>0?cfg.risk:0, top=Math.max(base,cfg.riskMax>0?cfg.riskMax:base);
+  return {conf,pct:base+(top-base)*conf,s,g,grade,fcm,fcTxt};
+}
 const DEC_KIND={free:"Yer açmak için kâr al",prune:"Sönmüş pozisyonu kapat",goal:"200 $ kilidi",t1full:"Hedefi 200 $'a taşıyan hedef 1'de tamamı",
   be:"Stop başabaşa",t1pull:"Hedef 1 dirençten önceye",t2ext:"Koşucuyu uzat",t2cut:"Koşucuyu kısalt",tight:"Yapısal stopa sık"};
 const DEC_CLOSE={free:1,prune:1,goal:1};
@@ -1559,7 +1578,7 @@ function goalState(b, cfg){
   return {goal,start,eq,peak,dd,prog,need,mode,riskMult,thrAdd,why};
 }
 // işlem başına risk ($): yüzde risk × mod çarpanı; hedefe az kaldıysa 1,5R'lik kazancın hedefi geçmesine yetecek kadarıyla sınırlı
-function goalRisk(gs, bal, cfg){ let r=bal*cfg.risk*gs.riskMult; if(gs.mode!=="tamam"&&gs.need>0) r=Math.min(r,Math.max(gs.need/1.5,bal*cfg.risk*0.3)); return r; }
+function goalRisk(gs, bal, cfg, pct){ pct=pct!=null?pct:cfg.risk; let r=bal*pct*gs.riskMult; if(gs.mode!=="tamam"&&gs.need>0) r=Math.min(r,Math.max(gs.need/1.5,bal*cfg.risk*0.3)); return r; }
 const openRiskOf=p=>{ const sg=p.dir==="long"?1:-1; const d=sg*(p.entry-p.stop); return d>0?d*p.qty:0; };
 const posR=(p,px)=>{ const r0=p.risk0||Math.abs(p.entry-(p.stop0||p.stop)); return r0>0&&px>0?(p.dir==="long"?px-p.entry:p.entry-px)/r0:0; };
 /* --- 2. çok aşamalı giriş ---
@@ -1591,18 +1610,19 @@ function entryStages(x, ctx){
   else if(lastSame&&now-lastSame<cfg.dirGapMin*60e3) f4=`${Math.round((now-lastSame)/60e3)} dk önce aynı yönde giriş yapıldı; aynı bahsi ikinci kez oynamamak için ${cfg.dirGapMin} dk ara`;
   else if(lastLoss&&now-lastLoss<gapLoss*60e3) f4=`son kayıp ${Math.round((now-lastLoss)/60e3)} dk önce; ${gapLoss} dk soğuma`;
   /* aşama 3: risk ve teminat bütçesi */
-  const warn=st.filter(s=>s.st==="warn").length; const conv=x.com&&x.com.plan&&x.com.plan.size>0?x.com.plan.size:1; let riskUsd=goalRisk(gs,ctx.bal,cfg)*Math.pow(cfg.warnMult,warn)*conv;
+  const warn=st.filter(s=>s.st==="warn").length; const cf=deskConf(x,thr,minYes,grade,cfg); let riskUsd=goalRisk(gs,ctx.bal,cfg,cf.pct)*Math.pow(cfg.warnMult,warn);
   const openRisk=pos.reduce((a,p)=>a+openRiskOf(p),0); const room=gs.eq*cfg.maxOpenRisk-openRisk; let f3=null, n3=[];
   if(riskUsd>room){ if(room<riskUsd*0.4) f3=`açık risk ${fx(openRisk,2)} $ (özkaynağın %${fx(openRisk/gs.eq*100,1)}); sınır %${fx(cfg.maxOpenRisk*100,0)}`; else { n3.push(`açık risk sınırı yüzünden risk ${fx(riskUsd,2)} → ${fx(room,2)} $`); riskUsd=room; } }
   const lev=ctx.lev||cfg.lev||20; const notional=x.sd>0?riskUsd/x.sd:0, margin=notional/lev; const used=pos.reduce((a,p)=>a+(p.margin||0),0)+(ctx.reserved||0); const free=ctx.bal*0.95-used;
   const need=Math.max(0,margin-free), slot=pos.length>=cfg.maxPos;
-  if(gs.mode!=="normal") n3.push(gs.why); if(warn) n3.push(`${warn} uyarı: boy ×${fx(Math.pow(cfg.warnMult,warn),2)}`); if(conv<1) n3.push(`inanç boyu ×${fx(conv,2)}`);
+  n3.unshift(`masanın güveni %${Math.round(cf.conf*100)} (puan payı %${Math.round(cf.s*100)}, not ${grade}) → risk %${fx(cf.pct*100,1)} (taban %${fx(cfg.risk*100,1)}, üst %${fx(Math.max(cfg.risk,cfg.riskMax||0)*100,1)})${cf.fcTxt?" · "+cf.fcTxt:""}`);
+  if(gs.mode!=="normal") n3.push(gs.why); if(warn) n3.push(`${warn} uyarı: boy ×${fx(Math.pow(cfg.warnMult,warn),2)}`);
   add("bütçe","Can",f3?"fail":(need>0||slot)?"warn":"ok",f3||`risk ${fx(riskUsd,2)} $ · pozisyon ${fx(notional,2)} $ · teminat ${fx(margin,2)} $ / boş ${fx(Math.max(0,free),2)} $${need>0?` · ${fx(need,2)} $ eksik`:""}${slot?` · ${pos.length}/${cfg.maxPos} yer dolu`:""}${n3.length?" · "+n3.join(" · "):""}`);
   add("korelasyon","Murat",f4?"fail":"ok",f4||`aynı yönde ${same.length}/${cap} · son ${x.dir} girişi ${lastSame?Math.round((now-lastSame)/60e3)+" dk önce":"yok"}`);
   const warnBlock=au&&au.warnBlock&&warn>0; const tooMany=warn>cfg.maxWarn;
   const fail=st.find(s=>s.st==="fail"); const ok=!fail&&!warnBlock&&!tooMany;
   add("karar","Can",ok?(need>0||slot?"warn":"ok"):"fail",fail?`girmiyoruz: ${fail.k} aşamasında kaldı`:tooMany?`${warn} uyarı fazla; temiz değil, girmiyoruz`:warnBlock?"Murat'ın dersi: uyarılı kurulumla girmiyoruz":(need>0||slot)?"kurulum iyi ama yer/teminat yok; açıktakilerden kâr alıp yer açılabilir mi bakıyorum":`giriyoruz: not ${grade}, risk ${fx(riskUsd,2)} $`);
-  return {ok,need,slot,stages:st,riskUsd,notional,margin,free,warn,grade,gs,thr};
+  return {ok,need,slot,stages:st,riskUsd,notional,margin,free,warn,grade,gs,thr,conf:cf.conf,riskPct:cf.pct};
 }
 /* --- 3. yer açma: teminat/yer yoksa, yeni kurulum belirgin iyiyse açıktakilerden kâr alınır ya da sönmüş pozisyon kapanır.
    Zarardaki pozisyon (−0,25R altı) yer açmak için kesilmez. Döner: [{p,part,kind,why,margin}] ya da null --- */
@@ -2691,7 +2711,7 @@ function renderTape(A){
 /* ================= kâğıt bot: gerçek fiyat, sanal bakiye · komite modu (çoklu pozisyon, market giriş) ya da kapı modu ================= */
 const fmtB=v=>(isFinite(v)?(+v).toFixed(2).replace(".",","):"—")+" $";
 const bot={on:false,startT:null,bal:100,start:100,positions:[],orders:[],trades:[],log:[],eq:[],day:{key:null,opens:0,losses:0},ws:null,wsKey:null,px:{},mark:{},book:{},fund:{},cool:{},lastTick:0,lastMark:0,_lastTrade:{},cfg:{...BOT_CFG_DEF},lastDecision:0,lastVotes:[]};
-try{ const saved=JSON.parse(LS("st-bot")||"null"); if(saved){ const cfg={...BOT_CFG_DEF,...(saved.cfg||{})}; comMigrate(cfg); if(!saved.cfg||saved.cfg.mode===undefined){ Object.assign(cfg,{mode:"komite",risk:BOT_CFG_DEF.risk,maxOpens:BOT_CFG_DEF.maxOpens,maxLosses:BOT_CFG_DEF.maxLosses,maxPos:BOT_CFG_DEF.maxPos,strict:false}); } Object.assign(bot,saved); bot.cfg=cfg; bot.ws=null; bot.wsKey=null;
+try{ const saved=JSON.parse(LS("st-bot")||"null"); if(saved){ const cfg=cfgMigrate(saved.cfg,{...BOT_CFG_DEF,...(saved.cfg||{})}); comMigrate(cfg); if(!saved.cfg||saved.cfg.mode===undefined){ Object.assign(cfg,{mode:"komite",risk:BOT_CFG_DEF.risk,maxOpens:BOT_CFG_DEF.maxOpens,maxLosses:BOT_CFG_DEF.maxLosses,maxPos:BOT_CFG_DEF.maxPos,strict:false}); } Object.assign(bot,saved); bot.cfg=cfg; bot.ws=null; bot.wsKey=null;
   if(!Array.isArray(bot.positions)) bot.positions=[]; if(!Array.isArray(bot.orders)) bot.orders=[]; if(saved.pos) bot.positions.push(saved.pos); if(saved.order) bot.orders.push(saved.order); delete bot.pos; delete bot.order;
   bot.px=bot.px||{}; bot.mark=bot.mark||{}; bot.book=bot.book||{}; bot.fund=bot.fund||{}; bot.cool=bot.cool||{}; bot._lastTrade={};
   // eski kayıtlardaki ajan isimleri (5 Ekim 2026'da yeniden adlandırıldı)
@@ -2890,7 +2910,7 @@ function botClosePos(p){
   bot.positions=bot.positions.filter(x=>x!==p); bot.eq.push({t:Date.now(),v:bot.bal}); if(bot.eq.length>4000) bot.eq=bot.eq.slice(-2000); botAudit(rec); if(bot.bal>=botGoal().goal&&!bot.goalHit){ bot.goalHit=Date.now(); botLog("goal","",`Hedef tamam: bakiye ${fmtB(bot.bal)}. Bot korumalı modda (risk yarıya) devam ediyor.`); } botSave(); botWsSync();
   if(bot.on) setTimeout(()=>botDecide("tick"),500);
 }
-function botStart(){ if(bot.on) return; bot.on=true; if(!bot.startT) bot.startT=Date.now(); const c=bot.cfg; botLog("sys","",c.mode==="komite"?`Bot başladı · KOMİTE modu · sanal ${fmtB(bot.bal)} · risk %${c.risk*100} · ${c.lev}x sabit · aynı anda ${c.maxPos} pozisyon · eşik ${fx(c.threshold,2)}, ${c.minYes}/${DESK.length} oy · zaman stopu ${c.holdH} sa · hedef %100 ROI.`:`Bot başladı · KAPI modu · sanal ${fmtB(bot.bal)} · risk %${c.risk*100} · en fazla ${c.maxLev}x · ${c.strict?"yüksek tutarlılık kuralları":"serbest kurallar"} · Kurulum 2 ${c.useBR?"açık":"kapalı"} · Kurulum 3 ${c.useRS!==false?"açık":"kapalı"}.`); botWsSync(); if(!scan.rows.length&&!scan.running) runScan(); else botDecide("scan"); botSave(); }
+function botStart(){ if(bot.on) return; bot.on=true; if(!bot.startT) bot.startT=Date.now(); const c=bot.cfg; botLog("sys","",c.mode==="komite"?`Bot başladı · KOMİTE modu · sanal ${fmtB(bot.bal)} · risk %${fx(c.risk*100,1)}–%${fx(Math.max(c.risk,c.riskMax||0)*100,1)} (masanın güvenine göre) · ${c.lev}x sabit · aynı anda ${c.maxPos} pozisyon · eşik ${fx(c.threshold,2)}, ${c.minYes}/${DESK.length} oy · zaman stopu ${c.holdH} sa · hedef %100 ROI.`:`Bot başladı · KAPI modu · sanal ${fmtB(bot.bal)} · risk %${c.risk*100} · en fazla ${c.maxLev}x · ${c.strict?"yüksek tutarlılık kuralları":"serbest kurallar"} · Kurulum 2 ${c.useBR?"açık":"kapalı"} · Kurulum 3 ${c.useRS!==false?"açık":"kapalı"}.`); botWsSync(); if(!scan.rows.length&&!scan.running) runScan(); else botDecide("scan"); botSave(); }
 function botStop(){ bot.on=false; botLog("sys","","Bot durduruldu (açık pozisyonlar ve emirler korunur; başlatınca devam eder)."); botSave(); }
 function botReset(){ if(bot.positions.length||bot.orders.length){ if(!confirm(`${bot.positions.length} açık pozisyon ve ${bot.orders.length} emir var. Hepsi silinip bakiye 100 $'a dönsün mü?`)) return; } Object.assign(bot,{on:false,startT:null,bal:100,start:100,positions:[],orders:[],trades:[],log:[],eq:[],day:{key:null,opens:0,losses:0},px:{},cool:{},lastVotes:[],goalHit:null,peak:100,goalMode:null}); botSave(); renderBot(); }
 function botCloseAll(){ for(const p of [...bot.positions]){ const px=bot.px[p.sym]; if(!px) continue; const isL=p.dir==="long"; const price=isL?px*(1-bot.cfg.slip):px*(1+bot.cfg.slip); const q=p.qty; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*bot.cfg.feeTaker; bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty=0; botLog("close",p.sym,`Elle kapatıldı ${fmtP(price)} · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); botClosePos(p); } bot.orders=[]; botSave(); botWsSync(); renderBot(); }
@@ -2983,7 +3003,7 @@ function renderBot(){
     <label style="font-size:12px;color:var(--ink-2)">Mod <select id="botMode"><option value="komite" ${c.mode==="komite"?"selected":""}>Masa (10 kişi tartışır, market giriş, çoklu pozisyon)</option><option value="kapi" ${c.mode!=="komite"?"selected":""}>Kapı (AMD/K2/K3 limit planları)</option></select></label>
     <span class="muted" style="font-size:11.5px">${botNetTxt()} · ${bot.on?'<span class="up">● çalışıyor</span>':"● durdu"}${bot.startT?" · başlangıç "+new Date(bot.startT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):""}</span></div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-    ${inp("botRisk","Risk %",(c.risk*100).toFixed(1),0.5,0.5,25)} ${inp("botLev","Kaldıraç",c.lev,1,1,50,56)} ${inp("botMaxPos","Aynı anda",c.maxPos,1,1,10,52)} ${inp("botThr","Eşik",c.threshold,0.05,0,1,60)} ${inp("botMinYes","Asgari oy",c.minYes,1,1,DESK.length,52)} ${inp("botHold","Zaman stopu (sa)",c.holdH,1,1,72,56)} ${inp("botMaxOpens","Gün/işlem",c.maxOpens,1,1,50,56)} ${inp("botMaxLosses","Gün/kayıp",c.maxLosses,1,1,50,56)}
+    ${inp("botRisk","Taban risk %",(c.risk*100).toFixed(1),0.5,0.5,25)} ${inp("botRiskMax","Güvenle risk en çok %",((c.riskMax!=null?c.riskMax:c.risk)*100).toFixed(1),0.5,0.5,25)}${inp("botLev","Kaldıraç",c.lev,1,1,50,56)} ${inp("botMaxPos","Aynı anda",c.maxPos,1,1,10,52)} ${inp("botThr","Eşik",c.threshold,0.05,0,1,60)} ${inp("botMinYes","Asgari oy",c.minYes,1,1,DESK.length,52)} ${inp("botHold","Zaman stopu (sa)",c.holdH,1,1,72,56)} ${inp("botMaxOpens","Gün/işlem",c.maxOpens,1,1,50,56)} ${inp("botMaxLosses","Gün/kayıp",c.maxLosses,1,1,50,56)}
     ${c.mode==="komite"?`${inp("botGoal","Hedef $",c.goal,10,110,100000,70)} ${inp("botSameDir","Aynı yönde",c.maxSameDir,1,1,10,48)} ${inp("botBeR","Başabaş R (0 kapalı)",c.beR,0.1,0,3,52)} <label style="font-size:12px;color:var(--ink-2)">Short <select id="botShort"><option value="warn" ${c.shortRule==="warn"?"selected":""}>uyarıyla (boy ×0,75)</option><option value="off" ${c.shortRule==="off"?"selected":""}>serbest</option><option value="fail" ${c.shortRule==="fail"?"selected":""}>kapalı</option></select></label> <label style="font-size:12px;color:var(--ink-2)"><input type="checkbox" id="botFree" ${c.freeMargin?"checked":""} style="width:auto"> Yer açmak için kâr al</label> <label style="font-size:12px;color:var(--ink-2)"><input type="checkbox" id="botDyn" ${c.dyn?"checked":""} style="width:auto"> Dinamik hedef/stop</label>`:""}
     ${c.mode!=="komite"?`<label style="font-size:12px;color:var(--ink-2)"><input type="checkbox" id="botStrict" ${c.strict?"checked":""} style="width:auto"> 10 kapı kuralı</label><label style="font-size:12px;color:var(--ink-2)"><input type="checkbox" id="botBR" ${c.useBR?"checked":""} style="width:auto"> Kurulum 2</label><label style="font-size:12px;color:var(--ink-2)"><input type="checkbox" id="botRS" ${c.useRS!==false?"checked":""} style="width:auto"> Kurulum 3</label>`:""}
   </div>
@@ -3010,7 +3030,7 @@ function renderBot(){
   trendBind(); dipBind();
   const lr=$("ldRefresh"); if(lr) lr.addEventListener("click",()=>{ ldRefresh(true); });
   const num=(id,key,f)=>{ const n=$(id); if(n) n.addEventListener("change",e=>{ const v=+e.target.value; if(isFinite(v)){ bot.cfg[key]=f?f(v):v; botSave(); } }); };
-  num("botRisk","risk",v=>clamp(v,0.5,25)/100); num("botLev","lev",v=>clamp(Math.round(v),1,50)); num("botMaxPos","maxPos",v=>clamp(Math.round(v),1,10)); num("botThr","threshold",v=>clamp(v,0,1)); num("botMinYes","minYes",v=>clamp(Math.round(v),1,DESK.length)); num("botHold","holdH",v=>clamp(Math.round(v),1,72)); num("botMaxOpens","maxOpens",v=>clamp(Math.round(v),1,50)); num("botMaxLosses","maxLosses",v=>clamp(Math.round(v),1,50)); num("botGoal","goal",v=>clamp(v,110,100000)); num("botSameDir","maxSameDir",v=>clamp(Math.round(v),1,10)); num("botBeR","beR",v=>clamp(v,0,3));
+  num("botRisk","risk",v=>clamp(v,0.5,25)/100); num("botRiskMax","riskMax",v=>clamp(v,0.5,25)/100);num("botLev","lev",v=>clamp(Math.round(v),1,50)); num("botMaxPos","maxPos",v=>clamp(Math.round(v),1,10)); num("botThr","threshold",v=>clamp(v,0,1)); num("botMinYes","minYes",v=>clamp(Math.round(v),1,DESK.length)); num("botHold","holdH",v=>clamp(Math.round(v),1,72)); num("botMaxOpens","maxOpens",v=>clamp(Math.round(v),1,50)); num("botMaxLosses","maxLosses",v=>clamp(Math.round(v),1,50)); num("botGoal","goal",v=>clamp(v,110,100000)); num("botSameDir","maxSameDir",v=>clamp(Math.round(v),1,10)); num("botBeR","beR",v=>clamp(v,0,3));
   const bs=$("botShort"); if(bs) bs.addEventListener("change",e=>{ bot.cfg.shortRule=e.target.value; botSave(); }); const bf=$("botFree"); if(bf) bf.addEventListener("change",e=>{ bot.cfg.freeMargin=e.target.checked; botSave(); }); const bd=$("botDyn"); if(bd) bd.addEventListener("change",e=>{ bot.cfg.dyn=e.target.checked; botSave(); });
   const s=$("botStrict"); if(s) s.addEventListener("change",e=>{ bot.cfg.strict=e.target.checked; botSave(); }); const b=$("botBR"); if(b) b.addEventListener("change",e=>{ bot.cfg.useBR=e.target.checked; botSave(); }); const q=$("botRS"); if(q) q.addEventListener("change",e=>{ bot.cfg.useRS=e.target.checked; botSave(); });
 }
