@@ -27,7 +27,7 @@ Risk ayarları UI varsayılanlarıdır (`BOT_CFG_DEF`, `src/committee.js`). Değ
 | Dosya | İçerik |
 |---|---|
 | `bot.json` | durum: bakiye, açık pozisyonlar, işlemler, günlük sayaç |
-| `status.json` | 30 sn'de bir nabız: özkaynak, pozisyonlar, son tarama, fiyat kaynağı |
+| `status.json` | 30 sn'de bir nabız: özkaynak, pozisyonlar, son tarama, fiyat kaynağı, denetçi özeti (Murat'ın dersleri) |
 | `store.json` | motorun localStorage'ı: coin tutarlılığı önbelleği, liderler |
 | `logs/votes-GGGG-AA-GG.jsonl` | her taramada masa oyu: puan, evet/hayır, veto, ajan başına `[oy, güven]`, `feat` (masanın kullandığı ham girdiler) |
 | `logs/events-*.jsonl` | bot olayları: tarama, giriş, hedef, stop, fonlama, masa konuşmaları |
