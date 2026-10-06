@@ -64,6 +64,8 @@ eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'le
 if(!eng.includes('function ldRefresh')) throw new Error('leaders insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'research.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function labAnalyze')) throw new Error('research insert failed');
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'llm.js','utf8')+'\n'+rd(P+'analyst.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function selTick')||!eng.includes('function llmChat')) throw new Error('llm/analyst insert failed');
 rep(`sl={k1d:K(k1d),k4h:K(k4h),k1h:K(k1h),toppos,glob};`,`sl={k1d:K(k1d),k4h:K(k4h),k1h:K(k1h),toppos,glob,btc15:await btcKlines()};`);
 rep(`async function fetchSlow(s){`,`const btcCache={t:0,k:null,d:null,dt:0};
 async function btcKlines(){ if(!btcCache.d || Date.now()-btcCache.dt>36e5){ btcCache.dt=Date.now(); const rd=await opt(\`/fapi/v1/klines?symbol=BTCUSDT&interval=1d&limit=260\`, null); if(rd) btcCache.d=K(rd); } // günlük: faktör "BTC 200 günlük ortalama" (factors.js)
