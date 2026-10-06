@@ -55,12 +55,12 @@ const E=loadEngine(); const fails=[]; const ok=(c,msg)=>{ if(!c) fails.push(msg)
   ok(!!hit,'canlı veride aday eşleşmesi bulundu (labMatch)');
   ok(E.lab.shadows.length>0,'eşleşme gölge sinyal olarak ileri teste yazıldı');
   if(hit){ const k=KK[hit.s].slice(0,KK[hit.s].length); const A={px:hit.m.f?k[k.length-1].c:1,trendScore:2,st:1,trend:'up',tk30:1.05,oiCase:'flat',fund:0.0001,score:10,volRel:1.2,med15:0.004,src:hit.A.src}; A.px=hit.A.px;
-    const c=E.committee(A,c0.dir,1,{sym:hit.s}); const s=c.agents.find(a=>a.id==='lab'); console.log('  Selin:',c.talk.filter(t=>t.id==='lab').map(t=>t.text).join(' | '));
-    ok(s&&s.v>0,'masada Selin eşleşen adayla artı oy verdi'); ok(c.plan&&c.plan.holdH>=2,'Selin zaman stopu önerdi ('+(c.plan&&c.plan.holdH)+' sa)'); }
+    const c=E.committee(A,c0.dir,1,{sym:hit.s}); const s=c.agents.find(a=>a.id==='lab'); console.log('  Burak:',c.talk.filter(t=>t.id==='lab').map(t=>t.text).join(' | '));
+    ok(s&&s.v>0,'masada Burak eşleşen adayla artı oy verdi'); ok(c.plan&&c.plan.holdH>=2,'Burak zaman stopu önerdi ('+(c.plan&&c.plan.holdH)+' sa)'); }
   { const av=E.lab.avoid.find(c=>c.conds.length===1&&c.conds[0].join('=')==='yer=kova'); let done=false;
     for(const s of Object.keys(KK).filter(x=>x!=='BTCUSDT')){ if(done) break; for(let i=200;i<KK[s].length&&!done;i+=5){ const k=KK[s].slice(0,i); const A={px:k[k.length-1].c,trendScore:2,st:1,trend:'up',tk30:1.05,oiCase:'flat',fund:0.0001,score:30,volRel:1.2,med15:0.004,src:{k1h:k,btc15:btc15.filter(x=>x.t<k[k.length-1].t+H)}};
       const m=E.labMatch(A,av.dir,null); if(!m||!m.avoid.some(c=>c.key===av.key)) continue; done=true; const c=E.committee(A,av.dir,1,{sym:s}); const sel=c.agents.find(a=>a.id==='lab');
-      console.log('  Selin:',c.talk.filter(t=>t.id==='lab').map(t=>t.text).join(' | ')); ok(sel.v<0,'kaçınılacak kalıpta Selin eksi oy verdi'); ok(c.talk.some(t=>t.id==='lab'&&t.stage==='tartışma'&&/Baran/.test(t.text)),'Selin tartışmada Baran\'ı kovalamaya karşı uyardı'); } }
+      console.log('  Burak:',c.talk.filter(t=>t.id==='lab').map(t=>t.text).join(' | ')); ok(sel.v<0,'kaçınılacak kalıpta Burak eksi oy verdi'); ok(c.talk.some(t=>t.id==='lab'&&t.stage==='tartışma'&&/Baran/.test(t.text)),'Burak tartışmada Baran\'ı kovalamaya karşı uyardı'); } }
     ok(done,'kovalama kalıbı canlı veride eşleşti'); }
   // ileri test: gölge sinyallerin vaktini geri al, sonucu ölçsün
   for(const s of E.lab.shadows){ s.t=KK[s.sym][KK[s.sym].length-30].t; s.px=KK[s.sym][KK[s.sym].length-30].c; }

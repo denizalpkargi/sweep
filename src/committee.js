@@ -1,6 +1,6 @@
 /* ---------- Masa: yedi kişilik, üç tur ----------
    Analistler: Emre (trend), Kerem (likidite / ICT), Mert (emir akışı). Araştırmacılar: Arda (makro · BTC rejimi, kalabalık), Onur (kantitatif · kanıt, maliyet).
-   Araştırma ekibi (research.js): Tolga (liderlerin coin uzlaşısı), Selin (liderlerin geçmişinden çıkan aday stratejiler ve kaçınılacak kalıplar).
+   Araştırma ekibi (research.js): Tolga (liderlerin coin uzlaşısı), Burak (liderlerin geçmişinden çıkan aday stratejiler ve kaçınılacak kalıplar).
    Traderlar: Baran (agresif, momentum), Can (baş trader · risk ve boy; veto hakkı).
    1. tur açılış: herkes verisine bakıp oy (v −1..+1) ve güven (c 0..1) verir. 2. tur tartışma: kurallı karşılıklı itirazlar oyları ve güvenleri değiştirir, plan kısalabilir.
    3. tur karar: Can veto eder ya da boyu ve planı yazar. Puan = Σ w·v·c / Σ w. Bot: puan ≥ eşik ve evet oyu ≥ asgari ve veto yok → market giriş. */
@@ -12,7 +12,7 @@ const DESK=[
   {id:"quant",name:"Onur",role:"Kantitatif araştırmacı",w:0.8},
   {id:"mom",name:"Baran",role:"Trader · agresif",w:0.8},
   {id:"copy",name:"Tolga",role:"Kopya trader araştırmacısı",w:1},
-  {id:"lab",name:"Selin",role:"Strateji araştırmacısı",w:0.9},
+  {id:"lab",name:"Burak",role:"Strateji araştırmacısı",w:0.9},
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 const COM_DEF={threshold:0.3,minYes:4};
@@ -80,7 +80,7 @@ function committee(A, dir, c24, opts){
     if(ag.liq.v>0.5&&ag.flow.v<0){ say("flow","tartışma","Kerem, süpürmede emilim yok: CVD fiyatla birlikte dip yaptı. Satış gerçek olabilir, fiyat yeniden süpürebilir."); ag.liq.v-=0.2; say("liq","tartışma","Teyit zayıfsa ikinci süpürme riski var, oyumu bir kademe düşürüyorum."); chg.push("liq"); }
     if(bad&&LM.f.yer==="kova"&&ag.mom.v>0.3){ say("lab","tartışma",`Baran, liderler bu konumda kovaladığında ortalama ${fx(bad.mean,2)} ATR kaybediyor. Fiyat 24 saatlik aralığın ucunda.`); ag.mom.v-=0.25; say("mom","tartışma","Veri bunu söylüyorsa oyumu kısıyorum."); chg.push("mom"); }
     if(best&&LM.f.sw==="var"&&ag.liq.v>0.5){ say("lab","tartışma","Kerem, liderlerin kazanan işlemleri de süpürmeden sonra geliyor; senin okumanı destekliyor."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
-    if(best&&best.conds.some(c=>c[0]==="btc")&&ag.macro.v>0){ say("macro","tartışma","Selin'in adayı BTC yönüne bağlı; BTC tarafı da bizimle, güvenimi artırıyorum."); ag.macro.c=Math.min(1,ag.macro.c+0.1); chg.push("macro"); }
+    if(best&&best.conds.some(c=>c[0]==="btc")&&ag.macro.v>0){ say("macro","tartışma","Burak'ın adayı BTC yönüne bağlı; BTC tarafı da bizimle, güvenimi artırıyorum."); ag.macro.c=Math.min(1,ag.macro.c+0.1); chg.push("macro"); }
     if(n>=3&&sum<0){ say("quant","tartışma",`Bu coinde K3 geçmişi ${fx(sum,1)}R, yani eksi. Herkesin güvenini %15 kısıyorum; kanıtsız yere kalite A demeyelim.`); for(const k in ag) if(k!=="risk") ag[k].c*=0.85; chg.push("all"); }
     if(sd<0.015){ say("quant","tartışma",`Stop ${fx(sd*100,2)}% dar; testte %1,5 altı stoplar eksiydi. Stopu %1,5 tabanına çekelim, boy ona göre küçülür.`); sd=0.015; say("risk","tartışma","Tamam, stop %1,5; pozisyon boyu buna göre."); }
   }
@@ -95,7 +95,7 @@ function committee(A, dir, c24, opts){
   const plan=veto?null:{holdH,entry:px,sd,stop:isL?px*(1-sd):px*(1+sd),t1:isL?px*(1+1.5*sd):px*(1-1.5*sd),t2:isL?px*(1+runR*sd):px*(1-runR*sd),rr1:1.5,rr2:runR};
   const go=!veto&&score>=opts.threshold&&yes>=opts.minYes;
   const decision=veto?"veto":go?"giriş":score>=opts.threshold?"oy eksik":"bekle";
-  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/${DESK.length} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Selin: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy risk yüzdesinden, 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
+  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/${DESK.length} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Burak: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy risk yüzdesinden, 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
   return {dir,score,yes,no,n:agents.length,veto,agents,talk,plan,decision,changed:chg};
 }
 /* ---------- Açık pozisyon yorumu: masa, elde tutulan pozisyonu kendi yönünde yeniden değerlendirir (tut / azalt / çık / stop sık) ---------- */

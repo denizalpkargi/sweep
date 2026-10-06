@@ -1002,7 +1002,7 @@ function rsPlanOf(r,k){ if(!r||!r.rsOk||!isFinite(r.entry)||!(r.stage==="entry"|
 
 /* ---------- Masa: yedi kişilik, üç tur ----------
    Analistler: Emre (trend), Kerem (likidite / ICT), Mert (emir akışı). Araştırmacılar: Arda (makro · BTC rejimi, kalabalık), Onur (kantitatif · kanıt, maliyet).
-   Araştırma ekibi (research.js): Tolga (liderlerin coin uzlaşısı), Selin (liderlerin geçmişinden çıkan aday stratejiler ve kaçınılacak kalıplar).
+   Araştırma ekibi (research.js): Tolga (liderlerin coin uzlaşısı), Burak (liderlerin geçmişinden çıkan aday stratejiler ve kaçınılacak kalıplar).
    Traderlar: Baran (agresif, momentum), Can (baş trader · risk ve boy; veto hakkı).
    1. tur açılış: herkes verisine bakıp oy (v −1..+1) ve güven (c 0..1) verir. 2. tur tartışma: kurallı karşılıklı itirazlar oyları ve güvenleri değiştirir, plan kısalabilir.
    3. tur karar: Can veto eder ya da boyu ve planı yazar. Puan = Σ w·v·c / Σ w. Bot: puan ≥ eşik ve evet oyu ≥ asgari ve veto yok → market giriş. */
@@ -1014,7 +1014,7 @@ const DESK=[
   {id:"quant",name:"Onur",role:"Kantitatif araştırmacı",w:0.8},
   {id:"mom",name:"Baran",role:"Trader · agresif",w:0.8},
   {id:"copy",name:"Tolga",role:"Kopya trader araştırmacısı",w:1},
-  {id:"lab",name:"Selin",role:"Strateji araştırmacısı",w:0.9},
+  {id:"lab",name:"Burak",role:"Strateji araştırmacısı",w:0.9},
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 const COM_DEF={threshold:0.3,minYes:4};
@@ -1082,7 +1082,7 @@ function committee(A, dir, c24, opts){
     if(ag.liq.v>0.5&&ag.flow.v<0){ say("flow","tartışma","Kerem, süpürmede emilim yok: CVD fiyatla birlikte dip yaptı. Satış gerçek olabilir, fiyat yeniden süpürebilir."); ag.liq.v-=0.2; say("liq","tartışma","Teyit zayıfsa ikinci süpürme riski var, oyumu bir kademe düşürüyorum."); chg.push("liq"); }
     if(bad&&LM.f.yer==="kova"&&ag.mom.v>0.3){ say("lab","tartışma",`Baran, liderler bu konumda kovaladığında ortalama ${fx(bad.mean,2)} ATR kaybediyor. Fiyat 24 saatlik aralığın ucunda.`); ag.mom.v-=0.25; say("mom","tartışma","Veri bunu söylüyorsa oyumu kısıyorum."); chg.push("mom"); }
     if(best&&LM.f.sw==="var"&&ag.liq.v>0.5){ say("lab","tartışma","Kerem, liderlerin kazanan işlemleri de süpürmeden sonra geliyor; senin okumanı destekliyor."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
-    if(best&&best.conds.some(c=>c[0]==="btc")&&ag.macro.v>0){ say("macro","tartışma","Selin'in adayı BTC yönüne bağlı; BTC tarafı da bizimle, güvenimi artırıyorum."); ag.macro.c=Math.min(1,ag.macro.c+0.1); chg.push("macro"); }
+    if(best&&best.conds.some(c=>c[0]==="btc")&&ag.macro.v>0){ say("macro","tartışma","Burak'ın adayı BTC yönüne bağlı; BTC tarafı da bizimle, güvenimi artırıyorum."); ag.macro.c=Math.min(1,ag.macro.c+0.1); chg.push("macro"); }
     if(n>=3&&sum<0){ say("quant","tartışma",`Bu coinde K3 geçmişi ${fx(sum,1)}R, yani eksi. Herkesin güvenini %15 kısıyorum; kanıtsız yere kalite A demeyelim.`); for(const k in ag) if(k!=="risk") ag[k].c*=0.85; chg.push("all"); }
     if(sd<0.015){ say("quant","tartışma",`Stop ${fx(sd*100,2)}% dar; testte %1,5 altı stoplar eksiydi. Stopu %1,5 tabanına çekelim, boy ona göre küçülür.`); sd=0.015; say("risk","tartışma","Tamam, stop %1,5; pozisyon boyu buna göre."); }
   }
@@ -1097,7 +1097,7 @@ function committee(A, dir, c24, opts){
   const plan=veto?null:{holdH,entry:px,sd,stop:isL?px*(1-sd):px*(1+sd),t1:isL?px*(1+1.5*sd):px*(1-1.5*sd),t2:isL?px*(1+runR*sd):px*(1-runR*sd),rr1:1.5,rr2:runR};
   const go=!veto&&score>=opts.threshold&&yes>=opts.minYes;
   const decision=veto?"veto":go?"giriş":score>=opts.threshold?"oy eksik":"bekle";
-  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/${DESK.length} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Selin: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy risk yüzdesinden, 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
+  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/${DESK.length} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Burak: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy risk yüzdesinden, 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
   return {dir,score,yes,no,n:agents.length,veto,agents,talk,plan,decision,changed:chg};
 }
 /* ---------- Açık pozisyon yorumu: masa, elde tutulan pozisyonu kendi yönünde yeniden değerlendirir (tut / azalt / çık / stop sık) ---------- */
@@ -1243,7 +1243,7 @@ async function ldRefresh(force){
 }
 
 /* ---------- Araştırma ekibi (Lab): kopya trader liderlerinin stratejilerini arka planda inceler ----------
-   Ekip: Tolga (veri: lider geçmişini toplar, kalıcı saklar), Selin (faktörler ve aday stratejiler), Onur (aday stratejilerin ileriye dönük testi).
+   Ekip: Tolga (veri: lider geçmişini toplar, kalıcı saklar), Burak (faktörler ve aday stratejiler), Onur (aday stratejilerin ileriye dönük testi).
    1. Toplama: liderlerin kapanmış pozisyonları (position-history, ilk seferde 4 sayfa, sonra 6 saatte bir 1 sayfa) localStorage["st-lab"] içinde birikir;
       listeden düşen liderin geçmişi silinmez. En fazla LAB_CFG.maxTrades işlem (en yeniler).
    2. Zenginleştirme: her işlemin açılış anındaki piyasa durumu coin ve BTC 1 saatlik mumlarından çıkarılır (labFeat): seans, 1 sa trend, 24 sa aralıktaki yer,
@@ -1252,7 +1252,7 @@ async function ldRefresh(force){
       tekli ve ikili koşullardan aday stratejiler (iki yarıda da artı, ≥ minN işlem, ≥ minLeaders lider) ve kaçınılacak kalıplar (iki yarıda da eksi).
    4. İleri test: canlı taramada bir aday eşleşince gölge sinyal yazılır; adayın medyan tutuşu kadar sonra 1 saatlik mumla sonucu ölçülür (labEvalShadows).
       Durum: aday → izlemede → onaylı (≥20 ileri işlem, ort > 0) / zayıf (≥20, ort ≤ 0).
-   5. Masa: Selin (id "lab") eşleşen adayla oy verir, tartışmada Baran'ı kovalamaya karşı uyarır, Kerem'e süpürme kanıtı verir, zaman stopunu önerir.
+   5. Masa: Burak (id "lab") eşleşen adayla oy verir, tartışmada Baran'ı kovalamaya karşı uyarır, Kerem'e süpürme kanıtı verir, zaman stopunu önerir.
    Lider verisi yalnızca masaüstü uygulamasında çekilir (CORS); mumlar her yerde çalışır. */
 const LAB_CFG={maxTrades:4000,firstPages:4,pageSize:50,harvestEveryH:6,minN:20,minLeaders:4,minHalf:6,klTtl:6*3600e3,shadowGapH:4,maxShadows:400,promoteN:20,clip:5};
 const LAB_FEATS=[
@@ -1348,8 +1348,8 @@ function labAnalyze(){
     const tags=[]; tags.push(s.hold<1?"skalper":s.hold<12?"gün içi":"swing"); if(s.trendSh>=0.55) tags.push("trendci"); else if(s.counterSh>=0.45) tags.push("karşı-trend"); if(s.dipSh>=0.5) tags.push("geri çekilme alıcısı"); else if(s.chaseSh>=0.5) tags.push("kırılım/kovalama"); if(s.swSh>=0.3) tags.push("süpürme avcısı"); if(s.longSh>=0.75) tags.push("long ağırlıklı"); else if(s.longSh<=0.25) tags.push("short ağırlıklı"); if(s.btcSh>=0.6) tags.push("BTC'yi izler");
     s.tags=tags; styles[lid]=s; }
   lab.styles=styles;
-  const top=lab.cands[0]; if(top&&top.key!==prevTop) labNote("Selin",`Yeni en güçlü aday: ${top.dir==="long"?"LONG":"SHORT"} · ${top.name} → ${top.n} işlem, ${top.leaders} lider, kazanma %${Math.round(top.wr*100)}, ort ${fx(top.mean,2)} ATR (yarılar ${fx(top.h1,2)} / ${fx(top.h2,2)}).`);
-  if(lab.avoid[0]) labNote("Selin",`Kaçınılacak: ${lab.avoid[0].dir==="long"?"LONG":"SHORT"} · ${lab.avoid[0].name} → liderler burada ort ${fx(lab.avoid[0].mean,2)} ATR kaybediyor (${lab.avoid[0].n} işlem).`);
+  const top=lab.cands[0]; if(top&&top.key!==prevTop) labNote("Burak",`Yeni en güçlü aday: ${top.dir==="long"?"LONG":"SHORT"} · ${top.name} → ${top.n} işlem, ${top.leaders} lider, kazanma %${Math.round(top.wr*100)}, ort ${fx(top.mean,2)} ATR (yarılar ${fx(top.h1,2)} / ${fx(top.h2,2)}).`);
+  if(lab.avoid[0]) labNote("Burak",`Kaçınılacak: ${lab.avoid[0].dir==="long"?"LONG":"SHORT"} · ${lab.avoid[0].name} → liderler burada ort ${fx(lab.avoid[0].mean,2)} ATR kaybediyor (${lab.avoid[0].n} işlem).`);
 }
 /* --- 4. ileri test --- */
 function labStatus(key){ const f=lab.fwd[key]; if(!f||!f.n) return "aday"; if(f.n<LAB_CFG.promoteN) return "izlemede"; return f.sum/f.n>0?"onaylı":"zayıf"; }
@@ -2000,8 +2000,8 @@ try{ const saved=JSON.parse(LS("st-bot")||"null"); if(saved){ const cfg={...BOT_
   if(!Array.isArray(bot.positions)) bot.positions=[]; if(!Array.isArray(bot.orders)) bot.orders=[]; if(saved.pos) bot.positions.push(saved.pos); if(saved.order) bot.orders.push(saved.order); delete bot.pos; delete bot.order;
   bot.px=bot.px||{}; bot.mark=bot.mark||{}; bot.book=bot.book||{}; bot.fund=bot.fund||{}; bot.cool=bot.cool||{}; bot._lastTrade={};
   // eski kayıtlardaki ajan isimleri (5 Ekim 2026'da yeniden adlandırıldı)
-  const RN={"Ayşe":"Emre","Elif":"Arda","Selin":"Onur"}; const fixA=a=>{ if(!a) return; if(RN[a.name]){ a.k=String(a.k||"").replace(a.name,RN[a.name]); a.name=RN[a.name]; } }; const fixT=t=>{ if(t&&RN[t.who]) t.who=RN[t.who]; };
-  for(const v of bot.lastVotes||[]){ (v.agents||[]).forEach(fixA); (v.talk||[]).forEach(fixT); } for(const p of bot.positions||[]){ (p.agents||[]).forEach(fixA); (p.talk||[]).forEach(fixT); if(Array.isArray(p.votes)) p.votes=p.votes.map(x=>x.replace(/^(Ayşe|Elif|Selin)/,m=>RN[m])); } bot.lastVotes=bot.lastVotes||[]; for(const p of bot.positions){ if(!p.expiresAt) p.expiresAt=(p.openT||Date.now())+cfg.holdH*3600e3; } } }catch(e){}
+  const RN={"Ayşe":"Emre","Elif":"Arda","Burak":"Onur"}; const fixA=a=>{ if(!a) return; if(RN[a.name]){ a.k=String(a.k||"").replace(a.name,RN[a.name]); a.name=RN[a.name]; } }; const fixT=t=>{ if(t&&RN[t.who]) t.who=RN[t.who]; };
+  for(const v of bot.lastVotes||[]){ (v.agents||[]).forEach(fixA); (v.talk||[]).forEach(fixT); } for(const p of bot.positions||[]){ (p.agents||[]).forEach(fixA); (p.talk||[]).forEach(fixT); if(Array.isArray(p.votes)) p.votes=p.votes.map(x=>x.replace(/^(Ayşe|Elif|Burak)/,m=>RN[m])); } bot.lastVotes=bot.lastVotes||[]; for(const p of bot.positions){ if(!p.expiresAt) p.expiresAt=(p.openT||Date.now())+cfg.holdH*3600e3; } } }catch(e){}
 function botSave(){ const {ws,...rest}=bot; try{ localStorage.setItem("st-bot",JSON.stringify({...rest,log:bot.log.slice(-300),eq:bot.eq.slice(-2000),lastVotes:bot.lastVotes.slice(0,24)})); }catch(e){} }
 function botLog(type,sym,text){ bot.log.push({t:Date.now(),type,sym:sym||"",text}); bot.log=bot.log.slice(-300); botSave(); if(ui.drawerTab==="bot") renderBot(); }
 function botDay(){ const k=dayKey(Date.now()); if(bot.day.key!==k){ bot.day={key:k,opens:0,losses:0}; } return bot.day; }
@@ -2184,11 +2184,11 @@ function renderLab(){
   ${desk?"":`<p class="warn" style="font-size:12px;margin:0 0 8px">Lider verisi yalnızca masaüstü uygulamasında çekilir (Binance tarayıcı erişimine izin vermez). Burada daha önce toplanmış geçmiş varsa analiz ve ileri test yine çalışır.</p>`}
   <div class="plan" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:10px">
     <div class="pv"><b>Tolga · veri</b><span>${B?B.leaders:Object.keys(lab.harvestAt).length} lider</span><small>${B?`${new Date(B.from).toLocaleDateString("tr-TR")} – ${new Date(B.to).toLocaleDateString("tr-TR")}`:"geçmiş toplanıyor"} · liderler 6 saatte bir, liste saatte bir</small></div>
-    <div class="pv"><b>Selin · strateji</b><span>${lab.cands.length} aday · ${lab.avoid.length} kaçın</span><small>${B?`taban: long ${sgn(B.long.mean)} ATR (%${Math.round((B.long.wr||0)*100)}), short ${sgn(B.short.mean)} ATR (%${Math.round((B.short.wr||0)*100)})`:"en az "+LAB_CFG.minN+" zenginleşmiş işlem gerekir"}</small></div>
+    <div class="pv"><b>Burak · strateji</b><span>${lab.cands.length} aday · ${lab.avoid.length} kaçın</span><small>${B?`taban: long ${sgn(B.long.mean)} ATR (%${Math.round((B.long.wr||0)*100)}), short ${sgn(B.short.mean)} ATR (%${Math.round((B.short.wr||0)*100)})`:"en az "+LAB_CFG.minN+" zenginleşmiş işlem gerekir"}</small></div>
     <div class="pv"><b>Onur · ileri test</b><span>${Object.values(lab.fwd).reduce((a,f)=>a+f.n,0)} sonuç</span><small>${lab.cands.filter(c=>c.status==="onaylı").length} onaylı · ${lab.cands.filter(c=>c.status==="zayıf").length} zayıf · onay için ${LAB_CFG.promoteN} ileri sinyal</small></div>
   </div>
-  <h4 style="margin:6px 0">Aday stratejiler <span class="muted" style="font-weight:400;font-size:11.5px">liderlerin kazandığı koşullar · masada Selin bunlarla oy verir</span></h4>${cands}
-  <h4 style="margin:12px 0 6px">Kaçınılacak kalıplar <span class="muted" style="font-weight:400;font-size:11.5px">liderlerin iki yarıda da kaybettiği koşullar · Selin karşı oy verir, Baran'ı uyarır</span></h4>${avoid}
+  <h4 style="margin:6px 0">Aday stratejiler <span class="muted" style="font-weight:400;font-size:11.5px">liderlerin kazandığı koşullar · masada Burak bunlarla oy verir</span></h4>${cands}
+  <h4 style="margin:12px 0 6px">Kaçınılacak kalıplar <span class="muted" style="font-weight:400;font-size:11.5px">liderlerin iki yarıda da kaybettiği koşullar · Burak karşı oy verir, Baran'ı uyarır</span></h4>${avoid}
   ${notes?`<h4 style="margin:12px 0 6px">Ekip notları</h4>${notes}`:""}
   ${sty?`<details style="margin-top:10px"><summary class="muted" style="cursor:pointer;font-size:12px">Lider stilleri · ${Object.keys(lab.styles).length} lider</summary><table class="t" style="margin-top:6px"><thead><tr><th>Lider</th><th>İşlem</th><th>Kazanma</th><th>Ort ATR</th><th>Tutuş</th><th>Kaldıraç</th><th>Trend / geri çekilme / süpürme</th><th>Long payı</th></tr></thead><tbody>${sty}</tbody></table></details>`:""}
   ${fac?`<details style="margin-top:10px"><summary class="muted" style="cursor:pointer;font-size:12px">Faktör tablosu · her koşulda liderlerin ortalama sonucu</summary>${fac}</details>`:""}

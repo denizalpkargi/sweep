@@ -1,5 +1,5 @@
 /* ---------- Araştırma ekibi (Lab): kopya trader liderlerinin stratejilerini arka planda inceler ----------
-   Ekip: Tolga (veri: lider geçmişini toplar, kalıcı saklar), Selin (faktörler ve aday stratejiler), Onur (aday stratejilerin ileriye dönük testi).
+   Ekip: Tolga (veri: lider geçmişini toplar, kalıcı saklar), Burak (faktörler ve aday stratejiler), Onur (aday stratejilerin ileriye dönük testi).
    1. Toplama: liderlerin kapanmış pozisyonları (position-history, ilk seferde 4 sayfa, sonra 6 saatte bir 1 sayfa) localStorage["st-lab"] içinde birikir;
       listeden düşen liderin geçmişi silinmez. En fazla LAB_CFG.maxTrades işlem (en yeniler).
    2. Zenginleştirme: her işlemin açılış anındaki piyasa durumu coin ve BTC 1 saatlik mumlarından çıkarılır (labFeat): seans, 1 sa trend, 24 sa aralıktaki yer,
@@ -8,7 +8,7 @@
       tekli ve ikili koşullardan aday stratejiler (iki yarıda da artı, ≥ minN işlem, ≥ minLeaders lider) ve kaçınılacak kalıplar (iki yarıda da eksi).
    4. İleri test: canlı taramada bir aday eşleşince gölge sinyal yazılır; adayın medyan tutuşu kadar sonra 1 saatlik mumla sonucu ölçülür (labEvalShadows).
       Durum: aday → izlemede → onaylı (≥20 ileri işlem, ort > 0) / zayıf (≥20, ort ≤ 0).
-   5. Masa: Selin (id "lab") eşleşen adayla oy verir, tartışmada Baran'ı kovalamaya karşı uyarır, Kerem'e süpürme kanıtı verir, zaman stopunu önerir.
+   5. Masa: Burak (id "lab") eşleşen adayla oy verir, tartışmada Baran'ı kovalamaya karşı uyarır, Kerem'e süpürme kanıtı verir, zaman stopunu önerir.
    Lider verisi yalnızca masaüstü uygulamasında çekilir (CORS); mumlar her yerde çalışır. */
 const LAB_CFG={maxTrades:4000,firstPages:4,pageSize:50,harvestEveryH:6,minN:20,minLeaders:4,minHalf:6,klTtl:6*3600e3,shadowGapH:4,maxShadows:400,promoteN:20,clip:5};
 const LAB_FEATS=[
@@ -104,8 +104,8 @@ function labAnalyze(){
     const tags=[]; tags.push(s.hold<1?"skalper":s.hold<12?"gün içi":"swing"); if(s.trendSh>=0.55) tags.push("trendci"); else if(s.counterSh>=0.45) tags.push("karşı-trend"); if(s.dipSh>=0.5) tags.push("geri çekilme alıcısı"); else if(s.chaseSh>=0.5) tags.push("kırılım/kovalama"); if(s.swSh>=0.3) tags.push("süpürme avcısı"); if(s.longSh>=0.75) tags.push("long ağırlıklı"); else if(s.longSh<=0.25) tags.push("short ağırlıklı"); if(s.btcSh>=0.6) tags.push("BTC'yi izler");
     s.tags=tags; styles[lid]=s; }
   lab.styles=styles;
-  const top=lab.cands[0]; if(top&&top.key!==prevTop) labNote("Selin",`Yeni en güçlü aday: ${top.dir==="long"?"LONG":"SHORT"} · ${top.name} → ${top.n} işlem, ${top.leaders} lider, kazanma %${Math.round(top.wr*100)}, ort ${fx(top.mean,2)} ATR (yarılar ${fx(top.h1,2)} / ${fx(top.h2,2)}).`);
-  if(lab.avoid[0]) labNote("Selin",`Kaçınılacak: ${lab.avoid[0].dir==="long"?"LONG":"SHORT"} · ${lab.avoid[0].name} → liderler burada ort ${fx(lab.avoid[0].mean,2)} ATR kaybediyor (${lab.avoid[0].n} işlem).`);
+  const top=lab.cands[0]; if(top&&top.key!==prevTop) labNote("Burak",`Yeni en güçlü aday: ${top.dir==="long"?"LONG":"SHORT"} · ${top.name} → ${top.n} işlem, ${top.leaders} lider, kazanma %${Math.round(top.wr*100)}, ort ${fx(top.mean,2)} ATR (yarılar ${fx(top.h1,2)} / ${fx(top.h2,2)}).`);
+  if(lab.avoid[0]) labNote("Burak",`Kaçınılacak: ${lab.avoid[0].dir==="long"?"LONG":"SHORT"} · ${lab.avoid[0].name} → liderler burada ort ${fx(lab.avoid[0].mean,2)} ATR kaybediyor (${lab.avoid[0].n} işlem).`);
 }
 /* --- 4. ileri test --- */
 function labStatus(key){ const f=lab.fwd[key]; if(!f||!f.n) return "aday"; if(f.n<LAB_CFG.promoteN) return "izlemede"; return f.sum/f.n>0?"onaylı":"zayıf"; }
