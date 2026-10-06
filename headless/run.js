@@ -93,7 +93,7 @@ async function main(o,inj){
   function shutdown(sig){ if(stopping) return; stopping=true; for(const t of timers) clearInterval(t); if(ws){ try{ ws.onclose=null; ws.close(); }catch(e){} }
     log('sys','',`Durduruldu (${sig}). Açık pozisyonlar bot.json'da; yeniden başlatınca aradaki süre oynatılır.`); B.save(true); store.flush(); status(); }
 
-  const c=bot.cfg; log('sys','',`Ekransız bot başladı · KOMİTE · sanal ${bot.bal.toFixed(2)} $ · risk %${c.risk*100} · ${c.lev}x · aynı anda ${c.maxPos} pozisyon · eşik ${c.threshold}, ${c.minYes}/8 oy · zaman stopu ${c.holdH} sa · tarama ${Math.round(o.every/60000)} dk · ${bot.positions.length} açık pozisyon`,{cfg:c,opts:o});
+  const c=bot.cfg; log('sys','',`Ekransız bot başladı · KOMİTE · sanal ${bot.bal.toFixed(2)} $ · risk %${c.risk*100} · ${c.lev}x · aynı anda ${c.maxPos} pozisyon · eşik ${c.threshold}, ${c.minYes}/${E.DESK.length} oy · zaman stopu ${c.holdH} sa · tarama ${Math.round(o.every/60000)} dk · ${bot.positions.length} açık pozisyon`,{cfg:c,opts:o});
   await gapFill(); wsSync();
   await E.ldRefresh(false).catch(()=>{});
   await runScan();
@@ -103,6 +103,8 @@ async function main(o,inj){
   timers.push(setInterval(()=>{ B.manage().catch(()=>{}); },30000));
   timers.push(setInterval(poll,3000));
   timers.push(setInterval(()=>{ E.ldRefresh(false).catch(()=>{}); },10*60e3));
+  // araştırma ekibi: Node'da CORS yok, lider geçmişi burada da toplanır (depo: st-lab)
+  timers.push(setInterval(()=>{ E.labTick(false).catch(()=>{}); },60e3));
   timers.push(setInterval(status,30000)); status();
   for(const s of ['SIGINT','SIGTERM']) process.on(s,()=>{ shutdown(s); process.exit(0); });
   return {B,E,shutdown,status};

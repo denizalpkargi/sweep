@@ -4,7 +4,7 @@ const {patchedEngine}=require('../src/build.js');
 function loadEngine(opts){
   opts=opts||{};
   const src=patchedEngine()+`\nreturn {K,analyze,poolsAt,amdDetect,amdStats,breakoutRetest,breakoutStats,regimeSweep,regimeStats,simTrade,atrAt,btcRegimeAt,RS_CFG,SIM_FEE,liqDist,HC_MAX_LEV,consistencyOf,killZone,state,setPoolCache:m=>{ _poolCache=m; },
-  j,rest,universe,scanOne,scanDeep,DEEP_STAGES,scan,committee,positionReview,paperStep,COM_DEF,DESK,BOT_CFG_DEF,ld,ldRefresh,dayKey,fmtP,fx,pct,auditRun,audTagsOf,audVoteFor,audBackfill,AUD_TAGS,setAud:x=>{ AUD=x; },getAud:()=>AUD};`;
+  j,rest,universe,scanOne,scanDeep,DEEP_STAGES,scan,committee,positionReview,paperStep,COM_DEF,DESK,BOT_CFG_DEF,ld,ldRefresh,lab,LAB_CFG,LAB_FEATS,labIngest,labHarvest,labEnrich,labAnalyze,labMatch,labFeat,labTick,labEvalShadows,labAgg1h,dayKey,fmtP,fx,pct,auditRun,audTagsOf,audVoteFor,audBackfill,AUD_TAGS,setAud:x=>{ AUD=x; },getAud:()=>AUD};`;
   const stub={getItem:()=>null,setItem:()=>{},removeItem:()=>{}};
   const doc={getElementById:()=>null,querySelector:()=>null,createElement:()=>({}),addEventListener:()=>{}};
   const fn=new Function('window','document','localStorage','navigator','fetch','"use strict";\n'+src);

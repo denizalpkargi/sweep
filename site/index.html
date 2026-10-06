@@ -320,6 +320,7 @@ table.t tr.near td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
       <button role="tab" data-t="stats" aria-selected="false">İstatistik</button>
       <button role="tab" data-t="strategy" aria-selected="false">Strateji</button>
       <button role="tab" data-t="bot" aria-selected="false">Bot · kâğıt</button>
+      <button role="tab" data-t="lab" aria-selected="false">Araştırma</button>
       <button role="tab" data-t="account" aria-selected="false">Hesap · gerçek</button>
       <span class="st" id="scanStamp">tarama bekleniyor</span>
       <button class="ghost" id="drawerTgl" type="button" title="Aç/kapat">▴</button>
@@ -339,6 +340,7 @@ table.t tr.near td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
       </div>
       <div id="dJournal" hidden></div>
       <div id="dBot" hidden></div>
+      <div id="dLab" hidden></div>
       <div id="dAccount" hidden></div>
       <div id="dStory" hidden><ol class="story" id="story"></ol></div>
       <div id="dStrategy" hidden><div class="spec">
@@ -590,7 +592,7 @@ function analyze(f, s){
   const r5 = m5.map(c=>(c.h-c.l)/c.c), r15 = m15.slice(-192).map(c=>(c.h-c.l)/c.c);
   A.rangeShare = dist => ({ m5: r5.filter(r=>r>dist).length/r5.length, m15: r15.filter(r=>r>dist).length/r15.length });
   A.med15 = [...r15].sort((a,b)=>a-b)[Math.floor(r15.length/2)] || 0;
-  A.src = {k15L:s.k15L||m15, oi15:s.oi15||null, taker15:s.taker15||null, toppos15:s.toppos15||null, fundTimes:(s.fund||[]).map(x=>+x.fundingTime), nextFund:A.nextFund};
+  A.src = {k15L:s.k15L||m15, k1h:h1, btc15:s.btc15||null, oi15:s.oi15||null, taker15:s.taker15||null, toppos15:s.toppos15||null, fundTimes:(s.fund||[]).map(x=>+x.fundingTime), nextFund:A.nextFund};
   const kb=A.src.k15L; A.bt={long:boxTheory(kb,A.med15,"long"),short:boxTheory(kb,A.med15,"short")};
   const mk=(f.t24&&f.t24.symbol||"?")+"|"+kb.length+"|"+(kb.length?kb[kb.length-1].t:0)+"|";
   A.btStats = kb.length>=600 ? memo(mk+"bt",()=>({long:boxTheoryStats(kb,A.med15,"long"),short:boxTheoryStats(kb,A.med15,"short")})) : {};
@@ -1094,6 +1096,7 @@ function audVoteFor(ag){
 
 /* ---------- Masa: yedi kişilik, üç tur ----------
    Analistler: Emre (trend), Kerem (likidite / ICT), Mert (emir akışı). Araştırmacılar: Arda (makro · BTC rejimi, kalabalık), Onur (kantitatif · kanıt, maliyet).
+   Araştırma ekibi (research.js): Tolga (liderlerin coin uzlaşısı), Burak (liderlerin geçmişinden çıkan aday stratejiler ve kaçınılacak kalıplar).
    Traderlar: Baran (agresif, momentum), Can (baş trader · risk ve boy; veto hakkı).
    1. tur açılış: herkes verisine bakıp oy (v −1..+1) ve güven (c 0..1) verir. 2. tur tartışma: kurallı karşılıklı itirazlar oyları ve güvenleri değiştirir, plan kısalabilir.
    3. tur karar: Can veto eder ya da boyu ve planı yazar. Puan = Σ w·v·c / Σ w. Bot: puan ≥ eşik ve evet oyu ≥ asgari ve veto yok → market giriş. */
@@ -1105,6 +1108,7 @@ const DESK=[
   {id:"quant",name:"Onur",role:"Kantitatif araştırmacı",w:0.8},
   {id:"mom",name:"Baran",role:"Trader · agresif",w:0.8},
   {id:"copy",name:"Tolga",role:"Kopya trader araştırmacısı",w:1},
+  {id:"lab",name:"Burak",role:"Strateji araştırmacısı",w:0.9},
   {id:"audit",name:"Murat",role:"Denetçi · hatalardan ders",w:1},
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
@@ -1145,6 +1149,12 @@ function committee(A, dir, c24, opts){
   if(cs){ const me=cs[dir]||{n:0,w:0,leaders:[]}, ot=cs[isL?"short":"long"]||{n:0,w:0,leaders:[]}; const tot=me.w+ot.w; if(tot>0){ cv=(me.w-ot.w)/tot; cc=Math.min(0.9,0.4+0.1*(me.n+ot.n)); ctxt=`${me.n} lider ${D} (${(me.leaders||[]).slice(0,3).join(", ")||"—"}), ${ot.n} lider ters yönde`; } }
   set("copy",cv,cc,ctxt);
   say("copy","açılış",cs&&(cs.long.n||cs.short.n)?`En iyi liderlerden ${ctxt}. ${cv>0.3?"Büyük paralar bizimle.":cv<-0.3?"Büyük paralar ters tarafta; dikkat.":"Liderler bölünmüş."}`:(LD&&LD.at?`Liderler ${sym?sym.replace("USDT",""):"bu coin"} ile ilgilenmiyor; ne destek ne engel.`:"Lider verisi henüz yok, bu turda çekimserim."));
+  const LM=(typeof labMatch==="function")?labMatch(A,dir,sym):null; const best=LM&&LM.hits.length?[...LM.hits].sort((a,b)=>b.sw*b.t-a.sw*a.t)[0]:null; const bad=LM&&LM.avoid.length?LM.avoid[0]:null;
+  let lbv=0,lbc=0.2,lbtxt=(typeof lab!=="undefined"&&lab.base)?"liderlerin kalıplarından biri eşleşmiyor":"araştırma henüz aday çıkarmadı";
+  if(best){ lbv=clamp((0.3+0.4*Math.min(1,best.t/4))*best.sw,0,0.9); lbc=0.3+0.5*Math.min(1,best.n/80); lbtxt=`aday eşleşti: ${best.name} (${best.n} işlem, ${best.leaders} lider, ort ${fx(best.mean,2)} ATR, ${best.status})`; }
+  if(bad){ lbv-=0.5; lbc=Math.max(lbc,0.3+0.5*Math.min(1,bad.n/80)); lbtxt=(best?lbtxt+" · ":"")+`kaçınılacak kalıp: ${bad.name} (ort ${fx(bad.mean,2)} ATR)`; }
+  set("lab",lbv,lbc,lbtxt+(!best&&!bad?" · çekimser, puana girmez":""));
+  say("lab","açılış",best?`Liderlerin geçmişinde bu durum var: ${best.name}. ${best.n} işlem, ${best.leaders} farklı lider, kazanma %${Math.round(best.wr*100)}, ortalama ${fx(best.mean,2)} ATR; iki yarıda da artı. Medyan tutuş ${fx(best.hold,1)} saat. Durum: ${best.status}${best.status==="zayıf"?", bu yüzden oyum yok":""}.${bad?` Ama kaçınılacak bir kalıp da eşleşiyor: ${bad.name}.`:""}`:bad?`Liderler bu durumda kaybediyor: ${bad.name}, ${bad.n} işlemde ortalama ${fx(bad.mean,2)} ATR. Karşıyım.`:LM?"Şu anki tablo liderlerin kanıtlı kalıplarından hiçbirine uymuyor; ne destek ne engel.":(typeof lab!=="undefined"&&lab.base?"Bu coin için 1 saatlik veri yetmiyor, çekimserim.":"Araştırma ekibi henüz yeterli lider işlemi toplamadı; çekimserim."));
   const S=A.rsStats&&A.rsStats[dir]; const n=S?S.A.n+S.B.n:0; const sum=S?(S.A.sum||0)+(S.B.sum||0):0;
   let qv=0,qc=0.5,qtxt="bu coinde kanıt yok"; if(n>=3){ qv=sum>0?0.35:sum<0?-0.35:0; qc=0.6+Math.min(0.3,n/30); qtxt=`K3 bu coinde ${n} işlem, toplam ${sum>=0?"+":""}${fx(sum,1)}R`; } else if(n>0){ qtxt=`K3 bu coinde ${n} işlem (az örnek)`; }
   const kb=A.src&&A.src.k15L; const atrRel=kb&&kb.length>20?atrAt(kb,kb.length)/A.px:A.med15; let sd=Math.max(0.012,1.2*(atrRel||0.01)); const costR=(0.0005+0.0005+0.0003)/sd;
@@ -1168,6 +1178,9 @@ function committee(A, dir, c24, opts){
     if(ag.trend.v<-0.3&&ag.liq.v>0.5){ say("trend","tartışma","Kerem, süpürme güzel ama günlük yön karşı. Karşı-trend işlemde hedef kısa tutulur."); ag.liq.c-=0.2; runR=2; say("liq","tartışma","Kabul: süpürme + MSS karşı trendde de çalışır ama koşucuyu 2R'de keselim, güvenimi düşürüyorum."); chg.push("liq"); }
     else if(ag.trend.v>0.3&&ag.liq.v>0.5){ say("liq","tartışma","Trend de bizimle; süpürme trend yönünde olunca en iyi örnekler bunlar."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
     if(ag.liq.v>0.5&&ag.flow.v<0){ say("flow","tartışma","Kerem, süpürmede emilim yok: CVD fiyatla birlikte dip yaptı. Satış gerçek olabilir, fiyat yeniden süpürebilir."); ag.liq.v-=0.2; say("liq","tartışma","Teyit zayıfsa ikinci süpürme riski var, oyumu bir kademe düşürüyorum."); chg.push("liq"); }
+    if(bad&&LM.f.yer==="kova"&&ag.mom.v>0.3){ say("lab","tartışma",`Baran, liderler bu konumda kovaladığında ortalama ${fx(bad.mean,2)} ATR kaybediyor. Fiyat 24 saatlik aralığın ucunda.`); ag.mom.v-=0.25; say("mom","tartışma","Veri bunu söylüyorsa oyumu kısıyorum."); chg.push("mom"); }
+    if(best&&LM.f.sw==="var"&&ag.liq.v>0.5){ say("lab","tartışma","Kerem, liderlerin kazanan işlemleri de süpürmeden sonra geliyor; senin okumanı destekliyor."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
+    if(best&&best.conds.some(c=>c[0]==="btc")&&ag.macro.v>0){ say("macro","tartışma","Burak'ın adayı BTC yönüne bağlı; BTC tarafı da bizimle, güvenimi artırıyorum."); ag.macro.c=Math.min(1,ag.macro.c+0.1); chg.push("macro"); }
     if(n>=3&&sum<0){ say("quant","tartışma",`Bu coinde K3 geçmişi ${fx(sum,1)}R, yani eksi. Herkesin güvenini %15 kısıyorum; kanıtsız yere kalite A demeyelim.`); for(const k in ag) if(k!=="risk") ag[k].c*=0.85; chg.push("all"); }
     const sdMin=AUD&&AUD.sdMin>0.015?AUD.sdMin:0.015;
     if(sd<sdMin){ if(sdMin>0.015) say("audit","tartışma",`Kayıplarımızın çoğu gürültü stopu: fiyat lehimize gitmeden 45 dakikada stop oluyoruz. Stop tabanı %${fx(sdMin*100,1)}, boy ona göre küçülsün.`); else say("quant","tartışma",`Stop ${fx(sd*100,2)}% dar; testte %1,5 altı stoplar eksiydi. Stopu %1,5 tabanına çekelim, boy ona göre küçülür.`); sd=sdMin; say("risk","tartışma",`Tamam, stop %${fx(sdMin*100,1)}; pozisyon boyu buna göre.`); }
@@ -1177,21 +1190,24 @@ function committee(A, dir, c24, opts){
   if(!veto&&au.w){ if(au.hits.length){ say("audit","tartışma",`Bu kurulum daha önce kaybettiğimiz kalıba benziyor: ${au.txt}. ${au.veto?"Bu ders kesinleşti, veto istiyorum.":"Oyum karşı."}`); if(au.veto){ veto=`denetçi: ${AUD_TAGS[au.veto].t.toLowerCase()} kalıbı ${AUD.tags[au.veto].n} işlemde ort. ${fx(AUD.tags[au.veto].avg,2)}R`; say("risk","tartışma","Murat'ın kaydı açık, aynı hatayı tekrar etmiyoruz."); } }
     else say("audit","tartışma",`Kayıtlı hatalardan hiçbirine benzemiyor.${AUD.clean?` Temiz kurulumlarımız ${AUD.clean.n} işlemde ort. ${fx(AUD.clean.avg,2)}R.`:""}`); }
   /* ---- puan ---- */
-  const agents=DESK.map(d=>{ const a=ag[d.id]; const m=AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1; return {id:d.id,k:d.name+" · "+d.role.split(" ")[0],name:d.name,role:d.role,w:d.id==="audit"?au.w:+(d.w*m).toFixed(2),v:+a.v.toFixed(2),c:+a.c.toFixed(2),txt:a.txt}; });
+  // Burak'ın elinde eşleşen aday ya da kaçınılacak kalıp yoksa çekimserdir: ağırlığı 0, puanı sulandırmaz
+  const labIdle=!best&&!bad;
+    const agents=DESK.map(d=>{ const a=ag[d.id]; const m=AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1; return {id:d.id,k:d.name+" · "+d.role.split(" ")[0],name:d.name,role:d.role,w:d.id==="audit"?au.w:d.id==="lab"&&labIdle?0:+(d.w*m).toFixed(2),v:+a.v.toFixed(2),c:+a.c.toFixed(2),txt:a.txt}; });
   let num=0,den=0,yes=0,no=0; for(const a of agents){ num+=a.w*a.v*a.c; den+=a.w; if(a.v>0.15) yes++; if(a.v<-0.15) no++; }
   let score=den?num/den:0;
   if(!veto&&score>=opts.threshold-0.06&&score<opts.threshold&&yes>=opts.minYes&&ag.mom.v>0){ say("mom","tartışma",`Eşiğin dibindeyiz (${fx(score,2)}), ${yes} evet var. Ben küçük boyla girerim; fırsatı kaçırmayalım.`); const m=agents.find(a=>a.id==="mom"); m.v=+Math.min(1,m.v+0.15).toFixed(2); num=0; for(const a of agents) num+=a.w*a.v*a.c; score=num/den; }
   score=+score.toFixed(3);
   /* ---- 3. tur: karar ---- */
-  const px=A.px; const plan=veto?null:{entry:px,sd,stop:isL?px*(1-sd):px*(1+sd),t1:isL?px*(1+1.5*sd):px*(1-1.5*sd),t2:isL?px*(1+runR*sd):px*(1-runR*sd),rr1:1.5,rr2:runR};
+  const px=A.px; const holdH=best&&isFinite(best.hold)&&best.sw>0?clamp(Math.round(best.hold*1.5),2,12):null;
+  const plan=veto?null:{holdH,entry:px,sd,stop:isL?px*(1-sd):px*(1+sd),t1:isL?px*(1+1.5*sd):px*(1-1.5*sd),t2:isL?px*(1+runR*sd):px*(1-runR*sd),rr1:1.5,rr2:runR};
   const go=!veto&&score>=opts.threshold&&yes>=opts.minYes;
   const decision=veto?"veto":go?"giriş":score>=opts.threshold?"oy eksik":"bekle";
-  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/${DESK.length} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu 8 saat. Boy risk yüzdesinden, 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
+  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/${DESK.length} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Burak: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy risk yüzdesinden, 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
   // ham girdiler: karar günlüğünde (headless JSONL) sonradan analiz için
   const r4=v=>isFinite(v)?+(+v).toFixed(4):null;
   const feat={px:A.px,c24:r4(c24),trend:A.trend,trendScore:A.trendScore,st:A.st,stage:r?r.stage:null,grade:r?r.grade:null,kz:r&&r.kz||null,pool:r&&r.pool?r.pool.name:null,poolW:r&&r.pool?r.pool.w:null,rsOk:!!(q&&q.rsOk),rsStage:q?q.stage:null,
     of,tk30:r4(A.tk30),oiCase:A.oiCase||null,oiBloat:!!A.oiBloat,noTaker:!!A.noTaker,btc:B?{ch4:r4(B.ch4),ch24:r4(B.ch24),bias:B.bias,agree:!!B.agree,ok:!!B.ok,dump:!!B.dump}:null,fund:r4(A.fund),crowd:crowd||null,
-    ldV:r4(cv),ldN:cs?((cs.long&&cs.long.n)||0)+((cs.short&&cs.short.n)||0):0,k3n:n,k3sum:r4(sum),atrRel:r4(atrRel),sd:r4(sd),costR:r4(costR),wind:A.score,volRel:r4(A.volRel),climax:!!A.climax,capit:!!A.capit,distrib:!!A.distrib,accum:!!A.accum,runR};
+    ldV:r4(cv),ldN:cs?((cs.long&&cs.long.n)||0)+((cs.short&&cs.short.n)||0):0,k3n:n,k3sum:r4(sum),atrRel:r4(atrRel),sd:r4(sd),costR:r4(costR),wind:A.score,volRel:r4(A.volRel),climax:!!A.climax,capit:!!A.capit,distrib:!!A.distrib,accum:!!A.accum,runR,lab:best?best.key:null,labAvoid:bad?bad.key:null};
   return {dir,score,yes,no,n:agents.length,veto,agents,talk,plan,decision,changed:chg,feat};
 }
 /* ---------- Açık pozisyon yorumu: masa, elde tutulan pozisyonu kendi yönünde yeniden değerlendirir (tut / azalt / çık / stop sık) ---------- */
@@ -1216,6 +1232,7 @@ function positionReview(A, pos, orders, c24, opts){
   add("macro",`${st(g("macro"))}: ${g("macro").txt}.${opp.decision==="giriş"?" Masa ters yöne giriş diyor; pozisyon rüzgâra karşı.":""}`);
   const be=isL?pos.entry*(1+0.0013):pos.entry*(1-0.0013);
   add("quant",`Başabaş (komisyon dahil) ${fmtP(be)}. 1,5R ${fmtP(tp1)}, 3R ${fmtP(tp2)} (stop ${fmtP(stopLv)} alınırsa). ${g("quant").txt}.`);
+  add("lab",`${st(g("lab"))}: ${g("lab").txt}.`);
   add("mom",`${st(g("mom"))}: ${g("mom").txt}.${pnlPct>0&&g("mom").v>0.3?" Hareket devam ediyor, kârı erken kesme.":""}`);
   const canParts=[];
   if(isFinite(liqAtr)) canParts.push(liqAtr<1.5?`likidasyon ${fx(liqAtr,1)} ATR uzakta, tehlikeli: boyu küçült, teminat ekleme`:liqAtr<3?`likidasyon ${fx(liqAtr,1)} ATR uzakta, tek dalga yeter`:`likidasyon ${fx(liqAtr,1)} ATR uzakta`);
@@ -1341,12 +1358,161 @@ async function ldRefresh(force){
     ld.list=picked.map(x=>({id:String(x.leadPortfolioId),nick:x.nickname,roi:+x.roi,pnl:+x.pnl,aum:+x.aum,mdd:+x.mdd,wr:+x.winRate,copiers:+x.currentCopyCount,sharpe:x.sharpRatio!=null?+x.sharpRatio:null}));
     const keep={}; let i=0;
     for(const L of ld.list){ i++; ld.prog=`${i}/${ld.list.length} ${L.nick}`; if(typeof ldOnProgress==="function") ldOnProgress();
-      try{ const [ph,oh]=await Promise.all([ldPost("lead-portfolio/position-history",{portfolioId:L.id,pageNumber:1,pageSize:50}),ldPost("lead-portfolio/order-history",{portfolioId:L.id,pageNumber:1,pageSize:100})]); keep[L.id]=ldDigest(L,ph.list||[],oh.list||[]); }
+      try{ const [ph,oh]=await Promise.all([ldPost("lead-portfolio/position-history",{portfolioId:L.id,pageNumber:1,pageSize:50}),ldPost("lead-portfolio/order-history",{portfolioId:L.id,pageNumber:1,pageSize:100})]); keep[L.id]=ldDigest(L,ph.list||[],oh.list||[]); if(typeof labIngest==="function") labIngest(L,ph.list||[]); }
       catch(e){ keep[L.id]=ld.leaders[L.id]&&!ld.leaders[L.id].err?ld.leaders[L.id]:{id:L.id,nick:L.nick,err:e.message}; }
       await new Promise(r=>setTimeout(r,300)); }
     ld.leaders=keep; ld.profile=ldProfile(); ld.sym=ldSymbols(); ld.at=Date.now(); ld.prog=""; ldSave(); return true;
   }catch(e){ ld.err=e.message; ld.prog=""; return false; }
   finally{ ld.busy=false; if(typeof ldOnProgress==="function") ldOnProgress(); }
+}
+
+/* ---------- Araştırma ekibi (Lab): kopya trader liderlerinin stratejilerini arka planda inceler ----------
+   Ekip: Tolga (veri: lider geçmişini toplar, kalıcı saklar), Burak (faktörler ve aday stratejiler), Onur (aday stratejilerin ileriye dönük testi).
+   1. Toplama: liderlerin kapanmış pozisyonları (position-history, ilk seferde 4 sayfa, sonra 6 saatte bir 1 sayfa) localStorage["st-lab"] içinde birikir;
+      listeden düşen liderin geçmişi silinmez. En fazla LAB_CFG.maxTrades işlem (en yeniler).
+   2. Zenginleştirme: her işlemin açılış anındaki piyasa durumu coin ve BTC 1 saatlik mumlarından çıkarılır (labFeat): seans, 1 sa trend, 24 sa aralıktaki yer,
+      24 sa hareket, BTC 4 sa, süpürme sonrası mı, hacim. Sonuç kaldıraçsız fiyat hareketi / ATR (mATR) olarak ölçülür; böylece kaldıraç ve boy farkı karışmaz.
+   3. Analiz (labAnalyze): her faktör değerinde ağırlıklı ortalama mATR ve kazanma (çok işlem yapan lider ağırlığı 25 işleme kısılır), zaman sırasına göre iki yarı;
+      tekli ve ikili koşullardan aday stratejiler (iki yarıda da artı, ≥ minN işlem, ≥ minLeaders lider) ve kaçınılacak kalıplar (iki yarıda da eksi).
+   4. İleri test: canlı taramada bir aday eşleşince gölge sinyal yazılır; adayın medyan tutuşu kadar sonra 1 saatlik mumla sonucu ölçülür (labEvalShadows).
+      Durum: aday → izlemede → onaylı (≥20 ileri işlem, ort > 0) / zayıf (≥20, ort ≤ 0).
+   5. Masa: Burak (id "lab") eşleşen adayla oy verir, tartışmada Baran'ı kovalamaya karşı uyarır, Kerem'e süpürme kanıtı verir, zaman stopunu önerir.
+   Lider verisi yalnızca masaüstü uygulamasında çekilir (CORS); mumlar her yerde çalışır. */
+const LAB_CFG={maxTrades:4000,firstPages:4,pageSize:50,harvestEveryH:6,minN:20,minLeaders:4,minHalf:6,klTtl:6*3600e3,shadowGapH:4,maxShadows:400,promoteN:20,clip:5};
+const LAB_FEATS=[
+  {k:"ses",name:"Seans",vals:{asya:"Asya 00–07",londra:"Londra 07–12",ny:"New York 12–20",gec:"Geç 20–24"}},
+  {k:"tr",name:"1 sa trend",vals:{with:"lehte",against:"karşı",flat:"yatay"}},
+  {k:"yer",name:"24 sa aralıkta yer",vals:{geri:"geri çekilmede",orta:"ortada",kova:"kovalama"}},
+  {k:"har",name:"Coin 24 sa",vals:{lehte:"lehte > %3",notr:"±%3",aleyhte:"aleyhte > %3"}},
+  {k:"btc",name:"BTC 4 sa",vals:{lehte:"lehte",yatay:"yatay",aleyhte:"aleyhte"}},
+  {k:"sw",name:"Süpürme (6 sa)",vals:{var:"süpürme sonrası",yok:"süpürme yok"}},
+  {k:"vol",name:"Hacim (3 sa)",vals:{yuksek:"yüksek",normal:"normal"}}];
+const lab={trades:[],snaps:{},harvestAt:{},styles:{},factors:null,cands:[],avoid:[],fwd:{},shadows:[],notes:[],base:null,at:0,dirty:false,busy:false,prog:"",err:null,kl:{}};
+try{ const sv=JSON.parse(localStorage.getItem("st-lab")||"null"); if(sv&&sv.v===1){ for(const k of ["trades","snaps","harvestAt","fwd","shadows","notes"]) if(sv[k]) lab[k]=sv[k]; lab.dirty=true; } }catch(e){}
+function labSave(){ try{ localStorage.setItem("st-lab",JSON.stringify({v:1,trades:lab.trades,snaps:lab.snaps,harvestAt:lab.harvestAt,fwd:lab.fwd,shadows:lab.shadows,notes:lab.notes.slice(-40)})); }catch(e){ lab.err="kayıt alanı doldu: "+e.message; } }
+function labNote(who,text){ const last=lab.notes[lab.notes.length-1]; if(last&&last.text===text) return; lab.notes.push({t:Date.now(),who,text}); lab.notes=lab.notes.slice(-40); }
+/* --- 1. toplama --- */
+function labIngest(L,list){
+  const have=new Set(lab.trades.map(x=>x.k)); let added=0;
+  for(const p of list||[]){ if(!p||!p.closed||!p.opened||!p.symbol) continue; const dir=String(p.side||"").toLowerCase()==="long"?"long":"short"; const k=L.id+"|"+p.symbol+"|"+dir+"|"+(+p.opened);
+    if(have.has(k)) continue; have.add(k); added++;
+    lab.trades.push({k,lid:String(L.id),nick:L.nick,sym:p.symbol,dir,open:+p.opened,close:+p.closed,hold:(+p.closed-+p.opened)/3.6e6,lev:+p.leverage||0,roi:+p.roi||0,pnl:+p.closingPnl||0,entry:+p.avgCost||0,exit:+p.avgClosePrice||0,f:null}); }
+  if(added){ lab.trades.sort((a,b)=>a.close-b.close); if(lab.trades.length>LAB_CFG.maxTrades) lab.trades=lab.trades.slice(-LAB_CFG.maxTrades); lab.dirty=true; }
+  return added;
+}
+function labSnap(list){ const day=Math.floor(Date.now()/864e5); for(const L of list||[]){ const s=lab.snaps[L.id]=lab.snaps[L.id]||[]; if(s.length&&s[s.length-1].d===day) s.pop(); s.push({d:day,roi:L.roi,aum:L.aum,cop:L.copiers,mdd:L.mdd,nick:L.nick}); if(s.length>90) s.shift(); } }
+async function labHarvest(maxLeaders){
+  if(typeof ldPost!=="function"||typeof ld==="undefined"||!ld.list.length) return 0; let done=0,added=0;
+  for(const L of ld.list){ if(done>=maxLeaders) break; const last=lab.harvestAt[L.id]||0; if(Date.now()-last<LAB_CFG.harvestEveryH*3600e3) continue;
+    const pages=last?1:LAB_CFG.firstPages; done++; lab.prog=`geçmiş: ${L.nick}`;
+    try{ for(let pg=1;pg<=pages;pg++){ const d=await ldPost("lead-portfolio/position-history",{portfolioId:L.id,pageNumber:pg,pageSize:LAB_CFG.pageSize}); const list=d.list||[]; added+=labIngest(L,list); if(list.length<LAB_CFG.pageSize) break; await new Promise(r=>setTimeout(r,400)); }
+      lab.harvestAt[L.id]=Date.now(); }
+    catch(e){ lab.err=e.message; break; } }
+  return added;
+}
+/* --- 2. zenginleştirme: açılış anındaki piyasa (yalnızca açılıştan ÖNCE kapanmış mumlar) --- */
+function labAgg1h(k15){ if(!k15||!k15.length) return null; const out=[]; let cur=null; for(const c of k15){ const t=Math.floor(c.t/36e5)*36e5; if(!cur||cur.t!==t){ if(cur) out.push(cur); cur={t,o:c.o,h:c.h,l:c.l,c:c.c,v:c.v,q:c.q,tb:c.tb,n:1}; } else { cur.h=Math.max(cur.h,c.h); cur.l=Math.min(cur.l,c.l); cur.c=c.c; cur.v+=c.v; cur.q+=c.q; cur.tb+=c.tb; cur.n++; } } if(cur) out.push(cur); return out; }
+function labIdx(k,t){ let lo=0,hi=k.length-1,ans=-1; while(lo<=hi){ const m=(lo+hi)>>1; if(k[m].t+36e5<=t){ ans=m; lo=m+1; } else hi=m-1; } return ans; }
+function labFeat(k,b,t,dir){
+  if(!k||k.length<60) return null; const i=labIdx(k,t); if(i<50) return null; if(t-k[i].t>3*36e5) return null; const isL=dir==="long"; const sg=isL?1:-1;
+  const c=k[i].c; const atr=atrAt(k,i+1,14)/c; if(!(atr>0)) return null;
+  const sma=(n)=>{ let s=0; for(let j=i-n+1;j<=i;j++) s+=k[j].c; return s/n; }; const s20=sma(20), s50=sma(50);
+  const up=s20>s50&&c>s20, dn=s20<s50&&c<s20; const tr=up?(isL?"with":"against"):dn?(isL?"against":"with"):"flat";
+  let hi=-Infinity,lo=Infinity; for(let j=i-23;j<=i;j++){ hi=Math.max(hi,k[j].h); lo=Math.min(lo,k[j].l); } const pos=hi>lo?(c-lo)/(hi-lo):0.5; const dp=isL?pos:1-pos;
+  const yer=dp<0.34?"geri":dp>0.66?"kova":"orta";
+  const ch=(c/k[i-24].c-1)*sg; const har=ch>0.03?"lehte":ch<-0.03?"aleyhte":"notr";
+  let btc="yatay"; if(b&&b.length>10){ const bi=labIdx(b,t); if(bi>=4&&t-b[bi].t<=3*36e5){ const bc=(b[bi].c/b[bi-4].c-1)*sg; btc=bc>0.005?"lehte":bc<-0.005?"aleyhte":"yatay"; } }
+  let sw="yok"; { let pe=isL?Infinity:-Infinity; for(let j=i-29;j<=i-6;j++) pe=isL?Math.min(pe,k[j].l):Math.max(pe,k[j].h); let ex=isL?Infinity:-Infinity; for(let j=i-5;j<=i;j++) ex=isL?Math.min(ex,k[j].l):Math.max(ex,k[j].h); if(isL?(ex<pe&&c>pe):(ex>pe&&c<pe)) sw="var"; }
+  const qs=k.slice(i-47,i+1).map(x=>x.q).sort((x,y)=>x-y); const mq=qs[Math.floor(qs.length/2)]||0; const q3=(k[i].q+k[i-1].q+k[i-2].q)/3; const vol=mq>0&&q3/mq>1.5?"yuksek":"normal";
+  const h=new Date(t).getUTCHours(); const ses=h<7?"asya":h<12?"londra":h<20?"ny":"gec";
+  return {ses,tr,yer,har,btc,sw,vol,atr:+atr.toFixed(5)};
+}
+async function labKlines(sym){
+  const c=lab.kl[sym]; if(c&&Date.now()-c.t<LAB_CFG.klTtl) return c.k;
+  const raw=await opt(`/fapi/v1/klines?symbol=${sym}&interval=1h&limit=1500`,null); const k=raw&&raw.length?K(raw):null; lab.kl[sym]={t:Date.now(),k}; return k;
+}
+async function labEnrich(maxSyms){
+  const todo={}; for(const x of lab.trades) if(x.f===null) (todo[x.sym]=todo[x.sym]||[]).push(x); const syms=Object.keys(todo); if(!syms.length) return 0;
+  const b=await labKlines("BTCUSDT"); let n=0;
+  for(const s of syms.slice(0,maxSyms)){ lab.prog=`mumlar: ${s}`; const k=await labKlines(s);
+    for(const x of todo[s]){ if(!k){ x.f="x"; continue; } if(x.open<k[0].t+51*36e5){ x.f="old"; continue; } const f=labFeat(k,b,x.open,x.dir); x.f=f||"x"; if(f){ const sg=x.dir==="long"?1:-1; const mv=x.entry>0&&x.exit>0?sg*(x.exit/x.entry-1):NaN; x.m=isFinite(mv)?+clamp(mv/f.atr,-LAB_CFG.clip,LAB_CFG.clip).toFixed(3):NaN; n++; } } }
+  if(n) lab.dirty=true; return n;
+}
+/* --- 3. analiz --- */
+function labStat(rows,wOf){ let W=0,S=0,S2=0,win=0,n=0; const ls=new Set(); for(const x of rows){ const w=wOf(x); W+=w; S+=w*x.m; S2+=w*x.m*x.m; if(x.pnl>0) win+=w; n++; ls.add(x.lid); } const mean=W?S/W:NaN; const sd=W?Math.sqrt(Math.max(0,S2/W-mean*mean)):NaN; const neff=Math.min(n,W*1.5); return {n,w:+W.toFixed(1),leaders:ls.size,mean:+mean.toFixed(3),wr:W?+(win/W).toFixed(3):NaN,t:sd>0?+(mean/(sd/Math.sqrt(Math.max(1,neff)))).toFixed(2):0}; }
+function labCondTxt(conds){ return conds.map(([f,v])=>{ const F=LAB_FEATS.find(x=>x.k===f); return F.name+": "+F.vals[v]; }).join(" + "); }
+function labMed(a){ const s=a.filter(isFinite).sort((x,y)=>x-y); return s.length?s[Math.floor(s.length/2)]:NaN; }
+function labAnalyze(){
+  const T=lab.trades.filter(x=>x.f&&typeof x.f==="object"&&isFinite(x.m)); lab.at=Date.now(); lab.dirty=false;
+  if(T.length<LAB_CFG.minN){ lab.base=null; lab.factors=null; lab.cands=[]; lab.avoid=[]; lab.styles={}; return; }
+  const perL={}; for(const x of T) perL[x.lid]=(perL[x.lid]||0)+1; const wOf=x=>Math.min(1,25/perL[x.lid]);
+  const tMid=labMed(T.map(x=>x.open));
+  const st=rows=>{ const s=labStat(rows,wOf); const a=rows.filter(x=>x.open<tMid), b=rows.filter(x=>x.open>=tMid); s.h1=a.length?labStat(a,wOf).mean:NaN; s.h2=b.length?labStat(b,wOf).mean:NaN; s.n1=a.length; s.n2=b.length; s.hold=+labMed(rows.map(x=>x.hold)).toFixed(2); s.lev=labMed(rows.map(x=>x.lev)); return s; };
+  lab.base={all:st(T),long:st(T.filter(x=>x.dir==="long")),short:st(T.filter(x=>x.dir==="short")),total:lab.trades.length,featured:T.length,leaders:Object.keys(perL).length,from:Math.min(...T.map(x=>x.open)),to:Math.max(...T.map(x=>x.close))};
+  // faktör tablosu
+  const factors=[]; for(const F of LAB_FEATS) for(const v of Object.keys(F.vals)) for(const d of ["long","short"]){ const rows=T.filter(x=>x.dir===d&&x.f[F.k]===v); if(rows.length) factors.push({f:F.k,v,dir:d,...st(rows)}); }
+  lab.factors=factors;
+  // aday stratejiler: tekli ve ikili koşullar, yön başına
+  const conds=[]; for(const F of LAB_FEATS) for(const v of Object.keys(F.vals)) conds.push([F.k,v]);
+  const evals=[]; const m={};
+  for(const d of ["long","short"]){ const D=T.filter(x=>x.dir===d); const base=lab.base[d];
+    const test=cs=>{ const rows=D.filter(x=>cs.every(([f,v])=>x.f[f]===v)); if(rows.length<LAB_CFG.minN) return null; const s=st(rows); if(s.leaders<LAB_CFG.minLeaders||s.n1<LAB_CFG.minHalf||s.n2<LAB_CFG.minHalf) return null; return {key:d+"|"+cs.map(c=>c.join("=")).join("&"),dir:d,conds:cs,name:labCondTxt(cs),lift:+(s.mean-base.mean).toFixed(3),...s}; };
+    for(const c of conds){ const r=test([c]); if(r){ evals.push(r); m[r.key]=r; } }
+    for(let i=0;i<conds.length;i++) for(let j=i+1;j<conds.length;j++){ if(conds[i][0]===conds[j][0]) continue; const r=test([conds[i],conds[j]]); if(!r) continue; const a=m[d+"|"+conds[i].join("=")], b=m[d+"|"+conds[j].join("=")];
+      // ikili koşul yalnızca iki tekliden de belirgin iyiyse (ya da kötüyse) tutulur
+      const better=(!a||r.mean>a.mean+0.1)&&(!b||r.mean>b.mean+0.1), worse=(!a||r.mean<a.mean-0.1)&&(!b||r.mean<b.mean-0.1); if(better||worse) evals.push(r); } }
+  const good=evals.filter(r=>r.mean>0.1&&r.h1>0&&r.h2>0&&r.wr>=0.5&&r.lift>0&&r.t>=1.5).sort((a,b)=>b.t-a.t);
+  const bad=evals.filter(r=>r.mean<0&&r.h1<0&&r.h2<0&&r.t<=-1.5).sort((a,b)=>a.t-b.t);
+  const pick=(arr,max)=>{ const out=[]; for(const r of arr){ if(out.length>=max) break; if(out.some(o=>o.dir===r.dir&&o.conds.length===1&&r.conds.some(c=>c.join("=")===o.conds[0].join("="))&&Math.abs(o.mean-r.mean)<0.15)) continue; out.push(r); } return out; };
+  const prevTop=lab.cands[0]&&lab.cands[0].key; lab.cands=pick(good,8); lab.avoid=pick(bad,6);
+  for(const c of lab.cands.concat(lab.avoid)) c.status=labStatus(c.key);
+  // lider stilleri
+  const styles={}; for(const lid of Object.keys(perL)){ const R=T.filter(x=>x.lid===lid); if(R.length<5) continue; const sh=(fn)=>R.filter(fn).length/R.length;
+    const s={nick:R[R.length-1].nick,n:R.length,wr:R.filter(x=>x.pnl>0).length/R.length,mean:R.reduce((a,x)=>a+x.m,0)/R.length,hold:labMed(R.map(x=>x.hold)),lev:labMed(R.map(x=>x.lev)),longSh:sh(x=>x.dir==="long"),trendSh:sh(x=>x.f.tr==="with"),counterSh:sh(x=>x.f.tr==="against"),dipSh:sh(x=>x.f.yer==="geri"),chaseSh:sh(x=>x.f.yer==="kova"),swSh:sh(x=>x.f.sw==="var"),btcSh:sh(x=>x.f.btc==="lehte")};
+    const tags=[]; tags.push(s.hold<1?"skalper":s.hold<12?"gün içi":"swing"); if(s.trendSh>=0.55) tags.push("trendci"); else if(s.counterSh>=0.45) tags.push("karşı-trend"); if(s.dipSh>=0.5) tags.push("geri çekilme alıcısı"); else if(s.chaseSh>=0.5) tags.push("kırılım/kovalama"); if(s.swSh>=0.3) tags.push("süpürme avcısı"); if(s.longSh>=0.75) tags.push("long ağırlıklı"); else if(s.longSh<=0.25) tags.push("short ağırlıklı"); if(s.btcSh>=0.6) tags.push("BTC'yi izler");
+    s.tags=tags; styles[lid]=s; }
+  lab.styles=styles;
+  const top=lab.cands[0]; if(top&&top.key!==prevTop) labNote("Burak",`Yeni en güçlü aday: ${top.dir==="long"?"LONG":"SHORT"} · ${top.name} → ${top.n} işlem, ${top.leaders} lider, kazanma %${Math.round(top.wr*100)}, ort ${fx(top.mean,2)} ATR (yarılar ${fx(top.h1,2)} / ${fx(top.h2,2)}).`);
+  if(lab.avoid[0]) labNote("Burak",`Kaçınılacak: ${lab.avoid[0].dir==="long"?"LONG":"SHORT"} · ${lab.avoid[0].name} → liderler burada ort ${fx(lab.avoid[0].mean,2)} ATR kaybediyor (${lab.avoid[0].n} işlem).`);
+}
+/* --- 4. ileri test --- */
+function labStatus(key){ const f=lab.fwd[key]; if(!f||!f.n) return "aday"; if(f.n<LAB_CFG.promoteN) return "izlemede"; return f.sum/f.n>0?"onaylı":"zayıf"; }
+const LAB_SW={aday:0.6,izlemede:0.7,"onaylı":1,"zayıf":0};
+function labShadow(c,sym,dir,px,atr){
+  const key=c.key; const now=Date.now(); if(lab.shadows.some(s=>s.key===key&&s.sym===sym&&now-s.t<LAB_CFG.shadowGapH*3600e3)) return;
+  if(lab.shadows.length>=LAB_CFG.maxShadows) return; const h=clamp(Math.round(isFinite(c.hold)?c.hold:4),1,24);
+  lab.shadows.push({key,sym,dir,t:now,px,atr,h,cand:c.name});
+}
+async function labEvalShadows(max){
+  const now=Date.now(); const due=lab.shadows.filter(s=>now>s.t+s.h*36e5+10*60e3).slice(0,max); let n=0;
+  for(const s of due){ const raw=await opt(`/fapi/v1/klines?symbol=${s.sym}&interval=1h&startTime=${Math.floor(s.t/36e5)*36e5}&limit=${s.h+2}`,null);
+    lab.shadows=lab.shadows.filter(x=>x!==s); if(!raw||!raw.length) continue; const k=K(raw); const end=s.t+s.h*36e5; const bar=k.filter(c=>c.t+36e5<=end+36e5).pop()||k[k.length-1];
+    const sg=s.dir==="long"?1:-1; const m=clamp(sg*(bar.c/s.px-1)/s.atr,-LAB_CFG.clip,LAB_CFG.clip); const f=lab.fwd[s.key]=lab.fwd[s.key]||{n:0,sum:0,win:0,last:[]};
+    const before=labStatus(s.key); f.n++; f.sum+=m; if(m>0) f.win++; f.last.push({sym:s.sym,t:s.t,m:+m.toFixed(2)}); f.last=f.last.slice(-12); n++;
+    const after=labStatus(s.key); if(after!==before&&(after==="onaylı"||after==="zayıf")) labNote("Onur",`${s.cand} (${s.dir==="long"?"LONG":"SHORT"}) ileri testte ${f.n} sinyal, ort ${fx(f.sum/f.n,2)} ATR → ${after==="onaylı"?"ONAYLI: masada tam ağırlık":"ZAYIF: masada artık oy vermiyor"}.`); }
+  if(n){ for(const c of lab.cands.concat(lab.avoid)) c.status=labStatus(c.key); labSave(); } return n;
+}
+/* --- canlı eşleşme: masanın kullandığı içgörü --- */
+function labMatch(A,dir,sym){
+  if(!lab.cands.length&&!lab.avoid.length) return null; const k=A&&A.src&&A.src.k1h; if(!k||k.length<60) return null;
+  const b=A.src.btc15?labAgg1h(A.src.btc15):null; const t=k[k.length-1].t+36e5; // son kapanmış mumdan hemen sonra
+  const f=labFeat(k,b,t,dir); if(!f) return null; const ok=c=>c.dir===dir&&c.conds.every(([ff,v])=>f[ff]===v);
+  const hits=lab.cands.filter(ok).map(c=>({...c,sw:LAB_SW[c.status]??0.6})); const avoid=lab.avoid.filter(ok);
+  if(sym) for(const c of hits) labShadow(c,sym,dir,A.px,f.atr);
+  return {f,hits,avoid};
+}
+/* --- arka plan turu (ui.js dakikada bir çağırır) --- */
+async function labTick(force){
+  if(lab.busy) return false; lab.busy=true; lab.err=null;
+  try{
+    if(typeof ld!=="undefined"&&ld.list&&ld.list.length) labSnap(ld.list);
+    await labHarvest(force?20:3);
+    await labEnrich(force?12:4);
+    await labEvalShadows(force?10:4);
+    if(lab.dirty&&(force||Date.now()-lab.at>5*60e3)){ lab.prog="analiz"; labAnalyze(); }
+    labSave(); return true;
+  }catch(e){ lab.err=e.message; return false; }
+  finally{ lab.busy=false; lab.prog=""; if(typeof labOnProgress==="function") labOnProgress(); }
 }
 
 // backtest: every completed sequence in the history, graded with CVD-only order flow (OI/taker series are too short), outcome within 48 candles after the entry touch
@@ -1855,7 +2021,7 @@ function renderQuick(f){
 }
 function renderDrawer(A){
   if(!ui.drawerOpen) return;
-  if(ui.drawerTab==="story") renderStory(A); else if(ui.drawerTab==="stats") renderStats(A); else if(ui.drawerTab==="journal") renderJournal(); else if(ui.drawerTab==="bot") renderBot(); else if(ui.drawerTab==="account") renderAccount();
+  if(ui.drawerTab==="story") renderStory(A); else if(ui.drawerTab==="stats") renderStats(A); else if(ui.drawerTab==="journal") renderJournal(); else if(ui.drawerTab==="bot") renderBot(); else if(ui.drawerTab==="account") renderAccount(); else if(ui.drawerTab==="lab") renderLab();
 }
 function start(){
   clearInterval(state.timer); state.sym=$("sym").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,""); if(!state.sym.endsWith("USDT")) state.sym+="USDT"; $("sym").value=state.sym;
@@ -1886,7 +2052,7 @@ document.querySelectorAll("#scanTable th").forEach(th=>th.addEventListener("clic
 $("scanNow").addEventListener("click",runScan); $("onlyPick").addEventListener("change",renderScanTable); $("minVol").addEventListener("change",()=>{ if(!scan.running) runScan(); });
 function scheduleScan(){ clearInterval(scan.timer); const ev=+$("scanEvery").value; if(ev>0) scan.timer=setInterval(()=>{ if(!document.hidden) runScan(); },ev); }
 $("scanEvery").addEventListener("change",scheduleScan);
-function setDrawer(open,tab){ ui.drawerOpen=open; if(tab) ui.drawerTab=tab; $("drawer").classList.toggle("closed",!open); $("drawerTgl").textContent=open?"▾":"▴"; document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.t===ui.drawerTab))); ["scan","journal","story","stats","strategy","bot","account"].forEach(t=>{ const el=$("d"+t[0].toUpperCase()+t.slice(1)); el.hidden=t!==ui.drawerTab; }); LS("st-drawer",open?ui.drawerTab:""); if(open&&state.lastA) renderDrawer(state.lastA); if(open&&ui.drawerTab==="journal") renderJournal(); if(open&&ui.drawerTab==="bot") renderBot(); if(open&&ui.drawerTab==="account") renderAccount(); }
+function setDrawer(open,tab){ ui.drawerOpen=open; if(tab) ui.drawerTab=tab; $("drawer").classList.toggle("closed",!open); $("drawerTgl").textContent=open?"▾":"▴"; document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.t===ui.drawerTab))); ["scan","journal","story","stats","strategy","bot","lab","account"].forEach(t=>{ const el=$("d"+t[0].toUpperCase()+t.slice(1)); el.hidden=t!==ui.drawerTab; }); LS("st-drawer",open?ui.drawerTab:""); if(open&&state.lastA) renderDrawer(state.lastA); if(open&&ui.drawerTab==="journal") renderJournal(); if(open&&ui.drawerTab==="bot") renderBot(); if(open&&ui.drawerTab==="account") renderAccount(); if(open&&ui.drawerTab==="lab") renderLab(); }
 document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.addEventListener("click",()=>setDrawer(true,b.dataset.t)));
 $("drawerTgl").addEventListener("click",()=>setDrawer(!ui.drawerOpen));
 $("dJournal").addEventListener("click",e=>{ const b=e.target.closest("button.jr"); if(!b) return; jrSet(b.dataset.id,b.dataset.act); renderJournal(); rerender(); });
@@ -2012,7 +2178,7 @@ function botOpenMarket(x){
   if(margin+botMarginUsed()>bot.bal*0.95){ bot._noMargin={need:margin,free:Math.max(0,bot.bal*0.95-botMarginUsed())}; return false; }
   const fill=isL?px*(1+cfg.slip):px*(1-cfg.slip); const qty=notional/fill; const fee=notional*cfg.feeTaker; bot.bal-=fee; botDay().opens++;
   const votes=x.com.agents.map(a=>`${a.name||a.k} ${a.v>0?"+":""}${fx(a.v,1)}`);
-  bot.positions.push({sym:x.sym,dir:x.dir,model:"KOMİTE",grade:x.grade,agents:x.com.agents,talk:x.com.talk,entry:fill,stop,t1,t2,rr1:1.5,rr2:x.com.plan?x.com.plan.rr2:3,lev,notional,margin,risk,risk0:Math.abs(fill-stop),stop0:stop,qty,qty0:qty,fees:fee,openT:Date.now(),expiresAt:Date.now()+cfg.holdH*3600e3,stage:"open",hi:fill,lo:fill,realized:0,score:x.score,yes:x.yes,votes});
+  bot.positions.push({sym:x.sym,dir:x.dir,model:"KOMİTE",grade:x.grade,agents:x.com.agents,talk:x.com.talk,entry:fill,stop,t1,t2,rr1:1.5,rr2:x.com.plan?x.com.plan.rr2:3,lev,notional,margin,risk,risk0:Math.abs(fill-stop),stop0:stop,qty,qty0:qty,fees:fee,openT:Date.now(),expiresAt:Date.now()+((x.com.plan&&x.com.plan.holdH)||cfg.holdH)*3600e3,stage:"open",hi:fill,lo:fill,realized:0,score:x.score,yes:x.yes,votes});
   botLog("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · Can'ın kararı · puan ${fx(x.score,2)} · ${x.yes}/${DESK.length} evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · 1,5R ${fmtP(t1)} · 3R ${fmtP(t2)} · ${lev}x · pozisyon ${fmtB(notional)} · teminat ${fmtB(margin)} · risk ${fmtB(risk)}. Oylar: ${votes.join(", ")}.`);
   botSave(); botWsSync(); return true;
 }
@@ -2100,7 +2266,7 @@ function talkHtml(talk){
 function renderRoom(){
   const opts=[]; for(const p of bot.positions){ if(p.agents) opts.push({key:"pos:"+p.sym,label:`${p.sym.replace("USDT","")} ${p.dir==="long"?"L":"S"} · açık pozisyon (giriş anı)`,agents:p.agents,talk:p.talk,score:p.score,yes:null,veto:null,go:true,dir:p.dir,sym:p.sym}); }
   for(const v of bot.lastVotes){ opts.push({key:v.sym+"|"+v.dir,label:`${v.sym.replace("USDT","")} ${v.dir==="long"?"L":"S"} · puan ${fx(v.score,2)}${v.go?" · giriş":v.veto?" · veto":""}`,agents:v.agents,talk:v.talk,score:v.score,yes:v.yes,veto:v.veto,go:v.go,dir:v.dir,sym:v.sym}); }
-  if(!opts.length) return `<div class="card" style="margin-bottom:10px"><h4 style="margin:0 0 4px">Masa</h4><div class="empty">İlk tarama bitince dokuz kişilik masanın tartışması burada canlanır.</div></div>`;
+  if(!opts.length) return `<div class="card" style="margin-bottom:10px"><h4 style="margin:0 0 4px">Masa</h4><div class="empty">İlk tarama bitince on kişilik masanın tartışması burada canlanır.</div></div>`;
   let sel=opts.find(o=>o.key===bot.roomSel)||opts.find(o=>o.go)||opts[0]; const ag=sel.agents; const thr=bot.cfg.threshold;
   const W=400,H=300,cx=200,cy=150,R=108; const n=ag.length; const posOf=i=>{ const a=-Math.PI/2+i*2*Math.PI/n; return [cx+R*Math.cos(a),cy+R*Math.sin(a)]; };
   const col=v=>v>0.15?"var(--long)":v<-0.15?"var(--short)":"var(--ink-2)";
@@ -2133,6 +2299,37 @@ function botReset(){ if(bot.positions.length||bot.orders.length){ if(!confirm(`$
 function botCloseAll(){ for(const p of [...bot.positions]){ const px=bot.px[p.sym]; if(!px) continue; const isL=p.dir==="long"; const price=isL?px*(1-bot.cfg.slip):px*(1+bot.cfg.slip); const q=p.qty; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*bot.cfg.feeTaker; bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty=0; botLog("close",p.sym,`Elle kapatıldı ${fmtP(price)} · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); botClosePos(p); } bot.orders=[]; botSave(); botWsSync(); renderBot(); }
 function botCsv(){ const rows=[["acilis","kapanis","coin","yon","model","not","kaldirac","giris","pnl_usdt","komisyon","R","komite_puan","en_iyi_R","cikis","denetci"]].concat(bot.trades.map(t=>[new Date(t.openT).toISOString(),new Date(t.closeT).toISOString(),t.sym,t.dir,t.model,t.grade,t.lev,t.entry,t.pnl.toFixed(4),t.fees.toFixed(4),t.r.toFixed(2),t.score!=null?t.score:"",isFinite(t.mfe)?t.mfe:"",(t.exits||[]).join(" "),(()=>{ try{ return audTagsOf(t,bot.trades,{thr:bot.cfg.threshold,minYes:bot.cfg.minYes}).join(" "); }catch(e){ return ""; } })()])); const logRows=[[],["zaman","tur","coin","mesaj"]].concat(bot.log.map(l=>[new Date(l.t).toISOString(),l.type,l.sym,'"'+l.text.replace(/"/g,"'")+'"'])); const csv=rows.concat(logRows).map(r=>r.join(",")).join("\n"); const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv"})); a.download="sweep-bot-"+new Date().toISOString().slice(0,10)+".csv"; a.click(); }
 function botNetTxt(){ const fresh=bot.lastTick&&Date.now()-bot.lastTick<15000; const has=bot.positions.length||bot.orders.length; const mk=has&&bot.markSrc==="rest"&&!(bot.lastMark&&Date.now()-bot.lastMark<10000)?' · mark REST (5 sn)':''; const a=has?(fresh?(bot.src==="rest"?'<span class="warn">● fiyat REST yedeğinden (3 sn)</span>':'<span class="up">● fiyat akışı canlı</span>'+mk):'<span class="down">● fiyat akışı yok</span>'):(live.ok?'<span class="up">● Binance bağlı</span>':'<span class="down">● Binance\'e ulaşılamıyor</span>'); const cool=typeof rest!=="undefined"&&Date.now()<rest.cool?` · <span class="warn">hız sınırı, ${Math.ceil((rest.cool-Date.now())/1000)} sn</span>`:""; const err=bot.pollErr&&Date.now()-bot.pollErrAt<60000?` · <span class="down">yedek: ${esc(bot.pollErr)}</span>`:""; return `<span id="botNet">${a}${has&&!fresh?mk:""} · tarama ${scan.rows.length} coin${cool}${err}</span>`; }
+/* --- araştırma ekibi paneli: lider geçmişi, faktörler, aday stratejiler, ileri test, notlar --- */
+function labOnProgress(){ if(ui.drawerOpen&&ui.drawerTab==="lab") renderLab(); }
+function renderLab(){
+  const el=$("dLab"); if(!el) return; const B=lab.base; const dl=d=>d==="long"?chip("up sm","L"):chip("down sm","S");
+  const pending=lab.trades.filter(x=>x.f===null).length; const feat=lab.trades.filter(x=>x.f&&typeof x.f==="object").length;
+  const desk=typeof ld!=="undefined"&&ld.at; const st=lab.busy?`<span class="warn">● çalışıyor ${esc(lab.prog)}</span>`:lab.err?`<span class="down">● ${esc(lab.err)}</span>`:lab.at?`<span class="up">● son analiz ${tl(lab.at)}</span>`:'<span class="muted">● analiz için yeterli işlem yok</span>';
+  const sgn=v=>isFinite(v)?(v>0?"+":"")+fx(v,2):"—"; const cls=v=>v>0?"up":v<0?"down":"";
+  const stBadge=s=>`<span class="chip ${s==="onaylı"?"up":s==="zayıf"?"down":s==="izlemede"?"warn":"neutral"} sm">${s}</span>`;
+  const fw=k=>{ const f=lab.fwd[k]; return f&&f.n?`${f.n} sinyal · ${sgn(f.sum/f.n)} ATR · %${Math.round(f.win/f.n*100)}`:'<span class="muted">henüz yok</span>'; };
+  const cRow=c=>`<tr><td>${dl(c.dir)} ${esc(c.name)}</td><td class="num">${c.n}<br><span class="muted" style="font-size:10.5px">${c.leaders} lider</span></td><td class="num">%${Math.round(c.wr*100)}</td><td class="num ${cls(c.mean)}">${sgn(c.mean)}</td><td class="num"><span class="${cls(c.h1)}">${sgn(c.h1)}</span> / <span class="${cls(c.h2)}">${sgn(c.h2)}</span></td><td class="num">${fx(c.t,1)}</td><td class="num">${fx(c.hold,1)} sa<br><span class="muted" style="font-size:10.5px">${isFinite(c.lev)?c.lev+"x":""}</span></td><td style="font-size:11px">${fw(c.key)}</td><td>${stBadge(c.status||"aday")}</td></tr>`;
+  const head=`<tr><th>Kural</th><th>İşlem</th><th>Kazanma</th><th>Ort ATR</th><th>1. / 2. yarı</th><th>t</th><th>Tutuş</th><th>İleri test</th><th>Durum</th></tr>`;
+  const cands=lab.cands.length?`<table class="t"><thead>${head}</thead><tbody>${lab.cands.map(cRow).join("")}</tbody></table>`:`<div class="empty">Henüz aday yok. Bir kuralın aday olması için ≥ ${LAB_CFG.minN} işlem, ≥ ${LAB_CFG.minLeaders} farklı lider, zaman sırasına göre iki yarıda da artı ortalama ve t ≥ 1,5 gerekir.</div>`;
+  const avoid=lab.avoid.length?`<table class="t"><thead>${head}</thead><tbody>${lab.avoid.map(cRow).join("")}</tbody></table>`:'<div class="empty">Kaçınılacak kalıp bulunmadı.</div>';
+  let fac=""; if(lab.factors&&lab.factors.length){ fac=LAB_FEATS.map(F=>{ const cells=Object.keys(F.vals).map(v=>{ const g=d=>lab.factors.find(x=>x.f===F.k&&x.v===v&&x.dir===d); const L=g("long"),S=g("short"); const c=x=>x?`<span class="${cls(x.mean)}">${sgn(x.mean)}</span> <span class="muted" style="font-size:10.5px">${x.n} · %${Math.round(x.wr*100)}</span>`:'<span class="muted">—</span>'; return `<tr><td>${esc(F.vals[v])}</td><td class="num">${c(L)}</td><td class="num">${c(S)}</td></tr>`; }).join(""); return `<div><div class="muted" style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin:4px 0">${esc(F.name)}</div><table class="t"><thead><tr><th></th><th>Long · ATR · n · kazanma</th><th>Short</th></tr></thead><tbody>${cells}</tbody></table></div>`; }).join(""); fac=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px">${fac}</div>`; }
+  const sty=Object.values(lab.styles||{}).sort((a,b)=>b.mean-a.mean).map(s=>`<tr><td><b>${esc(s.nick)}</b><br><span class="muted" style="font-size:10.5px">${esc(s.tags.join(" · "))}</span></td><td class="num">${s.n}</td><td class="num">%${Math.round(s.wr*100)}</td><td class="num ${cls(s.mean)}">${sgn(s.mean)}</td><td class="num">${fx(s.hold,1)} sa</td><td class="num">${isFinite(s.lev)?s.lev+"x":"—"}</td><td class="num">%${Math.round(s.trendSh*100)} / %${Math.round(s.dipSh*100)} / %${Math.round(s.swSh*100)}</td><td class="num">%${Math.round(s.longSh*100)}</td></tr>`).join("");
+  const notes=lab.notes.slice(-12).reverse().map(n=>`<div style="display:flex;gap:8px;font-size:11.5px;margin:3px 0"><span class="muted" style="min-width:92px">${new Date(n.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><b style="min-width:44px">${esc(n.who)}</b><span>${esc(n.text)}</span></div>`).join("");
+  el.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><button type="button" class="primary" id="labNow" ${lab.busy?"disabled":""}>Şimdi araştır</button><span class="muted" style="font-size:11.5px">${st} · ${lab.trades.length} lider işlemi saklı · ${feat} zenginleştirildi${pending?" · "+pending+" sırada":""} · ${lab.shadows.length} gölge sinyal izleniyor</span></div>
+  ${desk?"":`<p class="warn" style="font-size:12px;margin:0 0 8px">Lider verisi yalnızca masaüstü uygulamasında çekilir (Binance tarayıcı erişimine izin vermez). Burada daha önce toplanmış geçmiş varsa analiz ve ileri test yine çalışır.</p>`}
+  <div class="plan" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:10px">
+    <div class="pv"><b>Tolga · veri</b><span>${B?B.leaders:Object.keys(lab.harvestAt).length} lider</span><small>${B?`${new Date(B.from).toLocaleDateString("tr-TR")} – ${new Date(B.to).toLocaleDateString("tr-TR")}`:"geçmiş toplanıyor"} · liderler 6 saatte bir, liste saatte bir</small></div>
+    <div class="pv"><b>Burak · strateji</b><span>${lab.cands.length} aday · ${lab.avoid.length} kaçın</span><small>${B?`taban: long ${sgn(B.long.mean)} ATR (%${Math.round((B.long.wr||0)*100)}), short ${sgn(B.short.mean)} ATR (%${Math.round((B.short.wr||0)*100)})`:"en az "+LAB_CFG.minN+" zenginleşmiş işlem gerekir"}</small></div>
+    <div class="pv"><b>Onur · ileri test</b><span>${Object.values(lab.fwd).reduce((a,f)=>a+f.n,0)} sonuç</span><small>${lab.cands.filter(c=>c.status==="onaylı").length} onaylı · ${lab.cands.filter(c=>c.status==="zayıf").length} zayıf · onay için ${LAB_CFG.promoteN} ileri sinyal</small></div>
+  </div>
+  <h4 style="margin:6px 0">Aday stratejiler <span class="muted" style="font-weight:400;font-size:11.5px">liderlerin kazandığı koşullar · masada Burak bunlarla oy verir</span></h4>${cands}
+  <h4 style="margin:12px 0 6px">Kaçınılacak kalıplar <span class="muted" style="font-weight:400;font-size:11.5px">liderlerin iki yarıda da kaybettiği koşullar · Burak karşı oy verir, Baran'ı uyarır</span></h4>${avoid}
+  ${notes?`<h4 style="margin:12px 0 6px">Ekip notları</h4>${notes}`:""}
+  ${sty?`<details style="margin-top:10px"><summary class="muted" style="cursor:pointer;font-size:12px">Lider stilleri · ${Object.keys(lab.styles).length} lider</summary><table class="t" style="margin-top:6px"><thead><tr><th>Lider</th><th>İşlem</th><th>Kazanma</th><th>Ort ATR</th><th>Tutuş</th><th>Kaldıraç</th><th>Trend / geri çekilme / süpürme</th><th>Long payı</th></tr></thead><tbody>${sty}</tbody></table></details>`:""}
+  ${fac?`<details style="margin-top:10px"><summary class="muted" style="cursor:pointer;font-size:12px">Faktör tablosu · her koşulda liderlerin ortalama sonucu</summary>${fac}</details>`:""}
+  <p class="muted" style="font-size:11px;margin:10px 0 0">Ölçü: kaldıraçsız fiyat hareketi ÷ girişteki 1 saatlik ATR (ATR); kaldıraç ve boy farkı karışmaz. Faktörler girişten önce kapanmış 1 saatlik mumlardan: seans (UTC), SMA20/50 trendi, 24 saatlik aralıktaki yer, coinin 24 saatlik hareketi, BTC 4 saat, son 6 saatte süpürme, 3 saatlik hacim. Çok işlem yapan liderin ağırlığı 25 işleme kısılır. Liderlerin kazandığı koşul bizim için kanıt değildir; aday, canlı taramada eşleştikçe gölge sinyalle ileriye dönük test edilir ve ${LAB_CFG.promoteN} sonuçtan sonra onaylanır ya da düşer.</p>`;
+  $("labNow").addEventListener("click",()=>{ labTick(true).then(()=>{ if(lab.dirty) labAnalyze(); renderLab(); }); renderLab(); });
+}
 /* --- liderler paneli: en iyi 20 kopya trader lideri, davranış profili, coin uzlaşısı --- */
 function ldOnProgress(){ if(ui.drawerOpen&&ui.drawerTab==="bot"){ const b=$("ldBox"); if(b) b.outerHTML=renderLeaders(); const r=$("ldRefresh"); if(r) r.addEventListener("click",()=>{ ldRefresh(true); }); } }
 function renderLeaders(){
@@ -2168,7 +2365,7 @@ function renderBot(){
   const inp=(id,label,val,step,min,max,w)=>`<label style="font-size:12px;color:var(--ink-2);display:inline-flex;gap:4px;align-items:center">${label} <input type="number" id="${id}" value="${val}" step="${step}" min="${min}" max="${max}" style="width:${w||64}px"></label>`;
   const head=`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
     <button type="button" class="${bot.on?"":"primary"}" id="botTgl">${bot.on?"Durdur":"Başlat"}</button><button type="button" class="ghost" id="botCsv">CSV indir</button><button type="button" class="ghost" id="botCloseAll" ${bot.positions.length?"":"disabled"}>Hepsini kapat</button><button type="button" class="ghost" id="botReset">Sıfırla</button>
-    <label style="font-size:12px;color:var(--ink-2)">Mod <select id="botMode"><option value="komite" ${c.mode==="komite"?"selected":""}>Masa (9 kişi tartışır, market giriş, çoklu pozisyon)</option><option value="kapi" ${c.mode!=="komite"?"selected":""}>Kapı (AMD/K2/K3 limit planları)</option></select></label>
+    <label style="font-size:12px;color:var(--ink-2)">Mod <select id="botMode"><option value="komite" ${c.mode==="komite"?"selected":""}>Masa (10 kişi tartışır, market giriş, çoklu pozisyon)</option><option value="kapi" ${c.mode!=="komite"?"selected":""}>Kapı (AMD/K2/K3 limit planları)</option></select></label>
     <span class="muted" style="font-size:11.5px">${botNetTxt()} · ${bot.on?'<span class="up">● çalışıyor</span>':"● durdu"}${bot.startT?" · başlangıç "+new Date(bot.startT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):""}</span></div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
     ${inp("botRisk","Risk %",(c.risk*100).toFixed(1),0.5,0.5,25)} ${inp("botLev","Kaldıraç",c.lev,1,1,50,56)} ${inp("botMaxPos","Aynı anda",c.maxPos,1,1,10,52)} ${inp("botThr","Eşik",c.threshold,0.05,0,1,60)} ${inp("botMinYes","Asgari oy",c.minYes,1,1,DESK.length,52)} ${inp("botHold","Zaman stopu (sa)",c.holdH,1,1,72,56)} ${inp("botMaxOpens","Gün/işlem",c.maxOpens,1,1,50,56)} ${inp("botMaxLosses","Gün/kayıp",c.maxLosses,1,1,50,56)}
@@ -2298,6 +2495,7 @@ if(acct.key&&acct.secret&&acct.remember){ acctStart(acct.key,acct.secret,true).t
   setInterval(()=>{ if(live.ws&&live.ok&&Date.now()-live.lastMsg>25000){ wsStatus(false,"akış sustu, yenileniyor"); try{ live.ws.close(); }catch(e){} } },10000);
   renderFeed(); renderWatch(); renderJournal(); scheduleScan();
   setTimeout(()=>{ ldRefresh(false).catch(()=>{}); },3000); setInterval(()=>{ ldRefresh(false).catch(()=>{}); },10*60e3);
+  setTimeout(()=>{ labTick(false).catch(()=>{}); },20000); setInterval(()=>{ labTick(false).catch(()=>{}); },60e3);
   start(); setTimeout(()=>{ if(!scan.rows.length&&!scan.running) runScan(); },2500);
   // sayfa yeniden yüklendiyse (çökme/donma/bellek sonrası) bot kaldığı yerden devam etsin
   if(bot.on){ botLog("sys","","Sayfa yeniden yüklendi; bot kaldığı yerden devam ediyor."); setTimeout(()=>{ try{ botWsSync(); }catch(e){} },1500); }

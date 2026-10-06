@@ -54,7 +54,7 @@ function createBot(E, opt){
     if(margin+marginUsed()>bot.bal*0.95){ log("skip",x.sym,`Teminat yetmiyor: ${fmtB(margin)} gerekli, kullanılabilir ${fmtB(Math.max(0,bot.bal*0.95-marginUsed()))}.`); return false; }
     const fill=isL?px*(1+cfg.slip):px*(1-cfg.slip); const qty=notional/fill; const fee=notional*cfg.feeTaker; bot.bal-=fee; day().opens++;
     const votes=x.com.agents.map(a=>`${a.name} ${a.v>0?"+":""}${fx(a.v,1)}`); const now=Date.now();
-    const p={id:x.sym+"-"+now,sym:x.sym,dir:x.dir,model:"KOMİTE",grade:x.grade,entry:fill,entry0:fill,px0:px,stop,t1,t2,rr1:1.5,rr2:x.com.plan?x.com.plan.rr2:3,lev,notional,margin,risk,risk0:Math.abs(fill-stop),stop0:stop,qty,qty0:qty,fees:fee,openT:now,expiresAt:now+cfg.holdH*3600e3,stage:"open",hi:fill,lo:fill,realized:0,score:x.score,yes:x.yes,votes,
+    const p={id:x.sym+"-"+now,sym:x.sym,dir:x.dir,model:"KOMİTE",grade:x.grade,entry:fill,entry0:fill,px0:px,stop,t1,t2,rr1:1.5,rr2:x.com.plan?x.com.plan.rr2:3,lev,notional,margin,risk,risk0:Math.abs(fill-stop),stop0:stop,qty,qty0:qty,fees:fee,openT:now,expiresAt:now+((x.com.plan&&x.com.plan.holdH)||cfg.holdH)*3600e3,stage:"open",hi:fill,lo:fill,realized:0,score:x.score,yes:x.yes,votes,
       scan:bot.scanId,agents:compactAgents(x.com.agents),feat:x.com.feat||null,row:rowFeat(x.row),talk:x.com.talk,exits:[],reviews:0};
     bot.positions.push(p);
     log("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · puan ${fx(x.score,2)} · ${x.yes}/${E.DESK.length} evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · 1,5R ${fmtP(t1)} · 3R ${fmtP(t2)} · ${lev}x · pozisyon ${fmtB(notional)} · risk ${fmtB(risk)}. Oylar: ${votes.join(", ")}.`,

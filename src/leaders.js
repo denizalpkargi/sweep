@@ -45,7 +45,7 @@ async function ldRefresh(force){
     ld.list=picked.map(x=>({id:String(x.leadPortfolioId),nick:x.nickname,roi:+x.roi,pnl:+x.pnl,aum:+x.aum,mdd:+x.mdd,wr:+x.winRate,copiers:+x.currentCopyCount,sharpe:x.sharpRatio!=null?+x.sharpRatio:null}));
     const keep={}; let i=0;
     for(const L of ld.list){ i++; ld.prog=`${i}/${ld.list.length} ${L.nick}`; if(typeof ldOnProgress==="function") ldOnProgress();
-      try{ const [ph,oh]=await Promise.all([ldPost("lead-portfolio/position-history",{portfolioId:L.id,pageNumber:1,pageSize:50}),ldPost("lead-portfolio/order-history",{portfolioId:L.id,pageNumber:1,pageSize:100})]); keep[L.id]=ldDigest(L,ph.list||[],oh.list||[]); }
+      try{ const [ph,oh]=await Promise.all([ldPost("lead-portfolio/position-history",{portfolioId:L.id,pageNumber:1,pageSize:50}),ldPost("lead-portfolio/order-history",{portfolioId:L.id,pageNumber:1,pageSize:100})]); keep[L.id]=ldDigest(L,ph.list||[],oh.list||[]); if(typeof labIngest==="function") labIngest(L,ph.list||[]); }
       catch(e){ keep[L.id]=ld.leaders[L.id]&&!ld.leaders[L.id].err?ld.leaders[L.id]:{id:L.id,nick:L.nick,err:e.message}; }
       await new Promise(r=>setTimeout(r,300)); }
     ld.leaders=keep; ld.profile=ldProfile(); ld.sym=ldSymbols(); ld.at=Date.now(); ld.prog=""; ldSave(); return true;
