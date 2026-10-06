@@ -646,7 +646,7 @@ function botLive(){
   const gs=botGoal(); const rv=$("botRoiV"); if(rv){ rv.textContent="%"+Math.round(clamp(gs.prog,-9,9)*100); rv.className=gs.prog>=1?"up":gs.prog>=0?"":"down"; } const rb=$("botRoiBar"); if(rb) rb.style.width=clamp(gs.prog*100,0,100)+"%"; const rr=$("botRoiRem"); if(rr) rr.textContent=gs.need<=0||bot.goalHit?"ulaşıldı, kâr kilitli":"kalan "+fmtB(gs.need);
 }
 /* --- masa: sekiz kişilik, açılış → tartışma → karar dökümü --- */
-const DESK_COL={trend:"#39c6f2",liq:"#a78bfa",flow:"#2ee59d",macro:"#f5b53f",quant:"#f9a8d4",mom:"#ff8a3d",copy:"#60a5fa",audit:"#e2e8f0",risk:"#ff5c6c"};
+const DESK_COL={trend:"#39c6f2",liq:"#a78bfa",flow:"#2ee59d",macro:"#f5b53f",quant:"#f9a8d4",mom:"#ff8a3d",copy:"#60a5fa",audit:"#e2e8f0",lab:"#c4b5fd",vol:"#22d3ee",check:"#facc15",risk:"#ff5c6c"};
 function talkHtml(talk){
   if(!talk||!talk.length) return "";
   const stages=[["açılış","1. tur · açılış görüşleri"],["tartışma","2. tur · itirazlar"],["ikna","3. tur · ikna (tez, karşı tez, fikir değiştirenler)"],["karar","4. tur · karar"]];
