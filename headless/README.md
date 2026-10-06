@@ -29,6 +29,8 @@ Araştırma ekibi dakikada bir çalışır: liderler (en çok 40) saatte bir, ge
 
 Selim varsayılan olarak yerel **Ollama**'yı kullanır (ücretsiz): Ollama'yı kur, `ollama pull qwen3:8b`. Başka model ya da sunucu için `config.json` → `{"llm":{"provider":"ollama","model":"qwen3:14b"}}` ya da ortam değişkenleri `LLM_PROVIDER` (`ollama` | `openai` | `claude`), `LLM_URL`, `LLM_MODEL`. Claude API için `LLM_PROVIDER=claude` ve `ANTHROPIC_API_KEY` (dosyaya yazılmaz). LLM'e ulaşılamazsa Selim 3 saat sonra yeniden dener; botun geri kalanı etkilenmez.
 
+Yapay zekâ masası (`src/llmdesk.js`) aynı modeli kullanır: her açık pozisyon için 30 dakikada bir, taramadan sonra en iyi aday için bir toplantı; on üç karakter modelle konuşur, görüş `logs/llm-*.jsonl`'e ve tahmin defterine yazılır, özet `status.json` → `desk_ai`. Bütçe `config.json` → `{"desk_ai":{"perHour":8,"on":true}}`. Varsayılan olarak oy vermez; 200 sonuçlanmış görüşte becerisi artıysa ve `"vote":true` ise küçük ağırlıkla puana girer. Claude API seçiliyse masa konuşmaz (ücret); `"allowPaid":true` ile açılır. Açık pozisyon toplantısının kendisi (13 üyenin tut / kâr al / stop sık / azalt / çık görüşleri) dil modelinden bağımsızdır, `logs/reviews-*.jsonl`.
+
 ## Dosyalar (`bot-data/`)
 
 | Dosya | İçerik |
