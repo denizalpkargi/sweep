@@ -339,7 +339,7 @@ async function tick(){
   try{
     const s=state.sym; const fresh = !state.slow || state.slowSym!==s;
     ui.loading=fresh;
-    const pFast=fetchFast(s); const pSlow=(fresh||Date.now()-state.slowAt>60000)?fetchSlow(s):null;
+    const pFast=fetchFast(s); const pSlow=(fresh||Date.now()-state.slowAt>60000)?fetchSlow(s):null; if(pSlow) pSlow.catch(()=>{}); // hızlı istek düşerse yavaş isteğin hatası sahipsiz kalmasın
     const f=await pFast; ui.lastF=f;
     if(fresh){ try{ renderQuick(f); }catch(e){} }   // fiyat ve mumlar hemen, analiz hemen arkasından
     if(pSlow){ const sl=await pSlow; if(state.sym!==s) return; state.slow=sl; state.slowAt=Date.now(); state.slowSym=s; }
@@ -471,7 +471,7 @@ try{ const saved=JSON.parse(LS("st-bot")||"null"); if(saved){ const cfg={...BOT_
   // eski kayıtlardaki ajan isimleri (5 Ekim 2026'da yeniden adlandırıldı)
   const RN={"Ayşe":"Emre","Elif":"Arda","Selin":"Onur"}; const fixA=a=>{ if(!a) return; if(RN[a.name]){ a.k=String(a.k||"").replace(a.name,RN[a.name]); a.name=RN[a.name]; } }; const fixT=t=>{ if(t&&RN[t.who]) t.who=RN[t.who]; };
   for(const v of bot.lastVotes||[]){ (v.agents||[]).forEach(fixA); (v.talk||[]).forEach(fixT); } for(const p of bot.positions||[]){ (p.agents||[]).forEach(fixA); (p.talk||[]).forEach(fixT); if(Array.isArray(p.votes)) p.votes=p.votes.map(x=>x.replace(/^(Ayşe|Elif|Selin)/,m=>RN[m])); } bot.lastVotes=bot.lastVotes||[]; for(const p of bot.positions){ if(!p.expiresAt) p.expiresAt=(p.openT||Date.now())+cfg.holdH*3600e3; } } }catch(e){}
-function botSave(){ const {ws,...rest}=bot; try{ localStorage.setItem("st-bot",JSON.stringify({...rest,log:bot.log.slice(-300),eq:bot.eq.slice(-2000),lastVotes:bot.lastVotes.slice(0,24)})); }catch(e){} }
+function botSave(){ const {ws,...rest}=bot; try{ localStorage.setItem("st-bot",JSON.stringify({...rest,log:bot.log.slice(-300),eq:bot.eq.slice(-2000),lastVotes:bot.lastVotes.slice(0,24)})); }catch(e){ console.error("SWEEP · bot kaydı yazılamadı: "+e.message); } }
 function botLog(type,sym,text){ bot.log.push({t:Date.now(),type,sym:sym||"",text}); bot.log=bot.log.slice(-300); botSave(); if(ui.drawerTab==="bot") renderBot(); }
 function botDay(){ const k=dayKey(Date.now()); if(bot.day.key!==k){ bot.day={key:k,opens:0,losses:0}; } return bot.day; }
 function botPnl(p,px){ return (p.dir==="long"?(px-p.entry):(p.entry-px))*p.qty; }
@@ -572,7 +572,7 @@ function botOnPrice(sym,px,T){
     for(const a of acts){ if(a.k==="move"){ botLog("move",p.sym,a.t); continue; } close(a.part,a.price,{k:a.k,t:a.t},a.taker); if(a.final){ fin=true; break; } }
     if(fin) botClosePos(p); else if(acts.length) botSave();
   }
-  const eq=botEquity(); const last=bot.eq[bot.eq.length-1]; if(!last||now-last.t>60e3){ bot.eq.push({t:now,v:eq}); }
+  const eq=botEquity(); const last=bot.eq[bot.eq.length-1]; if(!last||now-last.t>60e3){ bot.eq.push({t:now,v:eq}); if(bot.eq.length>4000) bot.eq=bot.eq.slice(-2000); }
   botLive();
 }
 /* --- canlı yenileme: panel yeniden kurulmadan fiyat, PnL, ROE ve özkaynak hücreleri güncellenir (saniyede bir) --- */
@@ -620,7 +620,7 @@ function botClosePos(p){
   const r=p.realized/p.risk; const rec={sym:p.sym,dir:p.dir,model:p.model,grade:p.grade,lev:p.lev,entry:p.entry,openT:p.openT,closeT:Date.now(),pnl:p.realized,fees:p.fees,r,score:p.score};
   bot.trades.push(rec); if(p.realized<0) botDay().losses++; bot.cool[p.sym]=Date.now()+bot.cfg.cooldownMin*60e3;
   botLog("close",p.sym,`İşlem kapandı: ${p.realized>=0?"+":""}${fmtB(p.realized)} (${r>=0?"+":""}${fx(r,2)}R) · bakiye ${fmtB(bot.bal)} · ROI ${pct((bot.bal/bot.start-1)*100,1)}.`);
-  bot.positions=bot.positions.filter(x=>x!==p); bot.eq.push({t:Date.now(),v:bot.bal}); if(bot.bal>=bot.start*2&&!bot.goalHit){ bot.goalHit=Date.now(); botLog("sys","",`Hedef tamam: bakiye ikiye katlandı (${fmtB(bot.bal)}). Bot devam ediyor.`); } botSave(); botWsSync();
+  bot.positions=bot.positions.filter(x=>x!==p); bot.eq.push({t:Date.now(),v:bot.bal}); if(bot.eq.length>4000) bot.eq=bot.eq.slice(-2000); if(bot.bal>=bot.start*2&&!bot.goalHit){ bot.goalHit=Date.now(); botLog("sys","",`Hedef tamam: bakiye ikiye katlandı (${fmtB(bot.bal)}). Bot devam ediyor.`); } botSave(); botWsSync();
   if(bot.on) setTimeout(()=>botDecide("tick"),500);
 }
 function botStart(){ if(bot.on) return; bot.on=true; if(!bot.startT) bot.startT=Date.now(); const c=bot.cfg; botLog("sys","",c.mode==="komite"?`Bot başladı · KOMİTE modu · sanal ${fmtB(bot.bal)} · risk %${c.risk*100} · ${c.lev}x sabit · aynı anda ${c.maxPos} pozisyon · eşik ${fx(c.threshold,2)}, ${c.minYes}/8 oy · zaman stopu ${c.holdH} sa · hedef %100 ROI.`:`Bot başladı · KAPI modu · sanal ${fmtB(bot.bal)} · risk %${c.risk*100} · en fazla ${c.maxLev}x · ${c.strict?"yüksek tutarlılık kuralları":"serbest kurallar"} · Kurulum 2 ${c.useBR?"açık":"kapalı"} · Kurulum 3 ${c.useRS!==false?"açık":"kapalı"}.`); botWsSync(); if(!scan.rows.length&&!scan.running) runScan(); else botDecide("scan"); botSave(); }
@@ -777,6 +777,11 @@ if(acct.key&&acct.secret&&acct.remember){ acctStart(acct.key,acct.secret,true).t
   renderFeed(); renderWatch(); renderJournal(); scheduleScan();
   setTimeout(()=>{ ldRefresh(false).catch(()=>{}); },3000); setInterval(()=>{ ldRefresh(false).catch(()=>{}); },10*60e3);
   start(); setTimeout(()=>{ if(!scan.rows.length&&!scan.running) runScan(); },2500);
+  // sayfa yeniden yüklendiyse (çökme/donma/bellek sonrası) bot kaldığı yerden devam etsin
+  if(bot.on){ botLog("sys","","Sayfa yeniden yüklendi; bot kaldığı yerden devam ediyor."); setTimeout(()=>{ try{ botWsSync(); }catch(e){} },1500); }
+  window.addEventListener("beforeunload",()=>{ try{ botSave(); }catch(e){} });
+  window.addEventListener("error",e=>{ console.error("SWEEP · hata: "+(e.message||e)+(e.filename?" @"+e.filename+":"+e.lineno:"")); });
+  window.addEventListener("unhandledrejection",e=>{ const r=e.reason; console.error("SWEEP · yakalanmamış söz: "+(r&&r.stack||r)); });
   // PWA: installable when served over https
   try{ const icon=document.querySelector('link[rel="icon"]')?.href; const man={name:"SWEEP · Likidite Terminali",short_name:"SWEEP",start_url:location.pathname||"./",display:"standalone",background_color:"#0a0e13",theme_color:"#0a0e13",icons:icon?[{src:icon,sizes:"512x512",type:"image/png",purpose:"any"}]:[]}; const l=document.createElement("link"); l.rel="manifest"; l.href=location.protocol==="https:"?"manifest.webmanifest":"data:application/manifest+json,"+encodeURIComponent(JSON.stringify(man)); document.head.appendChild(l); if("serviceWorker" in navigator&&location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{}); }catch(e){}
 })();
