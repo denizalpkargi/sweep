@@ -41,6 +41,8 @@ rep(`kzS:S?S.kz||null:null,consL,consS,`,`kzS:S?S.kz||null:null,consL,consS,brL:
 // --- kurulum 3 (rejimli süpürme): strat3.js amdStats'ın önüne, BTC 15 dk mumları fetchSlow/scanDeep'e, sonuçlar analyze'a ---
 eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readFileSync(P+'strat3.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function regimeSweep')) throw new Error('strat3 insert failed');
+eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readFileSync(P+'auditor.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function auditRun')) throw new Error('auditor insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readFileSync(P+'committee.js','utf8')+`
 // backtest: every completed sequence in the history`);
 if(!eng.includes('function committee')) throw new Error('committee insert failed');
