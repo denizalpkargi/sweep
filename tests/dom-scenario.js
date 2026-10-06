@@ -87,6 +87,13 @@ setTimeout(async()=>{
   d.querySelector('#drawer .bar [data-t="bot"]').click(); await new Promise(r=>setTimeout(r,800)); console.log('leaders:', (d.getElementById('ldBox')||{textContent:''}).textContent.replace(/\s+/g,' ').slice(0,700));
   console.log('desk has Burak:', /Burak/.test(txt('acctData')+txt('dBot')));
   d.querySelector('#drawer .bar [data-t="lab"]').click(); d.getElementById('labNow').click(); await new Promise(r=>setTimeout(r,2500)); console.log('lab:', txt('dLab').slice(0,400));
+  // masaya sor: hesap bağlamadan elle girilen işlem
+  d.querySelector('#drawer .bar [data-t="ask"]').click(); const setA=(k,v)=>{ d.getElementById('ask_'+k).value=v; };
+  setA('sym','ENA'); setA('open','1'); setA('dir','long'); setA('entry','0,1'); setA('liq','0,0962'); setA('sl','0,0975'); setA('tp','0,106'); setA('margin','cross'); setA('lev','20'); setA('size','50'); setA('bal','1000');
+  d.getElementById('askGo').click(); await new Promise(r=>setTimeout(r,1500)); console.log('ask open:', txt('askVerdict'), '|', txt('askOut').slice(0,900));
+  setA('sym','NEARUSDT'); setA('open','0'); setA('dir','short'); setA('entry','0.1006'); setA('liq',''); setA('sl','0.107'); setA('tp','0.098'); setA('margin','isolated'); setA('lev','50'); setA('size',''); setA('bal','');
+  d.getElementById('askGo').click(); await new Promise(r=>setTimeout(r,2500)); console.log('ask plan:', txt('askVerdict'), '|', txt('askOut').slice(0,900));
+  console.log('ask hist:', d.querySelectorAll('#askHist [data-ask-h]').length, '| status:', txt('askStatus'));
   console.log('errors', errors, 'console.error', logs);
   w.close(); process.exit(0);
 },2500);

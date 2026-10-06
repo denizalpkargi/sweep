@@ -147,6 +147,72 @@ function positionReview(A, pos, orders, c24, opts){
   add("risk",`Karar: ${verdict.toUpperCase()}. ${canParts.join(" · ")}.`);
   return {verdict,score:c.score,oppScore:opp.score,oppDecision:opp.decision,agents:c.agents,lines,stopLv,stopWhy,tp1,tp2,be,liqAtr,pnlPct,hasStop,hasTp,atrRel,t:Date.now()};
 }
+/* ---------- Masaya sor: kullanıcının elle girdiği plan ya da açık işlem (hesap bağlamadan) ----------
+   t = {sym, dir, entry, liq?, tp?, sl?, margin:"cross"|"isolated", lev, open:bool, size? (teminat $), bal? (bakiye $)}.
+   Plan: masa committee() ile o yönde oylar → GİR / BEKLE / GİRME. Açık: positionReview() → DEVAM ET / AZALT / ÇIK.
+   Üstüne risk notları: R oranı, komisyon R'si, stop ATR'si, likidasyon uzaklığı, stop likidasyondan önce mi, botun kurallarıyla kıyas. */
+function askDesk(A, t, c24, opts){
+  const dir=t.dir==="short"?"short":"long"; const isL=dir==="long"; const sg=isL?1:-1; const px=A.px; c24=isFinite(c24)?c24:0;
+  const entry=+t.entry>0?+t.entry:px; const lev=clamp(Math.round(+t.lev||BOT_CFG_DEF.lev),1,125); const iso=t.margin==="isolated";
+  const sl=+t.sl>0?+t.sl:NaN, tp=+t.tp>0?+t.tp:NaN; const size=+t.size>0?+t.size:NaN, bal=+t.bal>0?+t.bal:NaN;
+  const kb=A.src&&A.src.k15L&&A.src.k15L.length>20?A.src.k15L:(A.src&&A.src.k15); const atr=kb&&kb.length>20?atrAt(kb,kb.length):(A.med15||0.01)*px;
+  const liqGiven=+t.liq>0; const liq=liqGiven?+t.liq:(isL?entry*(1-liqDist(lev)):entry*(1+liqDist(lev)));
+  const pc=v=>"%"+fx(v*100,2); const red=[], warn=[], ok=[]; const fee=BOT_CFG_DEF.feeTaker*2+BOT_CFG_DEF.slip;
+  if(isFinite(sl)&&(isL?sl>=entry:sl<=entry)){ red.push(`Stop girişin yanlış tarafında (${isL?"long için girişin altında":"short için girişin üstünde"} olmalı).`); }
+  if(isFinite(tp)&&(isL?tp<=entry:tp>=entry)){ red.push(`Hedef girişin yanlış tarafında (${isL?"long için girişin üstünde":"short için girişin altında"} olmalı).`); }
+  const slOk=isFinite(sl)&&!(isL?sl>=entry:sl<=entry), tpOk=isFinite(tp)&&!(isL?tp<=entry:tp>=entry);
+  const stopPct=slOk?Math.abs(entry-sl)/entry:NaN, slAtr=slOk?Math.abs(entry-sl)/atr:NaN;
+  const rr=slOk&&tpOk?Math.abs(tp-entry)/Math.abs(entry-sl):NaN; const costR=slOk?fee/stopPct:NaN;
+  const liqPct=Math.abs(px-liq)/px, liqAtr=Math.abs(px-liq)/atr; const liqEntryPct=Math.abs(entry-liq)/entry;
+  const liqPassed=isL?px<=liq:px>=liq;
+  // stop likidasyondan önce gelmeli; arada en az 0,5 ATR pay olmalı (likidasyon fiyatı mark ile hesaplanır, fitil kayabilir)
+  let slLiqAtr=NaN; if(slOk){ slLiqAtr=sg*(sl-liq)/atr; if(slLiqAtr<=0) red.push(`Likidasyon (${fmtP(liq)}) stoptan (${fmtP(sl)}) önce geliyor: stop hiç çalışmaz, pozisyon likide olur. Kaldıracı düşür ya da stopu ${fmtP(isL?liq+0.5*atr:liq-0.5*atr)} ${isL?"üstüne":"altına"} çek.`); else if(slLiqAtr<0.5) warn.push(`Stop ile likidasyon arasında yalnızca ${fx(slLiqAtr,2)} ATR var; sert bir fitil stopu atlayıp likidasyona gidebilir.`); }
+  else if(!isFinite(sl)) warn.push(`Stop yok. Bu kaldıraçta tek koruma likidasyon (${fmtP(liq)}, girişten ${pc(liqEntryPct)} uzakta).`);
+  if(t.open&&liqPassed) red.push("Girilen likidasyon fiyatı şu anki fiyatın ötesinde; değerleri kontrol et.");
+  else if(liqAtr<1.5) red.push(`Likidasyon şu anki fiyattan ${fx(liqAtr,1)} ATR (${pc(liqPct)}) uzakta; sıradan bir 15 dk mumu yeter.`);
+  else if(liqAtr<3) warn.push(`Likidasyon ${fx(liqAtr,1)} ATR uzakta; tek dalga yeter.`);
+  if(slOk){
+    if(stopPct<RS_CFG.floorStop) warn.push(`Stop %${fx(stopPct*100,2)}: testte %1,5 altı stoplar eksiydi (gürültü stopu); komisyon+kayma ${fx(costR,2)}R yer.`);
+    else ok.push(`Stop %${fx(stopPct*100,2)}, %1,5 tabanının üstünde.`);
+    if(slAtr<RS_CFG.stopAtr) warn.push(`Stop ${fx(slAtr,2)} ATR: 15 dk oynaklığının içinde, gürültüyle patlar.`);
+    else if(slAtr>RS_CFG.maxStopAtr) warn.push(`Stop ${fx(slAtr,1)} ATR: bot 3 ATR'den geniş stopla girmez; boy küçük kalır, hedef uzak.`);
+    else ok.push(`Stop ${fx(slAtr,2)} ATR, botun 0,8–3 ATR aralığında.`);
+    if(t.open&&(isL?px<=sl:px>=sl)) red.push(`Fiyat (${fmtP(px)}) stopun ötesinde; stop emri çalışmadıysa pozisyon korumasız.`);
+  }
+  if(isFinite(rr)){ if(rr<1) red.push(`Ödül/risk ${fx(rr,2)}R: hedef stoptan yakın; komisyonla birlikte uzun vadede kaybettirir.`); else if(rr<1.5) warn.push(`Ödül/risk ${fx(rr,2)}R; bot en az 1,5R ister.`); else ok.push(`Ödül/risk ${fx(rr,2)}R (komisyon sonrası ≈ ${fx(rr-costR,2)}R).`);
+    if(t.open&&(isL?px>=tp:px<=tp)) warn.push("Fiyat hedefi geçmiş; hedef emri dolmadıysa kârı al ya da stopu girişe çek."); }
+  else if(!isFinite(tp)) warn.push("Hedef yok; bot 1,5R'de yarısını alıp stopu girişe çeker.");
+  if(lev>BOT_CFG_DEF.maxLev) warn.push(`${lev}x botun üst sınırı ${BOT_CFG_DEF.maxLev}x'in üstünde; likidasyon girişten ${pc(liqDist(lev))} uzakta.`);
+  if(!iso) warn.push(liqGiven?"Cross: likidasyon fiyatı cüzdandaki diğer pozisyonlarla ve bakiyeyle kayar; zarar tüm bakiyeye yayılır.":"Cross: likidasyonu girmedin, izole varsayımıyla tahmin edildi; gerçek değer bakiyeye göre daha uzak olabilir ama zarar tüm bakiyeye yayılır.");
+  else if(!liqGiven) warn.push(`Likidasyon girilmedi; ${lev}x izole için tahmin ${fmtP(liq)}.`);
+  let notional=NaN, lossUsd=NaN, riskPct=NaN; if(isFinite(size)){ notional=size*lev; if(slOk){ lossUsd=notional*(stopPct+fee); if(isFinite(bal)){ riskPct=lossUsd/bal; if(riskPct>BOT_CFG_DEF.risk*1.5) red.push(`Stop olursa ${fx(lossUsd,2)} $ gider, bakiyenin yüzde ${fx(riskPct*100,1)} kadarı; bot işlem başına yüzde ${fx(BOT_CFG_DEF.risk*100,0)} riske eder.`); else if(riskPct>BOT_CFG_DEF.risk) warn.push(`Stop olursa bakiyenin yüzde ${fx(riskPct*100,1)} kadarı gider; bot yüzde ${fx(BOT_CFG_DEF.risk*100,0)} ile sınırlar.`); else ok.push(`Stop olursa bakiyenin yüzde ${fx(riskPct*100,1)} kadarı gider (bot sınırı yüzde ${fx(BOT_CFG_DEF.risk*100,0)}).`); } } }
+  const roeSl=slOk?-(stopPct+fee)*lev*100:NaN, roeTp=tpOk?(Math.abs(tp-entry)/entry-fee)*lev*100:NaN;
+  const pnlPct=sg*(px/entry-1)*100; const be=isL?entry*(1+fee):entry*(1-fee);
+  /* ---- masa ---- */
+  let verdict, kind, score, oppScore, oppDecision, agents, talk, lines, deskStop, deskStopWhy, deskT1, deskT2, decision, veto=null, yes=null;
+  if(t.open){
+    const orders=[]; if(slOk) orders.push({sym:t.sym,ro:true,type:"STOP_MARKET",stop:sl}); if(tpOk) orders.push({sym:t.sym,ro:true,type:"TAKE_PROFIT_MARKET",px:tp});
+    const rv=positionReview(A,{sym:t.sym,dir,entry,liq},orders,c24,opts);
+    score=rv.score; oppScore=rv.oppScore; oppDecision=rv.oppDecision; agents=rv.agents; lines=rv.lines; talk=null; deskStop=rv.stopLv; deskStopWhy=rv.stopWhy; deskT1=rv.tp1; deskT2=rv.tp2; decision=rv.verdict;
+    const VM={"tut":"DEVAM ET","tut, stop sık":"DEVAM ET · STOPU SIK","azalt":"AZALT","çık":"ÇIK"}; verdict=VM[rv.verdict]||"DEVAM ET"; kind=rv.verdict==="çık"?"down":rv.verdict==="tut"?"up":"warn";
+    if(slOk&&(isL?px<=sl:px>=sl)){ verdict="ÇIK"; kind="down"; }
+    else if(kind==="up"&&red.length){ verdict="DEVAM ET · ÖNCE DÜZELT"; kind="warn"; }
+  } else {
+    const c=committee(A,dir,c24,opts), opp=committee(A,isL?"short":"long",c24,opts);
+    score=c.score; oppScore=opp.score; oppDecision=opp.decision; agents=c.agents; talk=c.talk; lines=null; decision=c.decision; veto=c.veto; yes=c.yes;
+    if(c.plan){ deskStop=c.plan.stop; deskT1=c.plan.t1; deskT2=c.plan.t2; deskStopWhy=`%${fx(c.plan.sd*100,2)} uzakta: 1,2 ATR, en az %1,5`; }
+    if(c.veto||oppDecision==="giriş"||c.score<0||red.length){ verdict="GİRME"; kind="down"; }
+    else if(c.decision==="giriş"){ verdict=warn.length>2?"GİR · PLANI DÜZELT":"GİR"; kind=warn.length>2?"warn":"up"; }
+    else { verdict="BEKLE"; kind="warn"; }
+  }
+  // Can'ın özeti: masanın kararı + kullanıcının planına bakış
+  const why=[]; if(t.open){ why.push(decision==="çık"?"masa ters yöne dönmüş":decision==="azalt"?"masa ikna değil":decision==="tut"?"masa hâlâ bu yönde":"masa kararsız, stop sıkılsın"); }
+  else { why.push(veto?`veto: ${veto}`:decision==="giriş"?`masa ${dir} için giriş diyor (puan ${fx(score,2)}, ${yes}/${DESK.length} evet)`:decision==="oy eksik"?`puan eşikte ama ${yes} evet var`:`puan ${fx(score,2)}, eşik ${fx(COM_DEF.threshold,2)}`); if(oppDecision==="giriş") why.push("masa ters yöne giriş diyor"); }
+  if(red.length) why.push(red.length+" kırmızı risk notu");
+  const canSay=`${verdict}. ${why.join(" · ")}.${isFinite(deskStop)?` Benim stopum ${fmtP(deskStop)} (${deskStopWhy})${slOk?`, seninki ${fmtP(sl)}`:""}.`:""}`;
+  return {sym:t.sym,dir,open:!!t.open,verdict,kind,canSay,score,oppScore,oppDecision,decision,veto,yes,agents,talk,lines,red,warn,ok,
+    px,entry,sl:slOk?sl:NaN,tp:tpOk?tp:NaN,lev,iso,liq,liqGiven,liqPct,liqAtr,slLiqAtr,stopPct,slAtr,rr,costR,roeSl,roeTp,pnlPct,roeNow:pnlPct*lev,be,atrPct:atr/px*100,notional,lossUsd,riskPct,deskStop,deskStopWhy,deskT1,deskT2,c24,t:Date.now()};
+}
 /* ---------- Kâğıt pozisyon için tek fiyat adımı (ui.js botOnPrice ve headless/ ortak) ----------
    p.hi/p.lo, p.stage ve p.stop'u günceller; uygulanacak kapanışları sırayla döndürür: {part,price,k,t,taker,final} ya da {k:"move",t}.
    İz süren stop ilk riskle (p.risk0) ölçülür: hedef 1'den sonra stop girişe çekildiği için |giriş−stop| sıfır olur, onunla ölçmek stopu tepeye yapıştırır. */
