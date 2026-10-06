@@ -54,6 +54,8 @@ eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P
 if(!eng.includes('function fcObserve')) throw new Error('forecast insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'goal.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function entryStages')) throw new Error('goal insert failed');
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'llm.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function llmMeet')) throw new Error('llm insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'trend.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function trendTargets')) throw new Error('trend insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'dip.js','utf8')+`\n// backtest: every completed sequence in the history`);

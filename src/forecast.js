@@ -34,9 +34,21 @@ function fcObserve(sym,A,com,now){
     if(got) F.learn=fcLearn(F.done); if(got||add) fcSave(); }
   catch(e){}
 }
+/* ek tahmin türleri (7 Ekim 2026): aynı ölçüyle (16 mumda önce +1 / −1 ATR) puanlanır ama masanın giriş istatistiklerine (taban, kovalar, dersler) karışmaz.
+   kind "pos": açık pozisyon toplantısı (positionReview), anahtarlar "p:<üye>" ve "p:masa" (tutma puanı); pozisyon başına saatte bir.
+   kind "llm": yerel dil modelinin görüşü (llm.js), anahtarlar "llm" (masanın ortak kararı), "l:<üye>"; pozisyon görüşünde "llm:pos". */
+function fcNote(kind,key,sym,dir,A,v,score,now,extra){
+  try{ const F=fcLoad(); now=now||Date.now(); const k=A&&A.src&&A.src.k15L; if(!k||k.length<30||!v) return false; const lk=kind+"|"+key; if(F.last[lk]&&now-F.last[lk]<FC_DEF.gapMin*6e4) return false;
+    const li=k[k.length-1].t+9e5<=now?k.length-1:k.length-2; const atr=fcAtr(k,li); if(!(isFinite(atr)&&atr>0&&A.px>0)) return false;
+    F.pend.push({sym,dir,t:now,px:A.px,atr,score:isFinite(score)?score:0,go:false,kind,v,f:extra||{}}); F.last[lk]=now; if(F.pend.length>FC_DEF.maxPend) F.pend.splice(0,F.pend.length-FC_DEF.maxPend); fcSave(); return true; }
+  catch(e){ return false; } }
+function fcPosNote(key,sym,dir,A,rv,now){ if(!rv||!rv.views) return false; const v={"p:masa":rv.hold}; for(const x of rv.views) if(!x.abst) v["p:"+x.id]=x.v; return fcNote("pos",key,sym,dir,A,v,rv.hold,now,{eylem:rv.verdict}); }
 const fcHit=a=>a.length?a.reduce((s,f)=>s+f.y,0)/a.length:null; // süre dolan yarım sayılır
 function fcLearn(done){
-  const D=done.filter(f=>f.y!=null); const out={n:D.length,at:Date.now(),base:fcHit(D),buckets:[],go:null,agents:{},lessons:[],dir:{}};
+  const ALL=done.filter(f=>f.y!=null); const D=ALL.filter(f=>!f.kind); const out={n:D.length,at:Date.now(),base:fcHit(D),buckets:[],go:null,agents:{},lessons:[],dir:{},kinds:{}};
+  for(const kd of ["pos","llm"]){ const a=ALL.filter(f=>f.kind===kd); out.kinds[kd]={n:a.length,hit:fcHit(a),yes:fcHit(a.filter(f=>f.score>=0.1)),yesN:a.filter(f=>f.score>=0.1).length,no:fcHit(a.filter(f=>f.score<=-0.15)),noN:a.filter(f=>f.score<=-0.15).length}; }
+  for(const id of new Set(ALL.filter(f=>f.kind).flatMap(f=>Object.keys(f.v)))){ let s=0,n=0; const yes=[],no=[]; for(const f of ALL){ const v=f.v[id]; if(!isFinite(v)) continue; s+=v*(2*f.y-1); n++; if(v>0.3) yes.push(f); else if(v<-0.3) no.push(f); }
+    const skill=n?s/n:0; const sk=skill*n/(n+FC_DEF.shrink); out.agents[id]={n,skill:+skill.toFixed(3),yesN:yes.length,yesHit:fcHit(yes),noN:no.length,noHit:fcHit(no),m:n>=FC_DEF.minAgent?+clamp(1+3*sk,0.6,1.4).toFixed(2):1}; }
   if(!D.length) return out;
   for(const d of ["long","short"]){ const a=D.filter(f=>f.dir===d); out.dir[d]={n:a.length,hit:fcHit(a)}; }
   // puan kovaları 100 üzerinden 10'ar puan (eşik çevresinde ince): masanın puanı ile isabet arasındaki ilişki (kalibrasyon)

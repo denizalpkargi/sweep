@@ -30,6 +30,10 @@ async function main(o,inj){
   // risk ayarları yalnızca --dir/config.json ile değişir (yoksa UI varsayılanları: BOT_CFG_DEF)
   let cfg=null; try{ cfg=JSON.parse(fs.readFileSync(path.join(dir,'config.json'),'utf8')); }catch(e){}
   const timers=[]; let ws=null, wsKey=null, stopping=false;
+  // yerel dil modeli (src/llm.js): config.json → llm (ör. {"on":true,"model":"qwen2.5:7b-instruct"}); görüşler logs/llm-*.jsonl, özet status.json → llm
+  if(cfg&&cfg.llm) E.llmSetCfg(cfg.llm);
+  E.llm.onView=v=>{ write('llm',{t:v.t,kind:v.kind,sym:v.sym,dir:v.dir,model:v.model,ms:v.ms,tokIn:v.tokIn,tokOut:v.tokOut,dec:v.dec,members:v.members,talk:v.talk,rule:v.rule});
+    if(!o.quiet) console.log(`${new Date(v.t).toISOString().slice(11,19)} llm    ${v.sym.padEnd(12)} ${v.kind} ${v.dir} → ${v.dec.act} (oy ${v.dec.v.toFixed(2)}, ${Math.round(v.ms/1000)} sn) · ${v.dec.why}`); };
   const B=createBot(E,{dir,write,cfg,votes:o.votes,say:o.quiet?()=>{}:(s=>console.log(s)),onPositions:()=>wsSync()});
   const {bot,rt,log}=B;
   const freshPx=async sym=>{ const t=await E.j(`/fapi/v1/ticker/price?symbol=${sym}`); return +t.price; };
@@ -50,6 +54,7 @@ async function main(o,inj){
       write('events',{t:now,type:'scan',sym:'',text:`${out.length}/${list.length} coin tarandı, ${deepN} derin, ${failed} hata, ${Math.round((now-t0)/1000)} sn`,scan:bot.scanId,...lastScan,weight:E.rest.used});
       if(!o.quiet) console.log(`${new Date(now).toISOString().slice(11,19)} scan   ${out.length}/${list.length} coin · ${deepN} derin · ${failed} hata · ${Math.round((now-t0)/1000)} sn`);
       await B.decide(out,'scan',freshPx);
+      E.llmScanAsk(out);
     }catch(e){ log('skip','',`Tarama hatası: ${e.message}`); }
     finally{ scanning=false; }
   }
@@ -89,7 +94,7 @@ async function main(o,inj){
         if(n) log('sys',p.sym,`Kapalıyken geçen ${n} dakika 1 dk mumlarla oynatıldı.`,{id:p.id,minutes:n}); }
       catch(e){ log('skip',p.sym,`Boşluk doldurulamadı: ${e.message}`,{id:p.id}); } }
   }
-  function status(){ const s={t:Date.now(),pid:process.pid,startT:bot.startT,bal:bot.bal,equity:B.equity(),roi:(B.equity()/bot.start-1)*100,positions:bot.positions.map(p=>({sym:p.sym,dir:p.dir,entry:p.entry,stop:p.stop,t1:p.t1,t2:p.t2,stage:p.stage,px:rt.px[p.sym]||null,openT:p.openT})),trades:bot.trades.length,day:bot.day,lastScan,priceSrc:rt.src,lastTick:bot.lastTick,weight:E.rest.used,goal:(()=>{ const g=B.goal(); return {goal:g.goal,eq:g.eq,peak:g.peak,dd:g.dd,prog:g.prog,mode:g.mode,why:g.why,hit:bot.goalHit||null}; })(),trend:(()=>{ const m=E.trendSummary(TR.s,null); return {on:TR.s.cfg.on,tv:TR.s.cfg.tv,tvNow:m.tvNow,goal:m.goal,goalHit:m.goalHit,eq:m.eq,roi:m.roi,dd:m.dd,lev:m.lev,day:m.day,btcOk:m.btcOk,fees:m.fees,funding:m.funding,pos:Object.fromEntries(Object.entries(TR.s.pos).map(([k,p])=>[k,{qty:p.qty,avg:p.avg,px:p.px}]))}; })(),dip:(()=>{ const m=E.dipSummary(DP.s,null); return {on:DP.s.cfg.on,lev:DP.s.cfg.lev,eq:m.eq,roi:m.roi,dd:m.dd,n:m.n,wr:m.wr,avg:m.avg,open:m.open,orders:m.orders,pos:DP.s.pos,ord:DP.s.ord}; })(),leaders:{at:E.ld.at,n:E.ld.list.length,err:E.ld.err},forecast:(()=>{ const F=E.getFC()||E.fcLoad(); const L=F.learn; return {pend:F.pend.length,n:L?L.n:0,base:L?L.base:null,go:L?L.go:null,buckets:L?L.buckets:[],agents:L?L.agents:{},lessons:L?L.lessons:[]}; })(),audit:(()=>{ const A=E.getAud(); return A&&A.summary?{n:A.summary.n,wr:A.summary.wr,avgR:A.summary.avg,lessons:A.lessons.map(l=>({k:l.k,n:l.n,avg:l.avg,lever:l.lever})),mult:A.mult,decs:A.decs,off:A.off}:null; })()};
+  function status(){ const s={t:Date.now(),pid:process.pid,startT:bot.startT,bal:bot.bal,equity:B.equity(),roi:(B.equity()/bot.start-1)*100,positions:bot.positions.map(p=>({sym:p.sym,dir:p.dir,entry:p.entry,stop:p.stop,t1:p.t1,t2:p.t2,stage:p.stage,px:rt.px[p.sym]||null,openT:p.openT})),trades:bot.trades.length,day:bot.day,lastScan,priceSrc:rt.src,llm:(()=>{ const C=E.llmCfg(), L=E.llm; return {on:C.on,model:C.model,ready:E.llmReady()||'hazır',calls:L.stats.n,ok:L.stats.ok,bad:L.stats.bad,avgSec:L.stats.ok?Math.round(L.stats.ms/L.stats.ok/1000):null,err:L.err,queue:L.q.length}; })(),lastTick:bot.lastTick,weight:E.rest.used,goal:(()=>{ const g=B.goal(); return {goal:g.goal,eq:g.eq,peak:g.peak,dd:g.dd,prog:g.prog,mode:g.mode,why:g.why,hit:bot.goalHit||null}; })(),trend:(()=>{ const m=E.trendSummary(TR.s,null); return {on:TR.s.cfg.on,tv:TR.s.cfg.tv,tvNow:m.tvNow,goal:m.goal,goalHit:m.goalHit,eq:m.eq,roi:m.roi,dd:m.dd,lev:m.lev,day:m.day,btcOk:m.btcOk,fees:m.fees,funding:m.funding,pos:Object.fromEntries(Object.entries(TR.s.pos).map(([k,p])=>[k,{qty:p.qty,avg:p.avg,px:p.px}]))}; })(),dip:(()=>{ const m=E.dipSummary(DP.s,null); return {on:DP.s.cfg.on,lev:DP.s.cfg.lev,eq:m.eq,roi:m.roi,dd:m.dd,n:m.n,wr:m.wr,avg:m.avg,open:m.open,orders:m.orders,pos:DP.s.pos,ord:DP.s.ord}; })(),leaders:{at:E.ld.at,n:E.ld.list.length,err:E.ld.err},forecast:(()=>{ const F=E.getFC()||E.fcLoad(); const L=F.learn; return {pend:F.pend.length,n:L?L.n:0,base:L?L.base:null,go:L?L.go:null,buckets:L?L.buckets:[],agents:L?L.agents:{},lessons:L?L.lessons:[]}; })(),audit:(()=>{ const A=E.getAud(); return A&&A.summary?{n:A.summary.n,wr:A.summary.wr,avgR:A.summary.avg,lessons:A.lessons.map(l=>({k:l.k,n:l.n,avg:l.avg,lever:l.lever})),mult:A.mult,decs:A.decs,off:A.off}:null; })()};
     try{ atomicWrite(path.join(dir,'status.json'),JSON.stringify(s,null,1)); }catch(e){} return s; }
 
   /* --- trend sepeti (src/trend.js): Masa'dan ayrı sanal bakiye, depo st-trend (store.json), olaylar logs/trend-*.jsonl --- */
