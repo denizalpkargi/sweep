@@ -46,6 +46,8 @@ if(!eng.includes('function auditRun')) throw new Error('auditor insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readFileSync(P+'committee.js','utf8')+`
 // backtest: every completed sequence in the history`);
 if(!eng.includes('function committee')) throw new Error('committee insert failed');
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>fs.readFileSync(P+'forecast.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function fcObserve')) throw new Error('forecast insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>fs.readFileSync(P+'goal.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function entryStages')) throw new Error('goal insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>fs.readFileSync(P+'trend.js','utf8')+`\n// backtest: every completed sequence in the history`);

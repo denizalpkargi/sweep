@@ -29,7 +29,7 @@ function klGen(n,step){ const out=[]; let p=0.1, t=Date.now()-n*step; for(let i=
 const SYMS=['ENAUSDT','NEARUSDT','UNIUSDT','WLDUSDT'];
 function data(p){ const sym=(p.match(/symbol=(\w+)/)||[])[1];
   if(p.startsWith('/futures/data/')){ const n=+(p.match(/limit=(\d+)/)[1]); const per=p.includes('period=15m')?9e5:3e5; return Array.from({length:n},(_,i)=>({buySellRatio:String(1.05+Math.sin(i/3)*0.2),longShortRatio:String(2+Math.cos(i/4)*0.3),sumOpenInterestValue:String(4e6+Math.sin(i/5)*2e5),timestamp:Date.now()-(n-i)*per})); }
-  if(p.startsWith('/fapi/v1/klines')){ const m=p.match(/interval=(\w+)&limit=(\d+)/); const n=+m[2]; if(m[1]==='15m') return k15(n); if(m[1]==='1d') return klDaily(n); return klGen(n,{'5m':3e5,'1h':36e5,'4h':144e5}[m[1]]); }
+  if(p.startsWith('/fapi/v1/klines')){ const m=[0,(p.match(/interval=(\w+)/)||[])[1],(p.match(/limit=(\d+)/)||[])[1]]; const n=+m[2]; if(m[1]==='15m') return k15(n); if(m[1]==='1d') return klDaily(n); return klGen(n,{'1m':6e4,'5m':3e5,'1h':36e5,'4h':144e5}[m[1]]); }
   if(p.startsWith('/fapi/v1/exchangeInfo')) return {symbols:SYMS.map(s=>({symbol:s,contractType:'PERPETUAL',quoteAsset:'USDT',status:'TRADING'}))};
   if(p.startsWith('/fapi/v1/ticker/24hr')){ const one=s=>({symbol:s,lastPrice:'0.1006',priceChangePercent:'2.1',highPrice:'0.1045',lowPrice:'0.0984',quoteVolume:'60000000'}); return sym?one(sym):SYMS.map(one); }
   if(p.startsWith('/fapi/v1/premiumIndex')){ const one=s=>({symbol:s,markPrice:'0.1006',lastFundingRate:'0.00005',nextFundingTime:String(Date.now()+3600e3)}); return sym?one(sym):SYMS.map(one); }

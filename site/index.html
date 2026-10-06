@@ -349,7 +349,7 @@ table.t tr.near td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
         <div class="card"><h4>Zaman dilimleri · ne nerede hesaplanır</h4><table>
           <tr><td>Günlük yön (bias)</td><td><b>1 günlük</b> mumlar (150 gün): fiyat SMA20/SMA50'ye göre, SMA20 eğimi, son 10 günün tepe/dibi önceki 10 güne göre (HH/HL), 30 günlük değişim. 6 puanın ≥3'ü yukarı → yükseliş; ≤−3 → düşüş; arası yatay (model geçersiz).</td></tr>
           <tr><td>Kısa vade yapı</td><td><b>1 saatlik</b> mumlar: SMA20 konumu/eğimi, son 6 saatin dibi önceki 6 saate göre.</td></tr>
-          <tr><td>Likidite havuzları</td><td><b>15 dk</b> mumlar, son 192 mum (48 saat): eşit dipler/tepeler (3'lü swing, tolerans %0,1 ya da 0,25× tipik mum), önceki UTC günün tepe/dibi, Asya aralığı (03:00–10:00 TR), 16–60 mumluk birikim kutusu, tekil swingler.</td></tr>
+          <tr><td>Likidite havuzları</td><td><b>15 dk</b> mumlar, son 192 mum (48 saat): eşit dipler/tepeler (3'lü swing, tolerans %0,1 ya da 0,25× tipik mum), önceki UTC günün tepe/dibi, Asya aralığı (03:00–10:00 TR, seans kapandıktan sonra), 16–60 mumluk birikim kutusu, tekil swingler. <b>Yalnız alınmamış likidite:</b> seviye oluştuktan sonra fiyat bir kez %0,05 ötesine geçtiyse oradaki stoplar gitmiştir, havuz sayılmaz (6 Ekim 2026 düzeltmesi).</td></tr>
           <tr><td>Süpürme (manipülasyon)</td><td><b>15 dk</b>, son 48 mum (12 saat): fitil havuzun ≥%0,05 ötesine gider, aynı ya da sonraki mum havuzun içine kapanır. Yükseliş gününde alt havuzlar, düşüş gününde üst havuzlar.</td></tr>
           <tr><td>Emir akışı teyidi</td><td>CVD (15 dk, taker alış − satış birikimi) geri alım mumunda havuz anındakinin üstünde → emilim; geri alım mumunda taker payı >%52; süpürmede OI düşüşü ≥%0,5 (likidasyon temizliği); 15 dk taker oranı; canlı: forceOrder likidasyon toplamı.</td></tr>
           <tr><td>Yapı kırılımı (MSS)</td><td><b>15 dk</b>: süpürmeden önceki 12 mumun ara tepesi (short için dibi) gövdeyle kırılır; gövde ≥1,5× son 96 mumun medyan gövdesi (yer değiştirme). FVG: kırılım mumunun iki yanı arasında boşluk.</td></tr>
@@ -379,8 +379,13 @@ table.t tr.near td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
           </table>
           <p><b>Neden mevcut kurulumlar eksi?</b> 15 dakikada stop ortalama %1'in altında; komisyon + kayma tek işlemde 0,08–0,10R yiyor ve ≤2 mumda biten işlemler (gürültü stopu) ortalama −0,57R. Stop %1'in altındaki işlemler −0,26R, %1–2 arası +0,03R, 24 mumdan uzun tutulanlar +0,33R. Kurulum 3'ün farkının yarısı stop tabanından, yarısı BTC/pompa/tazelik kapılarından geliyor (aynı stop filtresiyle Kurulum 1: +0,04R; Kurulum 3: +0,16R).</p>
           <p><b>Sınırlar:</b> iki aylık veri; %1,5 stop tabanı veriye bakılarak seçildi (iki yarıda ve iki yönde tutuyor ama kanıt sayılmaz); shortlar zayıf (+0,05R), Asya açılışı eksi (−0,08R); 583 işlem 24 coinde 2 ayda, yani tek coinde günde bir işlem bile çıkmaz, sabır gerekir. Doğrulama: kâğıt bot "Kurulum 3 de alınsın" seçeneğiyle ileriye dönük en az 100 işlem.</p></div>
-        <div class="card"><h4>Ana strateji · 100 $ → 200 $ en kısa yol (6 Ekim 2026)</h4>
-          <p><b>Hedefe giden motor Trend sepeti.</b> 2020–2026 verisinde tutarlı kenarı olan tek aile günlük trend takibi; 15 dakikalık süpürme kurulumları (Masa) komisyon sonrası eksi, geri çekilme sepetinin kenarı son üç yılda sıfıra yakın. İkisi kâğıtta kanıt toplamaya devam eder, hedef hesabına girmez.</p>
+        <div class="card"><h4>Sinyal denetimi · süpürme, hacim profili, tahmin defteri (6 Ekim 2026)</h4>
+          <p><b>Süpürme tespitindeki iki hata düzeltildi.</b> 1) Daha önce alınmış seviyeler de "havuz" sayılıyordu: 6 ayda tespit edilen süpürmelerin %72'si zaten süpürülmüş bir seviyenindi. 2) Önceki gün tepesi/dibi, Asya aralığı ve kutu kenarı, oluştuğu mum yanlış kaydedildiği için hiç süpürülemiyordu; yalnızca küçük 15 dk swingleri kalıyordu. Asya aralığı artık seans kapanınca geçerli. Grafikte önceki gün seviyeleri 15 dk mumlardan hesaplanıyordu, günlük mumlara bağlandı.</p>
+          <p><b>Ölçü</b> (<code>node tests/audit-sweeps.js</code>, 24 coin, Nis–Eki 2026): süpürmenin geri alım mumunun kapanışından itibaren 4 saatte önce +1 ATR mi −1 ATR mi geldi. Rastgele mumda %48–50. Düzeltilmiş süpürmeler long %47,5, short %48,4; en iyi tür (Asya dibi) %51,7. Tek başına süpürme yön tahmin etmiyor. Eski ölçüdeki "%45 dönüş" stopun uzaklığından geliyordu. Geriye dönük test (<code>backtest-compare.js</code>): K1 4024 → 634 işlem, −0,12R → −0,06R; K3 1455 → 164 işlem, −0,04R → +0,02R (t 0,2, kanıt değil).</p>
+          <p><b>Hacim profili</b> (<code>volProfile</code>, <code>sessionProfiles</code>): her mumun hacmi kendi tepe–dip aralığına eşit dağıtılır (grafik platformlarının alt zaman dilimi mumlarıyla yaptığı gibi); POC en çok hacimli satır (eşitlikte ortaya yakın olan), değer alanı POC'den dışa doğru CBOT kuralıyla (iki satır yukarı/aşağı, büyük olan) %70; çıplak POC = sonradan fiyatın geçmediği eski POC. Grafikte "Hacim profili" katmanı: günün profili sağda çubuk, bugünün ve dünün POC/VAH/VAL'i, en yakın iki çıplak POC; seçili coin için 1 dk mumlardan (5 dk'da bir), yoksa 15 dk'dan. Önceden yalnızca 20 mumluk kutunun POC'u vardı, değer alanı yoktu. 1 saatlik ile 15 dk profil arasındaki fark medyan gün aralığının %2,1'i (bir satır). <code>tests/audit-vp.js</code>: önceki günün VAH/VAL/POC'una ve çıplak POC'a ilk dokunuşta isabet %47–54 (taban %48–50); Dalton'ın "%80 kuralı" bu veride %45.</p>
+          <p><b>Tahmin defteri</b> (<code>src/forecast.js</code>): taranan her coinde masanın long ve short görüşü saatte bir kaydedilir, 4 saat sonra aynı ölçüyle puanlanır. Bot sekmesinde masa puanına göre isabet, üyelerin becerisi ve dersler. Üye ağırlıkları en az 60 tahminden sonra 0,6–1,4 kat değişir; masanın evet dediği bir kalıp ≥30 tahminde tabandan 8 puan kötü ve iki yarıda da altındaysa Murat o kalıba karşı oy verir.</p></div>
+        <div class="card"><h4>Trend sepeti · 100 $ → 200 $ süresi (yan sepet, 6 Ekim 2026)</h4>
+          <p><b>Öncelik Masa</b> (kullanıcı, 6 Ekim): sistemin doğru sinyali bulup bulmadığı Masa ve tahmin defteriyle ölçülür, Masa hatalarından öğrenir. Trend sepeti yanında ayrı sanal bakiyeyle çalışan bir karşılaştırma sepetidir; 2020–2026 verisinde tutarlı kenarı olan tek aile günlük trend takibi olduğu için taban olarak tutulur.</p>
           <p><b>Ayar:</b> 20x cross, hedef oynaklık 1,4 hedefe kadar, 200 $'da 0,8'e iner (kazancı korur). Seçim <code>node tests/research-leverage.js</code> → "2× süresi": her hafta başlayan 335 hesapta 100 $'ın yarıya inmeden 200 $ olma oranı ve süresi.</p>
           <table><tr><th>Hedef oynaklık</th><th>2× yaptı</th><th>Önce yarıya düştü</th><th>Medyan süre</th><th>%75 süre</th></tr>
             <tr><td>0,8</td><td>%64</td><td>%0</td><td>220 gün</td><td>558 gün</td></tr>
@@ -622,6 +627,8 @@ function analyze(f, s){
   A.rangeShare = dist => ({ m5: r5.filter(r=>r>dist).length/r5.length, m15: r15.filter(r=>r>dist).length/r15.length });
   A.med15 = [...r15].sort((a,b)=>a-b)[Math.floor(r15.length/2)] || 0;
   A.src = {k15L:s.k15L||m15, k1h:h1, btc15:s.btc15||null, oi15:s.oi15||null, taker15:s.taker15||null, toppos15:s.toppos15||null, fundTimes:(s.fund||[]).map(x=>+x.fundingTime), nextFund:A.nextFund};
+  A.src.k1d=d; // günlük mumlar (havuzlar: önceki gün tepesi/dibi)
+  A.vp=sessionProfiles(A.src.k15L,A.src.k15L.length,{withCurrent:true,rows:true}).slice(-12).map(p=>({...p,prof:p.current?p.prof:null})); // günlük hacim profilleri (UTC): POC, VAH/VAL, çıplak POC
   const kb=A.src.k15L; A.bt={long:boxTheory(kb,A.med15,"long"),short:boxTheory(kb,A.med15,"short")};
   const mk=(f.t24&&f.t24.symbol||"?")+"|"+kb.length+"|"+(kb.length?kb[kb.length-1].t:0)+"|";
   A.btStats = kb.length>=600 ? memo(mk+"bt",()=>({long:boxTheoryStats(kb,A.med15,"long"),short:boxTheoryStats(kb,A.med15,"short")})) : {};
@@ -726,13 +733,33 @@ function entryZones(A){
   return z;
 }
 
-function pocOf(k, s0, s1, bins){
-  // volume profile of candles s0..s1 (inclusive): each candle's quote volume spread evenly over its own high-low range
-  let lo=Infinity, hi=-Infinity; for(let i=s0;i<=s1;i++){ lo=Math.min(lo,k[i].l); hi=Math.max(hi,k[i].h); }
-  const n=bins||24, w=(hi-lo)/n||1e-12, vol=new Array(n).fill(0);
-  for(let i=s0;i<=s1;i++){ const c=k[i]; const a=Math.max(0,Math.floor((c.l-lo)/w)), b=Math.min(n-1,Math.floor((c.h-lo)/w)); const share=c.q/(b-a+1); for(let x=a;x<=b;x++) vol[x]+=share; }
-  let best=0; for(let x=1;x<n;x++) if(vol[x]>vol[best]) best=x;
-  return {poc:lo+(best+0.5)*w, lo, hi};
+// Volume profile (fixed range k[s0..s1]): each candle's quote volume is spread evenly over the rows its high–low touches
+// (the same approximation charting platforms use per lower-timeframe bar; with 1m bars it is close to tick data).
+// POC = row with the most volume (tie → the row nearest the profile's centre). Value area = 70% of volume, built from the POC outward
+// by the CBOT rule: compare the next two rows above with the next two below and add the larger pair. HVN/LVN: local peaks/troughs
+// of the smoothed profile. buy = taker-buy quote volume, so each row also has a delta.
+function volProfile(k, s0, s1, opt){
+  opt=opt||{}; let lo=Infinity, hi=-Infinity; for(let i=s0;i<=s1;i++){ lo=Math.min(lo,k[i].l); hi=Math.max(hi,k[i].h); }
+  const n=opt.bins||48, w=(hi-lo)/n||1e-12, vol=new Array(n).fill(0), buy=new Array(n).fill(0);
+  for(let i=s0;i<=s1;i++){ const c=k[i]; const a=Math.max(0,Math.min(n-1,Math.floor((c.l-lo)/w))), b=Math.max(0,Math.min(n-1,Math.ceil((c.h-lo)/w)-1)); const m=Math.max(a,b)-a+1; const sh=c.q/m, sb=(c.tb||0)/m; for(let x=a;x<a+m;x++){ vol[x]+=sh; buy[x]+=sb; } }
+  const total=vol.reduce((x,y)=>x+y,0); const mid=(n-1)/2;
+  let best=0; for(let x=1;x<n;x++) if(vol[x]>vol[best]+1e-12 || (Math.abs(vol[x]-vol[best])<=1e-12 && Math.abs(x-mid)<Math.abs(best-mid))) best=x;
+  let up=best, dn=best, acc=vol[best]; const tgt=(opt.va||0.7)*total;
+  while(acc<tgt && (up<n-1||dn>0)){ const u=(up<n-1?vol[up+1]:0)+(up<n-2?vol[up+2]:0), d=(dn>0?vol[dn-1]:0)+(dn>1?vol[dn-2]:0);
+    if(u>=d&&up<n-1){ const st=Math.min(2,n-1-up); for(let q=1;q<=st;q++) acc+=vol[up+q]; up+=st; } else if(dn>0){ const st=Math.min(2,dn); for(let q=1;q<=st;q++) acc+=vol[dn-q]; dn-=st; } else { const st=Math.min(2,n-1-up); for(let q=1;q<=st;q++) acc+=vol[up+q]; up+=st; } }
+  const sm=vol.map((v,x)=>(vol[x-1]??v)*0.25+v*0.5+(vol[x+1]??v)*0.25); const hvn=[], lvn=[];
+  for(let x=1;x<n-1;x++){ if(sm[x]>sm[x-1]&&sm[x]>=sm[x+1]&&sm[x]>=total/n*1.3) hvn.push(lo+(x+0.5)*w); if(sm[x]<sm[x-1]&&sm[x]<=sm[x+1]&&sm[x]<=total/n*0.6&&x>dn&&x<up) lvn.push(lo+(x+0.5)*w); }
+  return {lo,hi,w,rows:vol.map((v,x)=>({p:lo+(x+0.5)*w,v,buy:buy[x]})),total,poc:lo+(best+0.5)*w,vah:lo+(up+1)*w,val:lo+dn*w,hvn,lvn,s0,s1};
+}
+function pocOf(k, s0, s1, bins){ const v=volProfile(k,s0,s1,{bins:bins||24}); return {poc:v.poc, lo:v.lo, hi:v.hi, vah:v.vah, val:v.val}; }
+// Daily (UTC session) profiles from candles k: [{day,t0,t1,s0,s1,open,close,poc,vah,val,naked}]. naked: the POC has not been traded
+// through by any later candle up to `at` (a "virgin"/naked POC). Only complete sessions, plus the running one when withCurrent.
+function sessionProfiles(k, at, opt){
+  opt=opt||{}; at=at??k.length; const out=[]; let s0=0;
+  for(let i=1;i<=at;i++){ const d0=Math.floor(k[i-1].t/86400e3), d1=i<at?Math.floor(k[i].t/86400e3):null;
+    if(d1!==d0){ const done=i<at || k[i-1].t+ (k[1]?k[1].t-k[0].t:9e5) >= (d0+1)*86400e3; if((done||opt.withCurrent) && i-s0>=Math.max(4,opt.minBars||0)){ const v=volProfile(k,s0,i-1,{bins:opt.bins||48}); out.push({day:new Date(d0*86400e3).toISOString().slice(0,10),t0:d0*86400e3,s0,s1:i-1,open:k[s0].o,close:k[i-1].c,poc:v.poc,vah:v.vah,val:v.val,hvn:v.hvn,lvn:v.lvn,current:!done,prof:opt.rows?v:null}); } s0=i; } }
+  for(const p of out){ if(p.current){ p.naked=null; continue; } let hit=false; for(let j=p.s1+1;j<at;j++){ if(k[j].l<=p.poc&&k[j].h>=p.poc){ hit=true; break; } } p.naked=!hit; }
+  return out;
 }
 // Finds the latest box-theory sequence for one direction in candles k (15m). Returns the stage reached and the trade plan.
 function boxTheory(k, med15, dir, from, to){
@@ -781,7 +808,10 @@ function boxTheoryStats(k, med15, dir){
 
 function killZone(ms){ const h=new Date(ms).getUTCHours()+new Date(ms).getUTCMinutes()/60; if(h>=7&&h<10) return "Londra"; if(h>=12.5&&h<16) return "New York"; if(h>=0&&h<2) return "Asya açılışı"; return null; }
 function swingsOf(k, w, from, to){ const H=[],L=[]; for(let i=Math.max(w,from);i<to-w;i++){ let ph=true,pl=true; for(let d=1;d<=w;d++){ if(k[i].h<=k[i-d].h||k[i].h<=k[i+d].h) ph=false; if(k[i].l>=k[i-d].l||k[i].l>=k[i+d].l) pl=false; } if(ph) H.push({i,p:k[i].h}); if(pl) L.push({i,p:k[i].l}); } return {H,L}; }
-// Liquidity pools visible at candle index `at` (exclusive): equal lows/highs, single swings, previous-day high/low, Asian range, accumulation box
+// Liquidity pools visible at candle index `at` (exclusive): equal lows/highs, single swings, previous-day high/low, Asian range, accumulation box.
+// Each pool carries `i` = the candle that formed its extreme, and only untaken liquidity is returned: if any candle after `i` and before `at`
+// already traded beyond the level (≥0.05%), the stops resting there are gone and the level is no longer a pool (6 Oct 2026 audit:
+// 72% of detected "sweeps" were of already-taken levels; previous-day, Asian and box pools carried i=at-1 and could never be swept).
 let _poolCache=null;
 function poolsAt(k, k1d, med15, at){
   if(_poolCache){ const c=_poolCache.get(at); if(c) return c; }
@@ -790,19 +820,25 @@ function poolsAt(k, k1d, med15, at){
 function poolsAt_(k, k1d, med15, at){
   const tolEq=Math.max(0.001,0.25*med15); const out=[];
   const sw=swingsOf(k,3,Math.max(0,at-192),at);
-  const cluster=(arr,type)=>{ const s=[...arr].sort((a,b)=>a.p-b.p); let g=[]; const flush=()=>{ if(!g.length) return; const avg=g.reduce((a,x)=>a+x.p,0)/g.length; out.push({p:avg,type,name:g.length>=2?(type==="low"?"eşit dipler":"eşit tepeler")+" ×"+g.length:(type==="low"?"swing dip":"swing tepe"),w:g.length>=2?3:1,i:g[g.length-1].i}); g=[]; }; for(const x of s){ if(g.length && Math.abs(x.p/g[0].p-1)>tolEq) flush(); g.push(x); } flush(); };
+  const cluster=(arr,type)=>{ const s=[...arr].sort((a,b)=>a.p-b.p); let g=[]; const flush=()=>{ if(!g.length) return; const avg=g.reduce((a,x)=>a+x.p,0)/g.length; out.push({p:avg,type,name:g.length>=2?(type==="low"?"eşit dipler":"eşit tepeler")+" ×"+g.length:(type==="low"?"swing dip":"swing tepe"),w:g.length>=2?3:1,i:Math.max(...g.map(x=>x.i))}); g=[]; }; for(const x of s){ if(g.length && Math.abs(x.p/g[0].p-1)>tolEq) flush(); g.push(x); } flush(); };
   cluster(sw.L,"low"); cluster(sw.H,"high");
+  const tAt=k[Math.min(at,k.length-1)].t;
+  // index of the 15m candle that printed extreme p inside [t0,t1); -1 when that stretch is not in the 15m history
+  const idxOf=(t0,t1,p,isLow)=>{ let f=-1; for(let i=Math.max(0,at-200);i<Math.min(at,k.length);i++){ const c=k[i]; if(c.t<t0) continue; if(c.t>=t1) break; if(f<0) f=i; if(isLow? c.l<=p*(1+1e-9) : c.h>=p*(1-1e-9)) return i; } return f; };
   // previous UTC day high/low from daily candles that closed before `at`
-  const tAt=k[Math.min(at,k.length-1)].t; const prevD=[...k1d].filter(d=>d.t+86400e3<=tAt).slice(-1)[0];
-  if(prevD){ out.push({p:prevD.l,type:"low",name:"önceki gün dibi",w:3,i:at-1}); out.push({p:prevD.h,type:"high",name:"önceki gün tepesi",w:3,i:at-1}); }
-  // Asian range of the current UTC day (00:00–07:00 UTC) when at least 8 of its candles exist before `at`
-  const dayStart=Math.floor(tAt/86400e3)*86400e3; const asia=k.filter(c=>c.t>=dayStart && c.t<dayStart+7*3600e3 && c.t<tAt);
-  if(asia.length>=8){ out.push({p:Math.min(...asia.map(c=>c.l)),type:"low",name:"Asya dibi",w:3,i:at-1}); out.push({p:Math.max(...asia.map(c=>c.h)),type:"high",name:"Asya tepesi",w:3,i:at-1}); }
+  const prevD=k1d.filter(d=>d.t+86400e3<=tAt).slice(-1)[0];
+  if(prevD){ const il=idxOf(prevD.t,prevD.t+86400e3,prevD.l,true), ih=idxOf(prevD.t,prevD.t+86400e3,prevD.h,false);
+    if(il>=0) out.push({p:prevD.l,type:"low",name:"önceki gün dibi",w:3,i:il}); if(ih>=0) out.push({p:prevD.h,type:"high",name:"önceki gün tepesi",w:3,i:ih}); }
+  // Asian range (00:00–07:00 UTC) of the current day, only once the session has closed: a new low during Asia is not a sweep of Asia
+  const dayStart=Math.floor(tAt/86400e3)*86400e3;
+  if(tAt>=dayStart+7*3600e3){ let lo=-1,hi=-1; for(let i=Math.max(0,at-130);i<Math.min(at,k.length);i++){ const c=k[i]; if(c.t<dayStart||c.t>=dayStart+7*3600e3) continue; if(lo<0||c.l<k[lo].l) lo=i; if(hi<0||c.h>k[hi].h) hi=i; }
+    if(lo>=0&&hi>=0&&(k[lo].t-dayStart)>=0){ out.push({p:k[lo].l,type:"low",name:"Asya dibi",w:3,i:lo}); out.push({p:k[hi].h,type:"high",name:"Asya tepesi",w:3,i:hi}); } }
   // adaptive accumulation box ending just before `at`: extend backwards while the range stays within tol (16–60 candles)
-  const tol=Math.max(0.012,2.5*med15); let lo=Infinity,hi=-Infinity,len=0;
-  for(let i=at-1;i>=Math.max(0,at-60);i--){ const nlo=Math.min(lo,k[i].l), nhi=Math.max(hi,k[i].h); if((nhi-nlo)/((nhi+nlo)/2)>tol) break; lo=nlo; hi=nhi; len++; }
-  if(len>=16){ out.push({p:lo,type:"low",name:"kutu dibi ("+len+" mum)",w:2,i:at-1,box:{lo,hi,len,s0:at-len,e:at-1}}); out.push({p:hi,type:"high",name:"kutu tepesi ("+len+" mum)",w:2,i:at-1}); }
-  return out;
+  const tol=Math.max(0.012,2.5*med15); let lo=Infinity,hi=-Infinity,len=0,ilo=-1,ihi=-1;
+  for(let i=at-1;i>=Math.max(0,at-60);i--){ const nlo=Math.min(lo,k[i].l), nhi=Math.max(hi,k[i].h); if((nhi-nlo)/((nhi+nlo)/2)>tol) break; if(k[i].l<lo) ilo=i; if(k[i].h>hi) ihi=i; lo=nlo; hi=nhi; len++; }
+  if(len>=16){ out.push({p:lo,type:"low",name:"kutu dibi ("+len+" mum)",w:2,i:ilo,box:{lo,hi,len,s0:at-len,e:at-1}}); out.push({p:hi,type:"high",name:"kutu tepesi ("+len+" mum)",w:2,i:ihi}); }
+  // drop taken liquidity
+  return out.filter(p=>{ const isL=p.type==="low"; const lv=isL?p.p*(1-0.0005):p.p*(1+0.0005); for(let j=Math.max(0,p.i+1);j<Math.min(at,k.length);j++){ if(isL? k[j].l<lv : k[j].h>lv) return false; } return true; });
 }
 function cvdSeries(k){ const c=new Array(k.length); let s=0; for(let i=0;i<k.length;i++){ s+= (2*(k[i].tb||0) - k[i].q); c[i]=s; } return c; }
 // Detects the latest AMD sequence for one direction. maps: {oi:Map ts→OI value, tk:Map ts→taker ratio} (may be empty).
@@ -1236,12 +1272,15 @@ function committee(A, dir, c24, opts){
   }
   /* ---- denetçi: kurulumu kapanmış işlemlerden çıkan derslerle karşılaştırır ---- */
   const au=audVoteFor(ag); ag.audit={id:"audit",v:au.v,c:au.c,txt:au.txt};
+  // tahmin defteri (forecast.js): masanın evet dediği, sonradan tabandan kötü çıkan kalıplar
+  const fcv=typeof fcVoteFor==='function'?fcVoteFor(dir,{pool:r&&r.pool?r.pool.name:null,kz:r&&r.kz,stage:r?r.stage:null,trend:A.trend}):{hits:[]};
+  if(fcv.hits.length){ ag.audit.v=Math.min(ag.audit.v,fcv.v); ag.audit.c=Math.max(ag.audit.c,fcv.c); ag.audit.txt=(au.hits.length?ag.audit.txt+" · ":"")+"tahmin defteri: "+fcv.txt; au.w=Math.max(au.w||0,1); if(!veto) say("audit","tartışma",`Tahmin defterine göre bu kalıp tutmuyor: ${fcv.txt}. Oyum karşı.`); }
   if(!veto&&au.w){ if(au.hits.length){ say("audit","tartışma",`Bu kurulum daha önce kaybettiğimiz kalıba benziyor: ${au.txt}. ${au.veto?"Bu ders kesinleşti, veto istiyorum.":"Oyum karşı."}`); if(au.veto){ veto=`denetçi: ${AUD_TAGS[au.veto].t.toLowerCase()} kalıbı ${AUD.tags[au.veto].n} işlemde ort. ${fx(AUD.tags[au.veto].avg,2)}R`; say("risk","tartışma","Murat'ın kaydı açık, aynı hatayı tekrar etmiyoruz."); } }
     else say("audit","tartışma",`Kayıtlı hatalardan hiçbirine benzemiyor.${AUD.clean?` Temiz kurulumlarımız ${AUD.clean.n} işlemde ort. ${fx(AUD.clean.avg,2)}R.`:""}`); }
   /* ---- puan ---- */
   // Burak'ın elinde eşleşen aday ya da kaçınılacak kalıp yoksa çekimserdir: ağırlığı 0, puanı sulandırmaz
   const labIdle=!best&&!bad;
-    const agents=DESK.map(d=>{ const a=ag[d.id]; const m=AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1; return {id:d.id,k:d.name+" · "+d.role.split(" ")[0],name:d.name,role:d.role,w:d.id==="audit"?au.w:d.id==="lab"&&labIdle?0:+(d.w*m).toFixed(2),v:+a.v.toFixed(2),c:+a.c.toFixed(2),txt:a.txt}; });
+    const agents=DESK.map(d=>{ const a=ag[d.id]; const m=clamp((AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1)*(typeof fcMult==='function'?fcMult(d.id):1),0.5,1.5); return {id:d.id,k:d.name+" · "+d.role.split(" ")[0],name:d.name,role:d.role,w:d.id==="audit"?au.w:d.id==="lab"&&labIdle?0:+(d.w*m).toFixed(2),v:+a.v.toFixed(2),c:+a.c.toFixed(2),txt:a.txt}; });
   let num=0,den=0,yes=0,no=0; for(const a of agents){ num+=a.w*a.v*a.c; den+=a.w; if(a.v>0.15) yes++; if(a.v<-0.15) no++; }
   let score=den?num/den:0;
   if(!veto&&score>=opts.threshold-0.06&&score<opts.threshold&&yes>=opts.minYes&&ag.mom.v>0){ say("mom","tartışma",`Eşiğin dibindeyiz (${fx(score,2)}), ${yes} evet var. Ben küçük boyla girerim; fırsatı kaçırmayalım.`); const m=agents.find(a=>a.id==="mom"); m.v=+Math.min(1,m.v+0.15).toFixed(2); num=0; for(const a of agents) num+=a.w*a.v*a.c; score=num/den; }
@@ -1373,6 +1412,68 @@ function paperStep(p, px, now, cfg){
   if(p.expiresAt && now>p.expiresAt){ out.push({part:1,price:isL?px*(1-cfg.slip):px*(1+cfg.slip),k:"time",t:"Zaman stopu",taker:true,final:true}); }
   return out;
 }
+
+/* ---------- Tahmin defteri: Masa'nın her görüşü bir tahmindir (6 Ekim 2026) ----------
+   İşlem açılsın açılmasın, taranan her coinde masanın long ve short görüşü (puan, her üyenin oyu, kurulumun özellikleri) kaydedilir;
+   coin başına yön başına saatte bir. 16 mum (4 saat) sonra aynı ölçüyle puanlanır: kayıt anındaki fiyattan önce +1 ATR (15 dk, 14) mi
+   −1 ATR mi geldi (aynı mumda ikisi = yanlış; ikisi de yoksa süre doldu, yarım). Bu, tests/audit-sweeps.js'deki ölçünün aynısıdır;
+   rastgele mumda isabet ≈ %48–50.
+   Öğrenme: (1) üye ağırlığı: oy × sonuç (+1/0/−1) ortalaması, en az 60 tahminde, 150 tahminlik büzme ile 0,6–1,4 kat (Murat'ın işlem
+   ağırlığıyla çarpılır). (2) ders: masanın evet dediği (puan ≥ 0,15) tahminlerde bir özellik (havuz türü, kill zone, aşama, günlük trend)
+   ≥30 tahminde tabandan 8 puan kötüyse ve iki yarıda da tabanın altındaysa Murat o kalıba karşı oy verir (−0,4).
+   Durum localStorage["st-fc"]; ui.js ve headless aynı kodu kullanır (rowOf → fcObserve). Gerçek emir yok. */
+const FC_DEF={horizon:16,gapMin:60,maxPend:3000,maxDone:6000,minAgent:60,shrink:150,minLesson:30,lessonGap:0.08,leanYes:0.15};
+const FC_KEY="st-fc"; let FC=null;
+function fcLoad(){ if(FC) return FC; try{ FC=JSON.parse(localStorage.getItem(FC_KEY)||"null"); }catch(e){} if(!FC||!Array.isArray(FC.pend)) FC={pend:[],done:[],last:{},learn:null}; return FC; }
+function fcSave(){ try{ localStorage.setItem(FC_KEY,JSON.stringify(FC)); }catch(e){} }
+function fcReset(){ FC={pend:[],done:[],last:{},learn:null}; fcSave(); return FC; }
+function fcAtr(k,i,n){ n=n||14; if(i<n) return NaN; let s=0; for(let j=i-n+1;j<=i;j++) s+=Math.max(k[j].h-k[j].l,Math.abs(k[j].h-k[j-1].c),Math.abs(k[j].l-k[j-1].c)); return s/n; }
+const fcPool=nm=>nm?String(nm).replace(/ ×\d+| \(\d+ mum\)/,""):"havuz yok";
+function fcFeat(c){ const f=c&&c.feat||{}; return {havuz:fcPool(f.pool),kz:f.kz?"kill zone":"kill zone dışı",asama:f.stage||"yok",trend:f.trend||"?"}; }
+// sonucu bul: k = 15 dk mumlar (son mum açık olabilir), now = şimdi
+function fcOutcome(f,k,now){ const M=9e5, H=FC_DEF.horizon; let i0=-1; for(let i=0;i<k.length;i++){ if(k[i].t>=f.t){ i0=i; break; } } if(i0<0) return null;
+  const isL=f.dir==="long", up=isL?f.px+f.atr:f.px-f.atr, dn=isL?f.px-f.atr:f.px+f.atr;
+  for(let j=i0;j<i0+H;j++){ const c=k[j]; if(!c||c.t+M>now) return null; if(isL? c.l<=dn : c.h>=dn) return {y:0,at:c.t}; if(isL? c.h>=up : c.l<=up) return {y:1,at:c.t}; }
+  return {y:0.5,at:k[i0+H-1].t}; }
+function fcResolve(sym,k,now){ const F=fcLoad(); let n=0; now=now||Date.now();
+  F.pend=F.pend.filter(f=>{ if(f.sym!==sym) return true; const o=fcOutcome(f,k,now); if(!o){ return now-f.t<3*864e5; } f.y=o.y; f.at=o.at; F.done.push(f); n++; return false; });
+  if(F.done.length>FC_DEF.maxDone) F.done.splice(0,F.done.length-FC_DEF.maxDone);
+  return n; }
+// tarama satırı (rowOf) her oluştuğunda: önce bu coinin bekleyen tahminlerini çöz, sonra yeni görüşü kaydet
+function fcObserve(sym,A,com,now){
+  try{ const F=fcLoad(); now=now||Date.now(); const k=A&&A.src&&A.src.k15L; if(!k||k.length<30||!com) return;
+    const got=fcResolve(sym,k,now); let add=0; const li=k[k.length-1].t+9e5<=now?k.length-1:k.length-2; const atr=fcAtr(k,li); const px=A.px;
+    if(isFinite(atr)&&atr>0&&px>0) for(const dir of ["long","short"]){ const c=com[dir]; if(!c) continue; const key=sym+"|"+dir; if(F.last[key]&&now-F.last[key]<FC_DEF.gapMin*6e4) continue;
+      const v={}; for(const a of c.agents||[]) v[a.id]=a.v; F.pend.push({sym,dir,t:now,px,atr,score:c.score,go:c.decision==="giriş",yes:c.yes,v,f:fcFeat(c)}); F.last[key]=now; add++; }
+    if(F.pend.length>FC_DEF.maxPend) F.pend.splice(0,F.pend.length-FC_DEF.maxPend);
+    if(got) F.learn=fcLearn(F.done); if(got||add) fcSave(); }
+  catch(e){}
+}
+const fcHit=a=>a.length?a.reduce((s,f)=>s+f.y,0)/a.length:null; // süre dolan yarım sayılır
+function fcLearn(done){
+  const D=done.filter(f=>f.y!=null); const out={n:D.length,at:Date.now(),base:fcHit(D),buckets:[],go:null,agents:{},lessons:[],dir:{}};
+  if(!D.length) return out;
+  for(const d of ["long","short"]){ const a=D.filter(f=>f.dir===d); out.dir[d]={n:a.length,hit:fcHit(a)}; }
+  const B=[[-9,-0.2,"< −0,20"],[-0.2,0,"−0,20 … 0"],[0,0.15,"0 … 0,15"],[0.15,0.3,"0,15 … 0,30"],[0.3,9,"≥ 0,30"]];
+  for(const [lo,hi,t] of B){ const a=D.filter(f=>f.score>=lo&&f.score<hi); out.buckets.push({t,n:a.length,hit:fcHit(a)}); }
+  const G=D.filter(f=>f.go); out.go={n:G.length,hit:fcHit(G)};
+  const ids=new Set(); for(const f of D) for(const id in f.v) ids.add(id);
+  for(const id of ids){ let s=0,n=0; const yes=[],no=[]; for(const f of D){ const v=f.v[id]; if(!isFinite(v)) continue; s+=v*(2*f.y-1); n++; if(v>0.3) yes.push(f); else if(v<-0.3) no.push(f); }
+    const skill=n?s/n:0; const sk=skill*n/(n+FC_DEF.shrink); out.agents[id]={n,skill:+skill.toFixed(3),yesN:yes.length,yesHit:fcHit(yes),noN:no.length,noHit:fcHit(no),m:n>=FC_DEF.minAgent?+clamp(1+3*sk,0.6,1.4).toFixed(2):1}; }
+  // dersler: masanın evet dediği tahminlerde kötü çıkan özellikler (yön ayrı); iki yarı da tabanın altında olmalı
+  const L=D.filter(f=>f.score>=FC_DEF.leanYes); const T=D.map(f=>f.t).sort((a,b)=>a-b); const MID=T[T.length>>1];
+  for(const d of ["long","short"]){ const Ld=L.filter(f=>f.dir===d); const bd=out.dir[d].hit; if(bd==null) continue; const groups={};
+    for(const f of Ld) for(const k in f.f){ const g=k+"="+f.f[k]; (groups[g]=groups[g]||[]).push(f); }
+    for(const g in groups){ const a=groups[g]; if(a.length<FC_DEF.minLesson) continue; const h=fcHit(a), h1=fcHit(a.filter(f=>f.t<MID)), h2=fcHit(a.filter(f=>f.t>=MID));
+      if(h<=bd-FC_DEF.lessonGap&&h1!=null&&h2!=null&&h1<bd&&h2<bd){ const [k,v]=g.split("="); out.lessons.push({dir:d,k,v,n:a.length,hit:h,base:bd}); } } }
+  return out;
+}
+function fcMult(id){ const L=FC&&FC.learn; return L&&L.agents[id]?L.agents[id].m:1; }
+// komite içinden: kurulum, tahmin defterindeki kötü kalıplardan birine uyuyor mu (Murat'ın oyu)
+function fcVoteFor(dir,feat){ const L=(FC||fcLoad()).learn; if(!L||!L.lessons.length) return {hits:[],v:0,c:0};
+  const f={havuz:fcPool(feat.pool),kz:feat.kz?"kill zone":"kill zone dışı",asama:feat.stage||"yok",trend:feat.trend||"?"};
+  const hits=L.lessons.filter(l=>l.dir===dir&&f[l.k]===l.v); if(!hits.length) return {hits:[],v:0,c:0};
+  return {hits,v:-0.4,c:Math.min(0.8,0.4+Math.max(...hits.map(h=>h.n))/200),txt:hits.map(h=>`${h.k} ${h.v}: ${h.n} tahminde isabet %${Math.round(h.hit*100)} (taban %${Math.round(h.base*100)})`).join(" · ")}; }
 
 /* ---------- Usta trader katmanı: 200 $ hedefi, çok aşamalı giriş, teminat yönetimi, dinamik hedef/stop (6 Ekim 2026) ----------
    Ekransız bot (headless/bot.js), arayüzdeki kâğıt bot (ui.js) ve tekrar oynatma testi (tests/replay-goal.js) aynı fonksiyonları kullanır.
@@ -2016,7 +2117,7 @@ async function scanOne(u){
   if(k1d.length<60 || !oi5.length || !taker5.length || !toppos.length || !glob.length) return null;
   const f={t24:u.t24,prem:u.prem,k5:K(k5),k15:K(k15),oi5,taker5}, sl={k1d:K(k1d),k4h:K(k4h),k1h:K(k1h),toppos,glob,btc15:await btcKlines()};
   const A=analyze(f,sl);
-  const row=rowOf(A,u); row._f=f; row._s=sl; return row;
+  const row=rowOf(A,u); row._f=f; row._s=sl; if(typeof fcObserve==='function') fcObserve(u.t24.symbol,A,row.com); return row;
 }
 function planOf(r,k){ if(!r||!r.zone||!(r.grade==="A"||r.grade==="B")) return null; return {stage:r.stage,grade:r.grade,kz:r.kz||null,entry:r.entry,stop:r.stop,t1:r.t1,t2:r.t2,rr1:r.rr1,rr2:isFinite(r.rr2)?r.rr2:null,expires:(k&&r.mss!=null&&k[r.mss]?k[r.mss].t:Date.now())+17*9e5}; }
 function brPlanOf(r,k){ if(!r||!r.fvg) return null; return {stage:r.stage,grade:r.grade,aligned:!!r.aligned,kz:r.kz||null,entry:r.entry,stop:r.stop,t1:r.r2,t2:r.r3,expires:(k&&k[r.bo]?k[r.bo].t:Date.now())+25*9e5}; }
@@ -2036,7 +2137,7 @@ async function scanDeep(r){
   const kb=K(k15L); if(kb.length<600) return null;
   const A=analyze({...r._f,k15:kb},{...r._s,k15L:kb,oi15:oi15||null,taker15:taker15||null,btc15:btc15||null});
   consPut(s,A);
-  const u={t24:r._f.t24,prem:r._f.prem}; const row=rowOf(A,u); row._f=r._f; row._s=r._s; return row;
+  const u={t24:r._f.t24,prem:r._f.prem}; const row=rowOf(A,u); row._f=r._f; row._s=r._s; if(typeof fcObserve==='function') fcObserve(s,A,row.com); return row;
 }
 
 /* ================= UI layer ================= */
@@ -2099,11 +2200,31 @@ function ensureChart(){
   ui.candles=ch.addCandlestickSeries({upColor:"#2ee59d",downColor:"#ff5c6c",borderVisible:false,wickUpColor:"#2ee59d",wickDownColor:"#ff5c6c",priceFormat:{type:"price",precision:5,minMove:0.00001}});
   ui.vols=ch.addHistogramSeries({priceFormat:{type:"volume"},priceScaleId:"",color:"#2a3542",lastValueVisible:false,priceLineVisible:false});
   ui.vols.priceScale().applyOptions({scaleMargins:{top:0.8,bottom:0}});
+  ui.vpPrim=new VPPrim(); try{ ui.candles.attachPrimitive(ui.vpPrim); }catch(e){ ui.vpPrim=null; }
   ui.chart=ch; new ResizeObserver(()=>ch.applyOptions({width:el.clientWidth,height:el.clientHeight})).observe(el); ch.applyOptions({width:el.clientWidth,height:el.clientHeight});
   return true;
 }
-const LAYERS={struct:"Yapı (HH/HL/LH/LL)",pools:"Havuzlar",long:"Long planı",short:"Short planı",br:"Kırılım · FVG",box:"Kutu · POC",levels:"Seviyeler"};
-ui.layers={struct:true,pools:true,long:true,short:true,br:true,box:true,levels:true}; try{ Object.assign(ui.layers,JSON.parse(LS("st-layers")||"{}")); }catch(e){}
+/* --- hacim profili çizimi: günün (UTC) profili grafiğin sağında yatay çubuklar; değer alanı koyu, POC beyaz. lightweight-charts series primitive --- */
+class VPPrim{
+  constructor(){ this.d=null; this.series=null; this.req=null; }
+  attached(p){ this.series=p.series; this.req=p.requestUpdate; } detached(){ this.series=null; }
+  set(d){ this.d=d; if(this.req) this.req(); } updateAllViews(){}
+  paneViews(){ const self=this; return [{ zOrder:()=>"bottom", renderer:()=>({ draw:(target)=>{ const d=self.d, S=self.series; if(!d||!S) return;
+    target.useBitmapCoordinateSpace(sc=>{ const ctx=sc.context, W=sc.bitmapSize.width, vr=sc.verticalPixelRatio; const max=Math.max(...d.rows.map(r=>r.v))||1; const span=W*0.25;
+      for(const r of d.rows){ const y0=S.priceToCoordinate(r.p+d.w/2), y1=S.priceToCoordinate(r.p-d.w/2); if(y0==null||y1==null) continue; const top=Math.min(y0,y1)*vr, h=Math.max(1,Math.abs(y1-y0)*vr-1); const len=span*r.v/max;
+        const inVa=r.p>=d.val&&r.p<=d.vah, isPoc=Math.abs(r.p-d.poc)<d.w/2; ctx.fillStyle=isPoc?"rgba(231,237,243,.55)":inVa?"rgba(57,198,242,.38)":"rgba(122,135,148,.24)"; ctx.fillRect(W-len,top,len,h);
+        const bl=len*(r.v>0?r.buy/r.v:0.5); ctx.fillStyle=isPoc?"rgba(46,229,157,.0)":"rgba(46,229,157,.10)"; ctx.fillRect(W-len,top,bl,h); } }); } }) }]; }
+}
+// günün ve dünün 1 dk mumlarından profil (seçili coin, 5 dk önbellek); yoksa 15 dk profili kullanılır
+ui.vp1m={};
+async function vpRefresh(sym){ const c=ui.vp1m[sym]; if(c&&(c.busy||Date.now()-c.t<300e3)) return; ui.vp1m[sym]={...(c||{}),busy:true};
+  try{ const d0=Math.floor(Date.now()/86400e3)*86400e3; const [a,b]=await Promise.all([j(`/fapi/v1/klines?symbol=${sym}&interval=1m&startTime=${d0-86400e3}&limit=1440`),j(`/fapi/v1/klines?symbol=${sym}&interval=1m&startTime=${d0}&limit=1440`)]);
+    const k=K([...a,...b].filter((x,i,arr)=>i===0||x[0]>arr[i-1][0])); const P=sessionProfiles(k,k.length,{withCurrent:true,rows:true,bins:60});
+    ui.vp1m[sym]={t:Date.now(),busy:false,today:P.find(p=>p.t0===d0)||null,prev:P.find(p=>p.t0===d0-86400e3&&!p.current)||null};
+    if(state.lastA&&state.sym===sym&&ui.layers.vp) renderChart(state.lastA,ui.lastF); }
+  catch(e){ ui.vp1m[sym]={t:Date.now(),busy:false,err:String(e.message||e)}; } }
+const LAYERS={struct:"Yapı (HH/HL/LH/LL)",pools:"Havuzlar",vp:"Hacim profili",long:"Long planı",short:"Short planı",br:"Kırılım · FVG",box:"Kutu · POC",levels:"Seviyeler"};
+ui.layers={struct:true,pools:true,vp:true,long:true,short:true,br:true,box:true,levels:true}; try{ Object.assign(ui.layers,JSON.parse(LS("st-layers")||"{}")); }catch(e){}
 ui.segs=[];
 function structureOf(k){
   // 15 dk mumlarda 3'lü swing'ler; ardışık tepeler HH/LH, dipler HL/LL olarak etiketlenir
@@ -2126,7 +2247,13 @@ function renderChart(A,f){
   const Ly=ui.layers; const kb=A.src.k15L||f.k15; const marks=[];
   if(Ly.levels){ if(A.R[0]) add(A.R[0],"#5b6b7c","D1",3); if(A.S[0]) add(A.S[0],"#5b6b7c","S1",3); }
   if(Ly.box){ add(A.boxHi,"#7c8794","10g kutu ↑",3); add(A.boxLo,"#7c8794","10g kutu ↓",3); for(const d of ["long","short"]){ const b=A.bt&&A.bt[d]; if(b&&b.stage!=="expired"&&(d==="long"?Ly.long:Ly.short)){ add(b.poc,"#e7edf3","POC "+(d==="long"?"L":"S"),1,1); if(kb[b.s0]) { seg(T(kb[b.s0].t),b.hi,"rgba(231,237,243,.45)",1,2); seg(T(kb[b.s0].t),b.lo,"rgba(231,237,243,.45)",1,2); } } } }
-  if(Ly.pools){ const pools=poolsAt(kb,A.src.k15L?A.src.k15L:kb,A.med15,kb.length); const top=t=>pools.filter(p=>p.type===t).sort((a,b)=>b.w-a.w||Math.abs(a.p/px-1)-Math.abs(b.p/px-1)).slice(0,3); for(const p of [...top("low"),...top("high")]) add(p.p,"#a78bfa",(p.type==="low"?"↓ ":"↑ ")+p.name,2,p.w>=3?1:1); }
+  if(Ly.pools){ const pools=poolsAt(kb,A.src.k1d||[],A.med15,kb.length); const top=t=>pools.filter(p=>p.type===t).sort((a,b)=>b.w-a.w||Math.abs(a.p/px-1)-Math.abs(b.p/px-1)).slice(0,3); for(const p of [...top("low"),...top("high")]) add(p.p,"#a78bfa",(p.type==="low"?"↓ ":"↑ ")+p.name,2,p.w>=3?1:1); }
+  if(ui.vpPrim){ let vd=null;
+    if(Ly.vp){ const m=ui.vp1m[state.sym]; vpRefresh(state.sym); const P=A.vp||[]; const today=(m&&m.today&&m.today.prof)?{...m.today,src:"1 dk"}:(P.find(p=>p.current)?{...P.find(p=>p.current),src:"15 dk"}:null); const prev=(m&&m.prev)?{...m.prev,src:"1 dk"}:(P.filter(p=>!p.current).slice(-1)[0]||null);
+      if(today&&today.prof){ vd={...today.prof}; add(today.poc,"#e7edf3","POC (bugün)",0,1); add(today.vah,"#39c6f2","VAH",2,1); add(today.val,"#39c6f2","VAL",2,1); }
+      if(prev){ add(prev.poc,"#c9d3dd","dün POC",1,1); add(prev.vah,"#2b8fb3","dün VAH",3,1); add(prev.val,"#2b8fb3","dün VAL",3,1); }
+      for(const p of P.filter(p=>p.naked&&(!prev||p.day!==prev.day)).sort((a,b)=>Math.abs(a.poc/px-1)-Math.abs(b.poc/px-1)).slice(0,2)) add(p.poc,"#f2c94c","çıplak POC "+p.day.slice(5),1,1); }
+    ui.vpPrim.set(vd); }
   for(const d of ["long","short"]){
     if(!(d==="long"?Ly.long:Ly.short)) continue; const r=A.amd&&A.amd[d]; if(!r||!r.pool) continue; const isL=d==="long"; const col=isL?"#2ee59d":"#ff8a3d"; const tag=isL?"L":"S";
     if(r.sw!=null&&kb[r.sw]) marks.push({time:T(kb[r.sw].t),position:isL?"belowBar":"aboveBar",color:"#a78bfa",shape:isL?"arrowUp":"arrowDown",text:"süpürme "+tag});
@@ -2138,7 +2265,7 @@ function renderChart(A,f){
   if(Ly.br){ const r=A.br&&A.br[ui.dir]; if(r&&r.box&&kb[r.bo]){ const t0=T(kb[Math.max(0,r.bo-r.boxLen)].t); const tb=T(kb[r.bo].t); const bx=ui.chart.addLineSeries({color:"rgba(57,198,242,.6)",lineWidth:1,lineStyle:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false}); bx.setData([{time:t0,value:r.box[1]},{time:tb,value:r.box[1]}]); ui.segs.push(bx); const bx2=ui.chart.addLineSeries({color:"rgba(57,198,242,.6)",lineWidth:1,lineStyle:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false}); bx2.setData([{time:t0,value:r.box[0]},{time:tb,value:r.box[0]}]); ui.segs.push(bx2); marks.push({time:tb,position:ui.dir==="long"?"belowBar":"aboveBar",color:"#39c6f2",shape:ui.dir==="long"?"arrowUp":"arrowDown",text:"kırılım"}); if(r.fvg&&kb[r.bo+1]){ const tf=T(kb[r.bo+1].t); seg(tf,r.fvg[1],"#39c6f2",2,0); seg(tf,r.fvg[0],"#39c6f2",1,2); seg(tf,r.stop,"#ff5c6c",1,0); add(r.entry,"#39c6f2","FVG giriş",0,1); add(r.r2,"#39c6f2","2R",3,1); add(r.r3,"#39c6f2","3R",3,1); add(r.stop,"#ff5c6c","FVG stop",2,1); } } }
   if(Ly.struct){ const st=structureOf(k).slice(-16); const i0=kb.length-k.length; for(const p of st){ marks.push({time:T(k[p.i].t),position:p.type==="H"?"aboveBar":"belowBar",color:p.type==="H"?(p.lbl==="HH"?"#2ee59d":"#ff5c6c"):(p.lbl==="HL"?"#2ee59d":"#ff5c6c"),shape:"circle",size:0,text:p.lbl}); } }
   try{ ui.candles.setMarkers(marks.sort((a,b)=>a.time-b.time)); }catch(e){}
-  $("legend").innerHTML=Object.keys(LAYERS).map(id=>`<span class="lg ${Ly[id]?"on":""}" data-l="${id}" style="pointer-events:auto;cursor:pointer"><i style="background:${{struct:"#2ee59d",pools:"#a78bfa",long:"#2ee59d",short:"#ff8a3d",br:"#39c6f2",box:"#e7edf3",levels:"#5b6b7c"}[id]}"></i>${LAYERS[id]}</span>`).join("");
+  $("legend").innerHTML=Object.keys(LAYERS).map(id=>`<span class="lg ${Ly[id]?"on":""}" data-l="${id}" style="pointer-events:auto;cursor:pointer"><i style="background:${{struct:"#2ee59d",pools:"#a78bfa",vp:"#39c6f2",long:"#2ee59d",short:"#ff8a3d",br:"#39c6f2",box:"#e7edf3",levels:"#5b6b7c"}[id]}"></i>${LAYERS[id]}</span>`).join("");
   $("legend").querySelectorAll(".lg").forEach(el=>el.addEventListener("click",()=>{ ui.layers[el.dataset.l]=!ui.layers[el.dataset.l]; LS("st-layers",JSON.stringify(ui.layers)); if(state.lastA) renderChart(state.lastA,ui.lastF); }));
   if(ui.first){ ui.chart.timeScale().setVisibleLogicalRange({from:k.length-96,to:k.length+6}); ui.first=false; }
 }
@@ -2755,6 +2882,23 @@ function renderLeaders(){
   ${rows?`<table class="t"><thead><tr><th>Lider</th><th>ROI 90g</th><th>PnL</th><th>MDD</th><th>Kazanma</th><th>Tutuş</th><th>Ekleme / kısmi</th><th>Açık (tahmin)</th></tr></thead><tbody>${rows}</tbody></table>`:""}</details>`;
 }
 /* --- denetçi paneli: Murat'ın raporu --- */
+/* --- tahmin defteri (forecast.js): masanın her görüşü 4 saat sonra puanlanır; isabet, puan kalibrasyonu, üye becerisi, dersler --- */
+function renderForecast(){
+  const F=fcLoad(); const L=F.learn; const head=`<h4 style="margin:0 0 4px">Tahmin defteri · masa doğru mu görüyor?</h4>`;
+  const intro=`<div class="muted" style="font-size:12px;margin-bottom:6px">İşlem açılsın açılmasın, taranan her coinde masanın long ve short görüşü saatte bir kaydedilir; 4 saat sonra bakılır: fiyat önce 1 ATR lehe mi gitti, 1 ATR aleyhe mi? Rastgele mumda isabet %48–50 (6 aylık veri). Masanın puanı yükseldikçe isabet artmıyorsa sinyal yok demektir. Üyelerin ağırlığı ve Murat'ın dersleri buradan da öğrenir.</div>`;
+  if(!L||!L.n) return `<div class="card" style="margin-bottom:10px">${head}${intro}<div class="empty">${F.pend.length} tahmin bekliyor; ilk sonuçlar 4 saat sonra.</div></div>`;
+  const pc=h=>h==null?"—":"%"+Math.round(h*100); const cls=h=>h==null?"":h>=0.55?"up":h<=0.45?"down":"";
+  const bk=L.buckets.map(b=>`<tr><td>${b.t}</td><td class="num">${b.n}</td><td class="num ${cls(b.hit)}">${pc(b.hit)}</td></tr>`).join("");
+  const ags=DESK.filter(d=>L.agents[d.id]).map(d=>{ const a=L.agents[d.id]; return `<tr><td><b>${esc(d.name)}</b> <span class="muted" style="font-size:10.5px">${esc(d.role)}</span></td><td class="num">${a.n}</td><td class="num ${a.skill>0.03?"up":a.skill<-0.03?"down":""}">${a.skill>=0?"+":""}${fx(a.skill,2)}</td><td class="num">${a.yesN?pc(a.yesHit)+" · "+a.yesN:"—"}</td><td class="num">${a.noN?pc(1-a.noHit)+" · "+a.noN:"—"}</td><td class="num">${a.m===1&&a.n<FC_DEF.minAgent?`<span class="muted">${a.n}/${FC_DEF.minAgent}</span>`:"×"+fx(a.m,2)}</td></tr>`; }).join("");
+  const les=L.lessons.map(l=>`<li>${l.dir==="long"?"Long":"Short"} · ${esc(l.k)} = <b>${esc(l.v)}</b>: ${l.n} tahminde isabet ${pc(l.hit)} (taban ${pc(l.base)}) → Murat karşı oy verir</li>`).join("");
+  return `<div class="card" style="margin-bottom:10px">${head}${intro}
+  <div style="font-size:12px;margin-bottom:6px"><b>${L.n}</b> sonuçlanmış tahmin (${F.pend.length} bekliyor) · genel isabet <b class="${cls(L.base)}">${pc(L.base)}</b> · long ${pc(L.dir.long&&L.dir.long.hit)} · short ${pc(L.dir.short&&L.dir.short.hit)} · masanın "giriş" dediği ${L.go.n} tahminde <b class="${cls(L.go.hit)}">${pc(L.go.hit)}</b></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;align-items:start">
+  <table class="t"><thead><tr><th>Masa puanı</th><th>Tahmin</th><th>İsabet</th></tr></thead><tbody>${bk}</tbody></table>
+  <table class="t"><thead><tr><th>Üye</th><th>Tahmin</th><th>Beceri</th><th>Evet → doğru</th><th>Hayır → doğru</th><th>Ağırlık</th></tr></thead><tbody>${ags}</tbody></table></div>
+  <div style="font-size:12px;margin-top:6px"><b>Dersler:</b> ${les?`<ul style="margin:4px 0 0 18px;padding:0">${les}</ul>`:`henüz yok (bir kalıp en az ${FC_DEF.minLesson} tahminde tabandan ${Math.round(FC_DEF.lessonGap*100)} puan kötü ve iki yarıda da altında olmalı)`}</div>
+  <div class="muted" style="font-size:11px;margin-top:4px">Beceri = oy × sonuç (+1 doğru, −1 yanlış, 0 süre doldu) ortalaması; 0 = yazı tura. Ağırlık en az ${FC_DEF.minAgent} tahminden sonra değişir.</div></div>`;
+}
 function renderAudit(){
   const A=AUD; const S=A&&A.summary; const head=`<h4 style="margin:0 0 4px">Denetçi · Murat</h4>`;
   if(!S) return `<div class="card" style="margin-bottom:10px">${head}<div class="empty">Kapanan her işlemi inceler: girişte kim ne dedi, fiyat lehimize ne kadar gitti, nasıl kapandı. Hataları etiketler; aynı hata en az ${AUD_MIN} işlemde tekrar edip zarar ettirirse masaya kural olarak geri verir.</div></div>`;
@@ -2801,7 +2945,7 @@ function renderBot(){
   const audit=renderAudit();
   const tr=bot.trades.slice(-12).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b> ${chip(t.dir==="long"?"up sm":"down sm",t.dir==="long"?"L":"S")} <span class="muted">${t.model} ${t.grade} ${t.lev}x</span></td><td class="num">${fmtP(t.entry)}</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="num ${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${fx(t.r,2)}R</td></tr>`).join("");
   const lg=bot.log.slice(-40).reverse().map(l=>`<div class="tp ${{fill:"buy",tp1:"buy",tp2:"buy",stop:"sell",time:"",desk:"",audit:"",goal:"buy",add:"buy",cancel:"",skip:"",order:"",close:"",sys:"",move:"",fund:""}[l.type]||""}" style="grid-template-columns:110px 70px 1fr"><span class="when">${new Date(l.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><span class="k ${{fill:"up",tp1:"up",tp2:"up",close:"",stop:"down",time:"warn",desk:"cyan",audit:"warn",goal:"up",add:"up",cancel:"warn",skip:"muted",order:"cyan",sys:"muted",move:"cyan",fund:"muted"}[l.type]||""}">${{fill:"DOLDU",tp1:"HEDEF 1",tp2:"HEDEF 2",stop:"STOP",time:"ZAMAN",desk:"MASA",audit:"DENETÇİ",goal:"HEDEF",add:"EKLEME",cancel:"İPTAL",skip:"BEKLE",order:"EMİR",close:"KAPANDI",sys:"SİSTEM",move:"STOP↑",fund:"FONLAMA"}[l.type]||l.type}</span><span>${l.sym?"<b>"+l.sym.replace("USDT","")+"</b> · ":""}${l.text}</span></div>`).join("");
-  el.innerHTML=head+renderTrend()+renderDip()+(c.mode==="komite"?renderLeaders():"")+room+audit+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`;
+  el.innerHTML=head+room+renderForecast()+audit+(c.mode==="komite"?renderLeaders():"")+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`+renderTrend()+renderDip();
   $("botTgl").addEventListener("click",()=>{ bot.on?botStop():botStart(); renderBot(); }); $("botCsv").addEventListener("click",botCsv); $("botReset").addEventListener("click",botReset); $("botCloseAll").addEventListener("click",botCloseAll);
   $("botMode").addEventListener("change",e=>{ bot.cfg.mode=e.target.value; botSave(); renderBot(); });
   const rs=$("botRoomSel"); if(rs) rs.addEventListener("change",e=>{ bot.roomSel=e.target.value; renderBot(); });

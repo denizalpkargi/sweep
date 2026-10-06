@@ -1,7 +1,7 @@
 // Geriye dönük test yardımcıları: günlük yön, strateji döngüsü, özet istatistik. backtest-compare.js ve backtest-explore.js kullanır.
 const fs=require('fs'); const path=require('path');
 const DIR=path.join(__dirname,'data');
-function loadData(){ return fs.readdirSync(DIR).filter(f=>f.endsWith('.json')).map(f=>JSON.parse(fs.readFileSync(path.join(DIR,f),'utf8'))); }
+function loadData(){ return fs.readdirSync(DIR).filter(f=>f.endsWith('.json')&&!f.startsWith('_')).map(f=>JSON.parse(fs.readFileSync(path.join(DIR,f),'utf8'))); }
 // günlük yön: analyze() ile aynı puanlama, t anında kapanmış günlük mumlarla (bakış ileri yok)
 function dailyBiasAt(k1d, t, px){
   const closed=k1d.filter(x=>x.t+86400e3<=t); if(closed.length<60) return "flat"; const cur=k1d.find(x=>x.t<=t && t<x.t+86400e3)||closed[closed.length-1];

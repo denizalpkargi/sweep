@@ -6,3 +6,4 @@ tests/data/
 tests/backtest-*.json
 bot-data/
 tests/replay-*.json
+tests/audit-*.json

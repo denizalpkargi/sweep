@@ -91,12 +91,15 @@ function committee(A, dir, c24, opts){
   }
   /* ---- denetçi: kurulumu kapanmış işlemlerden çıkan derslerle karşılaştırır ---- */
   const au=audVoteFor(ag); ag.audit={id:"audit",v:au.v,c:au.c,txt:au.txt};
+  // tahmin defteri (forecast.js): masanın evet dediği, sonradan tabandan kötü çıkan kalıplar
+  const fcv=typeof fcVoteFor==='function'?fcVoteFor(dir,{pool:r&&r.pool?r.pool.name:null,kz:r&&r.kz,stage:r?r.stage:null,trend:A.trend}):{hits:[]};
+  if(fcv.hits.length){ ag.audit.v=Math.min(ag.audit.v,fcv.v); ag.audit.c=Math.max(ag.audit.c,fcv.c); ag.audit.txt=(au.hits.length?ag.audit.txt+" · ":"")+"tahmin defteri: "+fcv.txt; au.w=Math.max(au.w||0,1); if(!veto) say("audit","tartışma",`Tahmin defterine göre bu kalıp tutmuyor: ${fcv.txt}. Oyum karşı.`); }
   if(!veto&&au.w){ if(au.hits.length){ say("audit","tartışma",`Bu kurulum daha önce kaybettiğimiz kalıba benziyor: ${au.txt}. ${au.veto?"Bu ders kesinleşti, veto istiyorum.":"Oyum karşı."}`); if(au.veto){ veto=`denetçi: ${AUD_TAGS[au.veto].t.toLowerCase()} kalıbı ${AUD.tags[au.veto].n} işlemde ort. ${fx(AUD.tags[au.veto].avg,2)}R`; say("risk","tartışma","Murat'ın kaydı açık, aynı hatayı tekrar etmiyoruz."); } }
     else say("audit","tartışma",`Kayıtlı hatalardan hiçbirine benzemiyor.${AUD.clean?` Temiz kurulumlarımız ${AUD.clean.n} işlemde ort. ${fx(AUD.clean.avg,2)}R.`:""}`); }
   /* ---- puan ---- */
   // Burak'ın elinde eşleşen aday ya da kaçınılacak kalıp yoksa çekimserdir: ağırlığı 0, puanı sulandırmaz
   const labIdle=!best&&!bad;
-    const agents=DESK.map(d=>{ const a=ag[d.id]; const m=AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1; return {id:d.id,k:d.name+" · "+d.role.split(" ")[0],name:d.name,role:d.role,w:d.id==="audit"?au.w:d.id==="lab"&&labIdle?0:+(d.w*m).toFixed(2),v:+a.v.toFixed(2),c:+a.c.toFixed(2),txt:a.txt}; });
+    const agents=DESK.map(d=>{ const a=ag[d.id]; const m=clamp((AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1)*(typeof fcMult==='function'?fcMult(d.id):1),0.5,1.5); return {id:d.id,k:d.name+" · "+d.role.split(" ")[0],name:d.name,role:d.role,w:d.id==="audit"?au.w:d.id==="lab"&&labIdle?0:+(d.w*m).toFixed(2),v:+a.v.toFixed(2),c:+a.c.toFixed(2),txt:a.txt}; });
   let num=0,den=0,yes=0,no=0; for(const a of agents){ num+=a.w*a.v*a.c; den+=a.w; if(a.v>0.15) yes++; if(a.v<-0.15) no++; }
   let score=den?num/den:0;
   if(!veto&&score>=opts.threshold-0.06&&score<opts.threshold&&yes>=opts.minYes&&ag.mom.v>0){ say("mom","tartışma",`Eşiğin dibindeyiz (${fx(score,2)}), ${yes} evet var. Ben küçük boyla girerim; fırsatı kaçırmayalım.`); const m=agents.find(a=>a.id==="mom"); m.v=+Math.min(1,m.v+0.15).toFixed(2); num=0; for(const a of agents) num+=a.w*a.v*a.c; score=num/den; }

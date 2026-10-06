@@ -58,11 +58,31 @@ function ensureChart(){
   ui.candles=ch.addCandlestickSeries({upColor:"#2ee59d",downColor:"#ff5c6c",borderVisible:false,wickUpColor:"#2ee59d",wickDownColor:"#ff5c6c",priceFormat:{type:"price",precision:5,minMove:0.00001}});
   ui.vols=ch.addHistogramSeries({priceFormat:{type:"volume"},priceScaleId:"",color:"#2a3542",lastValueVisible:false,priceLineVisible:false});
   ui.vols.priceScale().applyOptions({scaleMargins:{top:0.8,bottom:0}});
+  ui.vpPrim=new VPPrim(); try{ ui.candles.attachPrimitive(ui.vpPrim); }catch(e){ ui.vpPrim=null; }
   ui.chart=ch; new ResizeObserver(()=>ch.applyOptions({width:el.clientWidth,height:el.clientHeight})).observe(el); ch.applyOptions({width:el.clientWidth,height:el.clientHeight});
   return true;
 }
-const LAYERS={struct:"Yapı (HH/HL/LH/LL)",pools:"Havuzlar",long:"Long planı",short:"Short planı",br:"Kırılım · FVG",box:"Kutu · POC",levels:"Seviyeler"};
-ui.layers={struct:true,pools:true,long:true,short:true,br:true,box:true,levels:true}; try{ Object.assign(ui.layers,JSON.parse(LS("st-layers")||"{}")); }catch(e){}
+/* --- hacim profili çizimi: günün (UTC) profili grafiğin sağında yatay çubuklar; değer alanı koyu, POC beyaz. lightweight-charts series primitive --- */
+class VPPrim{
+  constructor(){ this.d=null; this.series=null; this.req=null; }
+  attached(p){ this.series=p.series; this.req=p.requestUpdate; } detached(){ this.series=null; }
+  set(d){ this.d=d; if(this.req) this.req(); } updateAllViews(){}
+  paneViews(){ const self=this; return [{ zOrder:()=>"bottom", renderer:()=>({ draw:(target)=>{ const d=self.d, S=self.series; if(!d||!S) return;
+    target.useBitmapCoordinateSpace(sc=>{ const ctx=sc.context, W=sc.bitmapSize.width, vr=sc.verticalPixelRatio; const max=Math.max(...d.rows.map(r=>r.v))||1; const span=W*0.25;
+      for(const r of d.rows){ const y0=S.priceToCoordinate(r.p+d.w/2), y1=S.priceToCoordinate(r.p-d.w/2); if(y0==null||y1==null) continue; const top=Math.min(y0,y1)*vr, h=Math.max(1,Math.abs(y1-y0)*vr-1); const len=span*r.v/max;
+        const inVa=r.p>=d.val&&r.p<=d.vah, isPoc=Math.abs(r.p-d.poc)<d.w/2; ctx.fillStyle=isPoc?"rgba(231,237,243,.55)":inVa?"rgba(57,198,242,.38)":"rgba(122,135,148,.24)"; ctx.fillRect(W-len,top,len,h);
+        const bl=len*(r.v>0?r.buy/r.v:0.5); ctx.fillStyle=isPoc?"rgba(46,229,157,.0)":"rgba(46,229,157,.10)"; ctx.fillRect(W-len,top,bl,h); } }); } }) }]; }
+}
+// günün ve dünün 1 dk mumlarından profil (seçili coin, 5 dk önbellek); yoksa 15 dk profili kullanılır
+ui.vp1m={};
+async function vpRefresh(sym){ const c=ui.vp1m[sym]; if(c&&(c.busy||Date.now()-c.t<300e3)) return; ui.vp1m[sym]={...(c||{}),busy:true};
+  try{ const d0=Math.floor(Date.now()/86400e3)*86400e3; const [a,b]=await Promise.all([j(`/fapi/v1/klines?symbol=${sym}&interval=1m&startTime=${d0-86400e3}&limit=1440`),j(`/fapi/v1/klines?symbol=${sym}&interval=1m&startTime=${d0}&limit=1440`)]);
+    const k=K([...a,...b].filter((x,i,arr)=>i===0||x[0]>arr[i-1][0])); const P=sessionProfiles(k,k.length,{withCurrent:true,rows:true,bins:60});
+    ui.vp1m[sym]={t:Date.now(),busy:false,today:P.find(p=>p.t0===d0)||null,prev:P.find(p=>p.t0===d0-86400e3&&!p.current)||null};
+    if(state.lastA&&state.sym===sym&&ui.layers.vp) renderChart(state.lastA,ui.lastF); }
+  catch(e){ ui.vp1m[sym]={t:Date.now(),busy:false,err:String(e.message||e)}; } }
+const LAYERS={struct:"Yapı (HH/HL/LH/LL)",pools:"Havuzlar",vp:"Hacim profili",long:"Long planı",short:"Short planı",br:"Kırılım · FVG",box:"Kutu · POC",levels:"Seviyeler"};
+ui.layers={struct:true,pools:true,vp:true,long:true,short:true,br:true,box:true,levels:true}; try{ Object.assign(ui.layers,JSON.parse(LS("st-layers")||"{}")); }catch(e){}
 ui.segs=[];
 function structureOf(k){
   // 15 dk mumlarda 3'lü swing'ler; ardışık tepeler HH/LH, dipler HL/LL olarak etiketlenir
@@ -85,7 +105,13 @@ function renderChart(A,f){
   const Ly=ui.layers; const kb=A.src.k15L||f.k15; const marks=[];
   if(Ly.levels){ if(A.R[0]) add(A.R[0],"#5b6b7c","D1",3); if(A.S[0]) add(A.S[0],"#5b6b7c","S1",3); }
   if(Ly.box){ add(A.boxHi,"#7c8794","10g kutu ↑",3); add(A.boxLo,"#7c8794","10g kutu ↓",3); for(const d of ["long","short"]){ const b=A.bt&&A.bt[d]; if(b&&b.stage!=="expired"&&(d==="long"?Ly.long:Ly.short)){ add(b.poc,"#e7edf3","POC "+(d==="long"?"L":"S"),1,1); if(kb[b.s0]) { seg(T(kb[b.s0].t),b.hi,"rgba(231,237,243,.45)",1,2); seg(T(kb[b.s0].t),b.lo,"rgba(231,237,243,.45)",1,2); } } } }
-  if(Ly.pools){ const pools=poolsAt(kb,A.src.k15L?A.src.k15L:kb,A.med15,kb.length); const top=t=>pools.filter(p=>p.type===t).sort((a,b)=>b.w-a.w||Math.abs(a.p/px-1)-Math.abs(b.p/px-1)).slice(0,3); for(const p of [...top("low"),...top("high")]) add(p.p,"#a78bfa",(p.type==="low"?"↓ ":"↑ ")+p.name,2,p.w>=3?1:1); }
+  if(Ly.pools){ const pools=poolsAt(kb,A.src.k1d||[],A.med15,kb.length); const top=t=>pools.filter(p=>p.type===t).sort((a,b)=>b.w-a.w||Math.abs(a.p/px-1)-Math.abs(b.p/px-1)).slice(0,3); for(const p of [...top("low"),...top("high")]) add(p.p,"#a78bfa",(p.type==="low"?"↓ ":"↑ ")+p.name,2,p.w>=3?1:1); }
+  if(ui.vpPrim){ let vd=null;
+    if(Ly.vp){ const m=ui.vp1m[state.sym]; vpRefresh(state.sym); const P=A.vp||[]; const today=(m&&m.today&&m.today.prof)?{...m.today,src:"1 dk"}:(P.find(p=>p.current)?{...P.find(p=>p.current),src:"15 dk"}:null); const prev=(m&&m.prev)?{...m.prev,src:"1 dk"}:(P.filter(p=>!p.current).slice(-1)[0]||null);
+      if(today&&today.prof){ vd={...today.prof}; add(today.poc,"#e7edf3","POC (bugün)",0,1); add(today.vah,"#39c6f2","VAH",2,1); add(today.val,"#39c6f2","VAL",2,1); }
+      if(prev){ add(prev.poc,"#c9d3dd","dün POC",1,1); add(prev.vah,"#2b8fb3","dün VAH",3,1); add(prev.val,"#2b8fb3","dün VAL",3,1); }
+      for(const p of P.filter(p=>p.naked&&(!prev||p.day!==prev.day)).sort((a,b)=>Math.abs(a.poc/px-1)-Math.abs(b.poc/px-1)).slice(0,2)) add(p.poc,"#f2c94c","çıplak POC "+p.day.slice(5),1,1); }
+    ui.vpPrim.set(vd); }
   for(const d of ["long","short"]){
     if(!(d==="long"?Ly.long:Ly.short)) continue; const r=A.amd&&A.amd[d]; if(!r||!r.pool) continue; const isL=d==="long"; const col=isL?"#2ee59d":"#ff8a3d"; const tag=isL?"L":"S";
     if(r.sw!=null&&kb[r.sw]) marks.push({time:T(kb[r.sw].t),position:isL?"belowBar":"aboveBar",color:"#a78bfa",shape:isL?"arrowUp":"arrowDown",text:"süpürme "+tag});
@@ -97,7 +123,7 @@ function renderChart(A,f){
   if(Ly.br){ const r=A.br&&A.br[ui.dir]; if(r&&r.box&&kb[r.bo]){ const t0=T(kb[Math.max(0,r.bo-r.boxLen)].t); const tb=T(kb[r.bo].t); const bx=ui.chart.addLineSeries({color:"rgba(57,198,242,.6)",lineWidth:1,lineStyle:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false}); bx.setData([{time:t0,value:r.box[1]},{time:tb,value:r.box[1]}]); ui.segs.push(bx); const bx2=ui.chart.addLineSeries({color:"rgba(57,198,242,.6)",lineWidth:1,lineStyle:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false}); bx2.setData([{time:t0,value:r.box[0]},{time:tb,value:r.box[0]}]); ui.segs.push(bx2); marks.push({time:tb,position:ui.dir==="long"?"belowBar":"aboveBar",color:"#39c6f2",shape:ui.dir==="long"?"arrowUp":"arrowDown",text:"kırılım"}); if(r.fvg&&kb[r.bo+1]){ const tf=T(kb[r.bo+1].t); seg(tf,r.fvg[1],"#39c6f2",2,0); seg(tf,r.fvg[0],"#39c6f2",1,2); seg(tf,r.stop,"#ff5c6c",1,0); add(r.entry,"#39c6f2","FVG giriş",0,1); add(r.r2,"#39c6f2","2R",3,1); add(r.r3,"#39c6f2","3R",3,1); add(r.stop,"#ff5c6c","FVG stop",2,1); } } }
   if(Ly.struct){ const st=structureOf(k).slice(-16); const i0=kb.length-k.length; for(const p of st){ marks.push({time:T(k[p.i].t),position:p.type==="H"?"aboveBar":"belowBar",color:p.type==="H"?(p.lbl==="HH"?"#2ee59d":"#ff5c6c"):(p.lbl==="HL"?"#2ee59d":"#ff5c6c"),shape:"circle",size:0,text:p.lbl}); } }
   try{ ui.candles.setMarkers(marks.sort((a,b)=>a.time-b.time)); }catch(e){}
-  $("legend").innerHTML=Object.keys(LAYERS).map(id=>`<span class="lg ${Ly[id]?"on":""}" data-l="${id}" style="pointer-events:auto;cursor:pointer"><i style="background:${{struct:"#2ee59d",pools:"#a78bfa",long:"#2ee59d",short:"#ff8a3d",br:"#39c6f2",box:"#e7edf3",levels:"#5b6b7c"}[id]}"></i>${LAYERS[id]}</span>`).join("");
+  $("legend").innerHTML=Object.keys(LAYERS).map(id=>`<span class="lg ${Ly[id]?"on":""}" data-l="${id}" style="pointer-events:auto;cursor:pointer"><i style="background:${{struct:"#2ee59d",pools:"#a78bfa",vp:"#39c6f2",long:"#2ee59d",short:"#ff8a3d",br:"#39c6f2",box:"#e7edf3",levels:"#5b6b7c"}[id]}"></i>${LAYERS[id]}</span>`).join("");
   $("legend").querySelectorAll(".lg").forEach(el=>el.addEventListener("click",()=>{ ui.layers[el.dataset.l]=!ui.layers[el.dataset.l]; LS("st-layers",JSON.stringify(ui.layers)); if(state.lastA) renderChart(state.lastA,ui.lastF); }));
   if(ui.first){ ui.chart.timeScale().setVisibleLogicalRange({from:k.length-96,to:k.length+6}); ui.first=false; }
 }
@@ -714,6 +740,23 @@ function renderLeaders(){
   ${rows?`<table class="t"><thead><tr><th>Lider</th><th>ROI 90g</th><th>PnL</th><th>MDD</th><th>Kazanma</th><th>Tutuş</th><th>Ekleme / kısmi</th><th>Açık (tahmin)</th></tr></thead><tbody>${rows}</tbody></table>`:""}</details>`;
 }
 /* --- denetçi paneli: Murat'ın raporu --- */
+/* --- tahmin defteri (forecast.js): masanın her görüşü 4 saat sonra puanlanır; isabet, puan kalibrasyonu, üye becerisi, dersler --- */
+function renderForecast(){
+  const F=fcLoad(); const L=F.learn; const head=`<h4 style="margin:0 0 4px">Tahmin defteri · masa doğru mu görüyor?</h4>`;
+  const intro=`<div class="muted" style="font-size:12px;margin-bottom:6px">İşlem açılsın açılmasın, taranan her coinde masanın long ve short görüşü saatte bir kaydedilir; 4 saat sonra bakılır: fiyat önce 1 ATR lehe mi gitti, 1 ATR aleyhe mi? Rastgele mumda isabet %48–50 (6 aylık veri). Masanın puanı yükseldikçe isabet artmıyorsa sinyal yok demektir. Üyelerin ağırlığı ve Murat'ın dersleri buradan da öğrenir.</div>`;
+  if(!L||!L.n) return `<div class="card" style="margin-bottom:10px">${head}${intro}<div class="empty">${F.pend.length} tahmin bekliyor; ilk sonuçlar 4 saat sonra.</div></div>`;
+  const pc=h=>h==null?"—":"%"+Math.round(h*100); const cls=h=>h==null?"":h>=0.55?"up":h<=0.45?"down":"";
+  const bk=L.buckets.map(b=>`<tr><td>${b.t}</td><td class="num">${b.n}</td><td class="num ${cls(b.hit)}">${pc(b.hit)}</td></tr>`).join("");
+  const ags=DESK.filter(d=>L.agents[d.id]).map(d=>{ const a=L.agents[d.id]; return `<tr><td><b>${esc(d.name)}</b> <span class="muted" style="font-size:10.5px">${esc(d.role)}</span></td><td class="num">${a.n}</td><td class="num ${a.skill>0.03?"up":a.skill<-0.03?"down":""}">${a.skill>=0?"+":""}${fx(a.skill,2)}</td><td class="num">${a.yesN?pc(a.yesHit)+" · "+a.yesN:"—"}</td><td class="num">${a.noN?pc(1-a.noHit)+" · "+a.noN:"—"}</td><td class="num">${a.m===1&&a.n<FC_DEF.minAgent?`<span class="muted">${a.n}/${FC_DEF.minAgent}</span>`:"×"+fx(a.m,2)}</td></tr>`; }).join("");
+  const les=L.lessons.map(l=>`<li>${l.dir==="long"?"Long":"Short"} · ${esc(l.k)} = <b>${esc(l.v)}</b>: ${l.n} tahminde isabet ${pc(l.hit)} (taban ${pc(l.base)}) → Murat karşı oy verir</li>`).join("");
+  return `<div class="card" style="margin-bottom:10px">${head}${intro}
+  <div style="font-size:12px;margin-bottom:6px"><b>${L.n}</b> sonuçlanmış tahmin (${F.pend.length} bekliyor) · genel isabet <b class="${cls(L.base)}">${pc(L.base)}</b> · long ${pc(L.dir.long&&L.dir.long.hit)} · short ${pc(L.dir.short&&L.dir.short.hit)} · masanın "giriş" dediği ${L.go.n} tahminde <b class="${cls(L.go.hit)}">${pc(L.go.hit)}</b></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;align-items:start">
+  <table class="t"><thead><tr><th>Masa puanı</th><th>Tahmin</th><th>İsabet</th></tr></thead><tbody>${bk}</tbody></table>
+  <table class="t"><thead><tr><th>Üye</th><th>Tahmin</th><th>Beceri</th><th>Evet → doğru</th><th>Hayır → doğru</th><th>Ağırlık</th></tr></thead><tbody>${ags}</tbody></table></div>
+  <div style="font-size:12px;margin-top:6px"><b>Dersler:</b> ${les?`<ul style="margin:4px 0 0 18px;padding:0">${les}</ul>`:`henüz yok (bir kalıp en az ${FC_DEF.minLesson} tahminde tabandan ${Math.round(FC_DEF.lessonGap*100)} puan kötü ve iki yarıda da altında olmalı)`}</div>
+  <div class="muted" style="font-size:11px;margin-top:4px">Beceri = oy × sonuç (+1 doğru, −1 yanlış, 0 süre doldu) ortalaması; 0 = yazı tura. Ağırlık en az ${FC_DEF.minAgent} tahminden sonra değişir.</div></div>`;
+}
 function renderAudit(){
   const A=AUD; const S=A&&A.summary; const head=`<h4 style="margin:0 0 4px">Denetçi · Murat</h4>`;
   if(!S) return `<div class="card" style="margin-bottom:10px">${head}<div class="empty">Kapanan her işlemi inceler: girişte kim ne dedi, fiyat lehimize ne kadar gitti, nasıl kapandı. Hataları etiketler; aynı hata en az ${AUD_MIN} işlemde tekrar edip zarar ettirirse masaya kural olarak geri verir.</div></div>`;
@@ -760,7 +803,7 @@ function renderBot(){
   const audit=renderAudit();
   const tr=bot.trades.slice(-12).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b> ${chip(t.dir==="long"?"up sm":"down sm",t.dir==="long"?"L":"S")} <span class="muted">${t.model} ${t.grade} ${t.lev}x</span></td><td class="num">${fmtP(t.entry)}</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="num ${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${fx(t.r,2)}R</td></tr>`).join("");
   const lg=bot.log.slice(-40).reverse().map(l=>`<div class="tp ${{fill:"buy",tp1:"buy",tp2:"buy",stop:"sell",time:"",desk:"",audit:"",goal:"buy",add:"buy",cancel:"",skip:"",order:"",close:"",sys:"",move:"",fund:""}[l.type]||""}" style="grid-template-columns:110px 70px 1fr"><span class="when">${new Date(l.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><span class="k ${{fill:"up",tp1:"up",tp2:"up",close:"",stop:"down",time:"warn",desk:"cyan",audit:"warn",goal:"up",add:"up",cancel:"warn",skip:"muted",order:"cyan",sys:"muted",move:"cyan",fund:"muted"}[l.type]||""}">${{fill:"DOLDU",tp1:"HEDEF 1",tp2:"HEDEF 2",stop:"STOP",time:"ZAMAN",desk:"MASA",audit:"DENETÇİ",goal:"HEDEF",add:"EKLEME",cancel:"İPTAL",skip:"BEKLE",order:"EMİR",close:"KAPANDI",sys:"SİSTEM",move:"STOP↑",fund:"FONLAMA"}[l.type]||l.type}</span><span>${l.sym?"<b>"+l.sym.replace("USDT","")+"</b> · ":""}${l.text}</span></div>`).join("");
-  el.innerHTML=head+renderTrend()+renderDip()+(c.mode==="komite"?renderLeaders():"")+room+audit+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`;
+  el.innerHTML=head+room+renderForecast()+audit+(c.mode==="komite"?renderLeaders():"")+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`+renderTrend()+renderDip();
   $("botTgl").addEventListener("click",()=>{ bot.on?botStop():botStart(); renderBot(); }); $("botCsv").addEventListener("click",botCsv); $("botReset").addEventListener("click",botReset); $("botCloseAll").addEventListener("click",botCloseAll);
   $("botMode").addEventListener("change",e=>{ bot.cfg.mode=e.target.value; botSave(); renderBot(); });
   const rs=$("botRoomSel"); if(rs) rs.addEventListener("change",e=>{ bot.roomSel=e.target.value; renderBot(); });
