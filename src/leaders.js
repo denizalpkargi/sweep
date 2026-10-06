@@ -4,6 +4,8 @@
    Türetilenler: lider başına kazanma oranı, ortalama ROI, medyan tutuş, ekleme ve kısmi kapatma oranı; açık pozisyon tahmini (emir akışından net miktar);
    coin başına yön uzlaşısı (açık pozisyon ağırlık 2, son 72 saatte kapanan 1). Masada "Tolga · kopya trader araştırmacısı" bunu kullanır. */
 const LD_BASE="https://www.binance.com/bapi/futures/v1/friendly/future/copy-trade/";
+// 6 Ekim 2026 gecesi: kullanıcı "20'den fazla başarılı lider var" dedi → liste 100 lider (5 sayfa), elekten en çok 40
+const LD_CFG={pages:5,max:40};
 const ld={at:0,list:[],leaders:{},profile:null,sym:{},err:null,busy:false,prog:""};
 try{ const sv=JSON.parse(localStorage.getItem("st-leaders")||"null"); if(sv&&sv.at){ ld.at=sv.at; ld.list=sv.list||[]; ld.leaders=sv.leaders||{}; ld.profile=sv.profile||null; ld.sym=sv.sym||{}; } }catch(e){}
 function ldSave(){ try{ localStorage.setItem("st-leaders",JSON.stringify({at:ld.at,list:ld.list,leaders:ld.leaders,profile:ld.profile,sym:ld.sym})); }catch(e){} }
@@ -36,19 +38,19 @@ function ldSymbols(){
     for(const r of x.recent||[]) if(!both.has(r.sym)) bump(r.sym,r.dir,1,x.nick); }
   return m;
 }
-// yenile: en iyi 60 lider (90 gün ROI) → elek → 20 lider → geçmişleri
+// yenile: en iyi 100 lider (90 gün ROI) → elek → en çok 40 lider → geçmişleri
 async function ldRefresh(force){
   if(ld.busy) return false; if(!force&&ld.at&&Date.now()-ld.at<3600e3) return false; ld.busy=true; ld.err=null; ld.prog="liste";
   try{
-    let all=[]; for(let pg=1;pg<=3;pg++){ const d=await ldPost("home-page/query-list",{pageNumber:pg,pageSize:20,timeRange:"90D",dataType:"ROI",favoriteOnly:false,hideFull:false,nickname:"",order:"DESC",userAsset:0,portfolioType:"ALL"}); all=all.concat(d.list||[]); }
-    const picked=all.filter(x=>+x.aum>=20000&&+x.currentCopyCount>=50&&+x.mdd<=60&&+x.winRate>=50).slice(0,20);
+    let all=[]; for(let pg=1;pg<=LD_CFG.pages;pg++){ const d=await ldPost("home-page/query-list",{pageNumber:pg,pageSize:20,timeRange:"90D",dataType:"ROI",favoriteOnly:false,hideFull:false,nickname:"",order:"DESC",userAsset:0,portfolioType:"ALL"}); all=all.concat(d.list||[]); }
+    const picked=all.filter(x=>+x.aum>=20000&&+x.currentCopyCount>=50&&+x.mdd<=60&&+x.winRate>=50).slice(0,LD_CFG.max);
     ld.list=picked.map(x=>({id:String(x.leadPortfolioId),nick:x.nickname,roi:+x.roi,pnl:+x.pnl,aum:+x.aum,mdd:+x.mdd,wr:+x.winRate,copiers:+x.currentCopyCount,sharpe:x.sharpRatio!=null?+x.sharpRatio:null}));
     const keep={}; let i=0;
     for(const L of ld.list){ i++; ld.prog=`${i}/${ld.list.length} ${L.nick}`; if(typeof ldOnProgress==="function") ldOnProgress();
       try{ const [ph,oh]=await Promise.all([ldPost("lead-portfolio/position-history",{portfolioId:L.id,pageNumber:1,pageSize:50}),ldPost("lead-portfolio/order-history",{portfolioId:L.id,pageNumber:1,pageSize:100})]); keep[L.id]=ldDigest(L,ph.list||[],oh.list||[]); if(typeof labIngest==="function") labIngest(L,ph.list||[]); }
       catch(e){ keep[L.id]=ld.leaders[L.id]&&!ld.leaders[L.id].err?ld.leaders[L.id]:{id:L.id,nick:L.nick,err:e.message}; }
       await new Promise(r=>setTimeout(r,300)); }
-    ld.leaders=keep; ld.profile=ldProfile(); ld.sym=ldSymbols(); ld.at=Date.now(); ld.prog=""; ldSave(); return true;
+    ld.leaders=keep; ld.profile=ldProfile(); ld.sym=ldSymbols(); ld.at=Date.now(); ld.prog=""; ldSave(); if(typeof labPosWatch==="function") try{ labPosWatch(); }catch(e){} return true;
   }catch(e){ ld.err=e.message; ld.prog=""; return false; }
   finally{ ld.busy=false; if(typeof ldOnProgress==="function") ldOnProgress(); }
 }

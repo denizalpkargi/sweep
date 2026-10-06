@@ -72,7 +72,7 @@ const FAC_FIT={
   fundz:{st:"izlemede",w:0,ic1:0,ic2:0,y1:null,y2:null,n:0}};
 const FAC_ST=id=>(FAC_FIT[id]&&FAC_FIT[id].st)||"izlemede";
 // canlı ağırlık: ölçüm × tahmin defteri. İzlemedeki faktör ≥200 canlı tahminde beceri artıysa küçük ağırlıkla oya girer.
-function facWeight(id){ const f=FAC_FIT[id]; const L=(typeof FC!=="undefined"&&FC&&FC.learn)?FC.learn.agents["f:"+id]:null; const m=L?L.m:1;
+function facWeight(id){ if(FACTORS.some(x=>x.id===id&&x.dyn)) return 0; /* lider kuralları (analyst.js facSyncDyn): yalnız tahmin defteri ölçer, oy Burak üzerinden */ const f=FAC_FIT[id]; const L=(typeof FC!=="undefined"&&FC&&FC.learn)?FC.learn.agents["f:"+id]:null; const m=L?L.m:1;
   if(f&&f.st==="aktif") return +(f.w*m).toFixed(3); if(L&&L.n>=200&&m>1) return +(m-1).toFixed(3); return 0; }
 // tüm faktörler: {id:{v,c,txt,w}} (yalnız oy verenler), oy ve güven; çekimserse null
 function facRead(x, dir){ const out={}; for(const F of FACTORS){ let r=null; try{ r=F.fn(x,dir); }catch(e){ r=null; } if(r&&isFinite(r.v)) out[F.id]={v:clamp(r.v,-1,1),c:clamp(r.c,0,1),txt:r.txt,w:facWeight(F.id)}; } return out; }

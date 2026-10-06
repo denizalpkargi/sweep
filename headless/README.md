@@ -23,12 +23,18 @@ Gereken: Node 22+ (yerleşik `fetch` ve `WebSocket`). `npm install` gerekmez. Bi
 
 Risk ayarları UI varsayılanlarıdır (`BOT_CFG_DEF`, `src/committee.js`). Değiştirmek için `bot-data/config.json` yaz, örneğin `{"risk":0.02,"riskMax":0.06}` (taban ve güvenle üst sınır); başlangıç satırı geçerli ayarları günlüğe yazar.
 
+## Lider araştırması ve Selim (LLM)
+
+Araştırma ekibi dakikada bir çalışır: liderler (en çok 40) saatte bir, geçmişleri 6 saatte bir, Burak'ın analizi 5 dakikada bir, Selim'in LLM koşusu günde bir. Rapor `research/rapor-GGGG-AA-GG.md` (saatte bir yenilenir) ve `research/lab-rules.json`.
+
+Selim varsayılan olarak yerel **Ollama**'yı kullanır (ücretsiz): Ollama'yı kur, `ollama pull qwen3:8b`. Başka model ya da sunucu için `config.json` → `{"llm":{"provider":"ollama","model":"qwen3:14b"}}` ya da ortam değişkenleri `LLM_PROVIDER` (`ollama` | `openai` | `claude`), `LLM_URL`, `LLM_MODEL`. Claude API için `LLM_PROVIDER=claude` ve `ANTHROPIC_API_KEY` (dosyaya yazılmaz). LLM'e ulaşılamazsa Selim 3 saat sonra yeniden dener; botun geri kalanı etkilenmez.
+
 ## Dosyalar (`bot-data/`)
 
 | Dosya | İçerik |
 |---|---|
 | `bot.json` | durum: bakiye, açık pozisyonlar, işlemler, günlük sayaç |
-| `status.json` | 30 sn'de bir nabız: özkaynak, pozisyonlar, son tarama, fiyat kaynağı, denetçi özeti (Murat'ın dersleri) |
+| `status.json` | 30 sn'de bir nabız: özkaynak, pozisyonlar, son tarama, fiyat kaynağı, denetçi özeti (Murat'ın dersleri), `research` (Burak'ın adayları, Selim'in hipotezleri, açık pozisyonlarda liderlerin görüşü) |
 | `store.json` | motorun localStorage'ı: coin tutarlılığı önbelleği, liderler |
 | `logs/votes-GGGG-AA-GG.jsonl` | her taramada masa oyu: puan, evet/hayır, veto, ajan başına `[oy, güven]`, `feat` (masanın kullandığı ham girdiler) |
 | `logs/events-*.jsonl` | bot olayları: tarama, giriş, hedef, stop, fonlama, masa konuşmaları; `stages` (her adayın beş aşaması), `dyn` (hedef/stop değişikliği), `goal` (mod değişimi, 200 $ kilidi) |

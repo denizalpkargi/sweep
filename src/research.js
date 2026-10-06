@@ -10,7 +10,7 @@
       Durum: aday → izlemede → onaylı (≥20 ileri işlem, ort > 0) / zayıf (≥20, ort ≤ 0).
    5. Masa: Burak (id "lab") eşleşen adayla oy verir, tartışmada Baran'ı kovalamaya karşı uyarır, Kerem'e süpürme kanıtı verir, zaman stopunu önerir.
    Lider verisi yalnızca masaüstü uygulamasında çekilir (CORS); mumlar her yerde çalışır. */
-const LAB_CFG={maxTrades:4000,firstPages:4,pageSize:50,harvestEveryH:6,minN:20,minLeaders:4,minHalf:6,klTtl:6*3600e3,shadowGapH:4,maxShadows:400,promoteN:20,clip:5};
+const LAB_CFG={maxTrades:4000,firstPages:4,pageSize:50,harvestEveryH:6,minN:20,minLeaders:4,minHalf:6,klTtl:6*3600e3,shadowGapH:4,maxShadows:400,promoteN:20,clip:5,minLift:0.15};
 const LAB_FEATS=[
   {k:"ses",name:"Seans",vals:{asya:"Asya 00–07",londra:"Londra 07–12",ny:"New York 12–20",gec:"Geç 20–24"}},
   {k:"tr",name:"1 sa trend",vals:{with:"lehte",against:"karşı",flat:"yatay"}},
@@ -20,7 +20,8 @@ const LAB_FEATS=[
   {k:"sw",name:"Süpürme (6 sa)",vals:{var:"süpürme sonrası",yok:"süpürme yok"}},
   {k:"vol",name:"Hacim (3 sa)",vals:{yuksek:"yüksek",normal:"normal"}}];
 const lab={trades:[],snaps:{},harvestAt:{},styles:{},factors:null,cands:[],avoid:[],fwd:{},shadows:[],notes:[],base:null,at:0,dirty:false,busy:false,prog:"",err:null,kl:{}};
-try{ const sv=JSON.parse(localStorage.getItem("st-lab")||"null"); if(sv&&sv.v===1){ for(const k of ["trades","snaps","harvestAt","fwd","shadows","notes"]) if(sv[k]) lab[k]=sv[k]; lab.dirty=true; } }catch(e){}
+try{ const sv=JSON.parse(localStorage.getItem("st-lab")||"null"); if(sv&&sv.v===1){ for(const k of ["trades","snaps","harvestAt","fwd","shadows","notes"]) if(sv[k]) lab[k]=sv[k]; lab.dirty=true;
+  for(const x of lab.trades) if(x.f&&typeof x.f==="object"&&!x.mc) x.f=null; } }catch(e){} // 7 Ekim 2026 öncesi kayıtlar kopya ölçüsüyle yeniden zenginleşir
 function labSave(){ try{ localStorage.setItem("st-lab",JSON.stringify({v:1,trades:lab.trades,snaps:lab.snaps,harvestAt:lab.harvestAt,fwd:lab.fwd,shadows:lab.shadows,notes:lab.notes.slice(-40)})); }catch(e){ lab.err="kayıt alanı doldu: "+e.message; } }
 function labNote(who,text){ const last=lab.notes[lab.notes.length-1]; if(last&&last.text===text) return; lab.notes.push({t:Date.now(),who,text}); lab.notes=lab.notes.slice(-40); }
 /* --- 1. toplama --- */
@@ -67,19 +68,39 @@ async function labEnrich(maxSyms){
   const todo={}; for(const x of lab.trades) if(x.f===null) (todo[x.sym]=todo[x.sym]||[]).push(x); const syms=Object.keys(todo); if(!syms.length) return 0;
   const b=await labKlines("BTCUSDT"); let n=0;
   for(const s of syms.slice(0,maxSyms)){ lab.prog=`mumlar: ${s}`; const k=await labKlines(s);
-    for(const x of todo[s]){ if(!k){ x.f="x"; continue; } if(x.open<k[0].t+51*36e5){ x.f="old"; continue; } const f=labFeat(k,b,x.open,x.dir); x.f=f||"x"; if(f){ const sg=x.dir==="long"?1:-1; const mv=x.entry>0&&x.exit>0?sg*(x.exit/x.entry-1):NaN; x.m=isFinite(mv)?+clamp(mv/f.atr,-LAB_CFG.clip,LAB_CFG.clip).toFixed(3):NaN; n++; } } }
+    for(const x of todo[s]){ if(!k){ x.f="x"; continue; } if(x.open<k[0].t+51*36e5){ x.f="old"; continue; } const f=labFeat(k,b,x.open,x.dir); x.f=f||"x"; if(f){ const sg=x.dir==="long"?1:-1; const cl=v=>isFinite(v)?+clamp(v/f.atr,-LAB_CFG.clip,LAB_CFG.clip).toFixed(3):NaN;
+        // m: kopya ölçüsü = açılış saatinin kapanışında gir (bir saat içinde kopyala), liderin kapanış fiyatından çık. m0: liderin kendi sonucu (ortalama maliyetten; ortalama düşürme dahil)
+        const ci=labIdx(k,x.open+36e5); const e1=ci>=0&&k[ci].t<=x.open?k[ci].c:NaN; x.m0=cl(x.entry>0&&x.exit>0?sg*(x.exit/x.entry-1):NaN); x.m=cl(e1>0&&x.exit>0?sg*(x.exit/e1-1):NaN); x.mc=1; n++; } } }
   if(n) lab.dirty=true; return n;
 }
 /* --- 3. analiz --- */
-function labStat(rows,wOf){ let W=0,S=0,S2=0,win=0,n=0; const ls=new Set(); for(const x of rows){ const w=wOf(x); W+=w; S+=w*x.m; S2+=w*x.m*x.m; if(x.pnl>0) win+=w; n++; ls.add(x.lid); } const mean=W?S/W:NaN; const sd=W?Math.sqrt(Math.max(0,S2/W-mean*mean)):NaN; const neff=Math.min(n,W*1.5); return {n,w:+W.toFixed(1),leaders:ls.size,mean:+mean.toFixed(3),wr:W?+(win/W).toFixed(3):NaN,t:sd>0?+(mean/(sd/Math.sqrt(Math.max(1,neff)))).toFixed(2):0}; }
+function labStat(rows,wOf){ let W=0,S=0,S2=0,win=0,n=0; const ls=new Set(); for(const x of rows){ const w=wOf(x); W+=w; S+=w*x.m; S2+=w*x.m*x.m; if(x.m>0) win+=w; n++; ls.add(x.lid); } const mean=W?S/W:NaN; const sd=W?Math.sqrt(Math.max(0,S2/W-mean*mean)):NaN; const neff=Math.min(n,W*1.5); const se=sd>0?sd/Math.sqrt(Math.max(1,neff)):NaN; return {n,w:+W.toFixed(1),leaders:ls.size,mean:+mean.toFixed(3),wr:W?+(win/W).toFixed(3):NaN,t:se>0?+(mean/se).toFixed(2):0,se}; }
 function labCondTxt(conds){ return conds.map(([f,v])=>{ const F=LAB_FEATS.find(x=>x.k===f); return F.name+": "+F.vals[v]; }).join(" + "); }
 function labMed(a){ const s=a.filter(isFinite).sort((x,y)=>x-y); return s.length?s[Math.floor(s.length/2)]:NaN; }
-function labAnalyze(){
-  const T=lab.trades.filter(x=>x.f&&typeof x.f==="object"&&isFinite(x.m)); lab.at=Date.now(); lab.dirty=false;
-  if(T.length<LAB_CFG.minN){ lab.base=null; lab.factors=null; lab.cands=[]; lab.avoid=[]; lab.styles={}; return; }
-  const perL={}; for(const x of T) perL[x.lid]=(perL[x.lid]||0)+1; const wOf=x=>Math.min(1,25/perL[x.lid]);
+// ortak ölçü bağlamı: zenginleşmiş işlemler, lider ağırlığı, zaman ortası, istatistik (Burak ve Selim aynı ölçüyü kullanır)
+function labCtx(){
+  const T=lab.trades.filter(x=>x.f&&typeof x.f==="object"&&isFinite(x.m)); const perL={}; for(const x of T) perL[x.lid]=(perL[x.lid]||0)+1; const wOf=x=>Math.min(1,25/perL[x.lid]);
   const tMid=labMed(T.map(x=>x.open));
   const st=rows=>{ const s=labStat(rows,wOf); const a=rows.filter(x=>x.open<tMid), b=rows.filter(x=>x.open>=tMid); s.h1=a.length?labStat(a,wOf).mean:NaN; s.h2=b.length?labStat(b,wOf).mean:NaN; s.n1=a.length; s.n2=b.length; s.hold=+labMed(rows.map(x=>x.hold)).toFixed(2); s.lev=labMed(rows.map(x=>x.lev)); return s; };
+  return {T,perL,wOf,tMid,st};
+}
+// bir kuralı (yön + koşullar) liderlerin geçmişinde ölç; aday kapıları labAnalyze ile aynı
+function labTest(dir,conds,C){
+  C=C||labCtx(); const rows=C.T.filter(x=>x.dir===dir&&conds.every(([f,v])=>x.f[f]===v)); if(!rows.length) return {n:0,leaders:0,mean:NaN,h1:NaN,h2:NaN,wr:NaN,t:0,tl:0,n1:0,n2:0,hold:NaN,lev:NaN,lift:NaN,good:false,bad:false};
+  const s=C.st(rows); const base=C.st(C.T.filter(x=>x.dir===dir)); return labGate(s,base);
+}
+/* aday kapıları (7 Ekim 2026'dan beri tabana göre): liderlerin kapanmış işlemleri ortalama artıdır (hayatta kalma, ortalama düşürme), bu yüzden
+   "artı mı" değil "aynı yöndeki tüm işlemlerden iyi mi" sorulur. İyi: ort > 0,1, taban üstü fark ≥ minLift, iki yarıda da kendi yarısının tabanı üstünde,
+   farkın t'si ≥ 1,5, kopya kazanma ≥ %50. Kötü: fark ≤ −minLift, iki yarıda da taban altında, t ≤ −1,5. */
+function labGate(s,base){
+  s.lift=+(s.mean-base.mean).toFixed(3); s.l1=s.h1-base.h1; s.l2=s.h2-base.h2; s.tl=s.se>0?+(s.lift/s.se).toFixed(2):0;
+  const enough=s.n>=LAB_CFG.minN&&s.leaders>=LAB_CFG.minLeaders&&s.n1>=LAB_CFG.minHalf&&s.n2>=LAB_CFG.minHalf;
+  s.good=enough&&s.mean>0.1&&s.h1>0&&s.h2>0&&s.wr>=0.5&&s.lift>=LAB_CFG.minLift&&s.l1>0&&s.l2>0&&s.tl>=1.5;
+  s.bad=enough&&s.lift<=-LAB_CFG.minLift&&s.l1<0&&s.l2<0&&s.tl<=-1.5; return s;
+}
+function labAnalyze(){
+  const C=labCtx(); const {T,perL,st}=C; lab.at=Date.now(); lab.dirty=false;
+  if(T.length<LAB_CFG.minN){ lab.base=null; lab.factors=null; lab.cands=[]; lab.avoid=[]; lab.styles={}; if(typeof selAfterAnalyze==="function") selAfterAnalyze(C); return; }
   lab.base={all:st(T),long:st(T.filter(x=>x.dir==="long")),short:st(T.filter(x=>x.dir==="short")),total:lab.trades.length,featured:T.length,leaders:Object.keys(perL).length,from:Math.min(...T.map(x=>x.open)),to:Math.max(...T.map(x=>x.close))};
   // faktör tablosu
   const factors=[]; for(const F of LAB_FEATS) for(const v of Object.keys(F.vals)) for(const d of ["long","short"]){ const rows=T.filter(x=>x.dir===d&&x.f[F.k]===v); if(rows.length) factors.push({f:F.k,v,dir:d,...st(rows)}); }
@@ -88,13 +109,13 @@ function labAnalyze(){
   const conds=[]; for(const F of LAB_FEATS) for(const v of Object.keys(F.vals)) conds.push([F.k,v]);
   const evals=[]; const m={};
   for(const d of ["long","short"]){ const D=T.filter(x=>x.dir===d); const base=lab.base[d];
-    const test=cs=>{ const rows=D.filter(x=>cs.every(([f,v])=>x.f[f]===v)); if(rows.length<LAB_CFG.minN) return null; const s=st(rows); if(s.leaders<LAB_CFG.minLeaders||s.n1<LAB_CFG.minHalf||s.n2<LAB_CFG.minHalf) return null; return {key:d+"|"+cs.map(c=>c.join("=")).join("&"),dir:d,conds:cs,name:labCondTxt(cs),lift:+(s.mean-base.mean).toFixed(3),...s}; };
+    const test=cs=>{ const rows=D.filter(x=>cs.every(([f,v])=>x.f[f]===v)); if(rows.length<LAB_CFG.minN) return null; const s=labGate(st(rows),base); if(s.leaders<LAB_CFG.minLeaders||s.n1<LAB_CFG.minHalf||s.n2<LAB_CFG.minHalf) return null; return {key:d+"|"+cs.map(c=>c.join("=")).join("&"),dir:d,conds:cs,name:labCondTxt(cs),...s}; };
     for(const c of conds){ const r=test([c]); if(r){ evals.push(r); m[r.key]=r; } }
     for(let i=0;i<conds.length;i++) for(let j=i+1;j<conds.length;j++){ if(conds[i][0]===conds[j][0]) continue; const r=test([conds[i],conds[j]]); if(!r) continue; const a=m[d+"|"+conds[i].join("=")], b=m[d+"|"+conds[j].join("=")];
       // ikili koşul yalnızca iki tekliden de belirgin iyiyse (ya da kötüyse) tutulur
       const better=(!a||r.mean>a.mean+0.1)&&(!b||r.mean>b.mean+0.1), worse=(!a||r.mean<a.mean-0.1)&&(!b||r.mean<b.mean-0.1); if(better||worse) evals.push(r); } }
-  const good=evals.filter(r=>r.mean>0.1&&r.h1>0&&r.h2>0&&r.wr>=0.5&&r.lift>0&&r.t>=1.5).sort((a,b)=>b.t-a.t);
-  const bad=evals.filter(r=>r.mean<0&&r.h1<0&&r.h2<0&&r.t<=-1.5).sort((a,b)=>a.t-b.t);
+  const good=evals.filter(r=>r.good).sort((a,b)=>b.tl-a.tl);
+  const bad=evals.filter(r=>r.bad).sort((a,b)=>a.tl-b.tl);
   const pick=(arr,max)=>{ const out=[]; for(const r of arr){ if(out.length>=max) break; if(out.some(o=>o.dir===r.dir&&o.conds.length===1&&r.conds.some(c=>c.join("=")===o.conds[0].join("="))&&Math.abs(o.mean-r.mean)<0.15)) continue; out.push(r); } return out; };
   const prevTop=lab.cands[0]&&lab.cands[0].key; lab.cands=pick(good,8); lab.avoid=pick(bad,6);
   for(const c of lab.cands.concat(lab.avoid)) c.status=labStatus(c.key);
@@ -106,6 +127,7 @@ function labAnalyze(){
   lab.styles=styles;
   const top=lab.cands[0]; if(top&&top.key!==prevTop) labNote("Burak",`Yeni en güçlü aday: ${top.dir==="long"?"LONG":"SHORT"} · ${top.name} → ${top.n} işlem, ${top.leaders} lider, kazanma %${Math.round(top.wr*100)}, ort ${fx(top.mean,2)} ATR (yarılar ${fx(top.h1,2)} / ${fx(top.h2,2)}).`);
   if(lab.avoid[0]) labNote("Burak",`Kaçınılacak: ${lab.avoid[0].dir==="long"?"LONG":"SHORT"} · ${lab.avoid[0].name} → liderler burada ort ${fx(lab.avoid[0].mean,2)} ATR kaybediyor (${lab.avoid[0].n} işlem).`);
+  if(typeof selAfterAnalyze==="function") selAfterAnalyze(C); // Selim'in hipotezleri yeni veriyle yeniden ölçülür, Kaan'ın kütüphanesi güncellenir
 }
 /* --- 4. ileri test --- */
 function labStatus(key){ const f=lab.fwd[key]; if(!f||!f.n) return "aday"; if(f.n<LAB_CFG.promoteN) return "izlemede"; return f.sum/f.n>0?"onaylı":"zayıf"; }
@@ -126,11 +148,13 @@ async function labEvalShadows(max){
 }
 /* --- canlı eşleşme: masanın kullandığı içgörü --- */
 function labMatch(A,dir,sym){
-  if(!lab.cands.length&&!lab.avoid.length) return null; const k=A&&A.src&&A.src.k1h; if(!k||k.length<60) return null;
+  if(!lab.cands.length&&!lab.avoid.length&&!(typeof sel!=="undefined"&&sel.hyps.some(h=>h.status==="aday"))) return null; const k=A&&A.src&&A.src.k1h; if(!k||k.length<60) return null;
   const b=A.src.btc15?labAgg1h(A.src.btc15):null; const t=k[k.length-1].t+36e5; // son kapanmış mumdan hemen sonra
   const f=labFeat(k,b,t,dir); if(!f) return null; const ok=c=>c.dir===dir&&c.conds.every(([ff,v])=>f[ff]===v);
   const hits=lab.cands.filter(ok).map(c=>({...c,sw:LAB_SW[c.status]??0.6})); const avoid=lab.avoid.filter(ok);
   if(sym) for(const c of hits) labShadow(c,sym,dir,A.px,f.atr);
+  // Selim'in (LLM) geçmişte tutan hipotezleri: eşleşince yalnız ileri teste yazılır; ancak Onur'un ileri testinde onaylanınca Burak'ın oyuna girer
+  if(typeof sel!=="undefined") for(const h of sel.hyps){ if(h.status!=="aday"||!ok(h)) continue; if(sym) labShadow(h,sym,dir,A.px,f.atr); if(labStatus(h.key)==="onaylı") hits.push({...h,sw:LAB_SW["onaylı"],sel:true}); }
   return {f,hits,avoid};
 }
 /* --- arka plan turu (ui.js dakikada bir çağırır) --- */
@@ -142,7 +166,9 @@ async function labTick(force){
     await labEnrich(force?12:4);
     await labEvalShadows(force?10:4);
     if(lab.dirty&&(force||Date.now()-lab.at>5*60e3)){ lab.prog="analiz"; labAnalyze(); }
-    labSave(); return true;
+    labSave();
+    if(typeof selTick==="function"){ lab.prog="Selim"; await selTick(false); } // günde bir LLM analizi (anahtar yoksa hiçbir şey yapmaz)
+    return true;
   }catch(e){ lab.err=e.message; return false; }
   finally{ lab.busy=false; lab.prog=""; if(typeof labOnProgress==="function") labOnProgress(); }
 }
