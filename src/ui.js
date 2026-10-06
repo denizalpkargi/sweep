@@ -398,7 +398,7 @@ document.querySelectorAll("#scanTable th").forEach(th=>th.addEventListener("clic
 $("scanNow").addEventListener("click",runScan); $("onlyPick").addEventListener("change",renderScanTable); $("minVol").addEventListener("change",()=>{ if(!scan.running) runScan(); });
 function scheduleScan(){ clearInterval(scan.timer); const ev=+$("scanEvery").value; if(ev>0) scan.timer=setInterval(()=>{ if(!document.hidden) runScan(); },ev); }
 $("scanEvery").addEventListener("change",scheduleScan);
-function setDrawer(open,tab){ ui.drawerOpen=open; if(tab) ui.drawerTab=tab; $("drawer").classList.toggle("closed",!open); $("drawerTgl").textContent=open?"▾":"▴"; document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.t===ui.drawerTab))); ["scan","journal","story","stats","strategy","bot","lab","account"].forEach(t=>{ const el=$("d"+t[0].toUpperCase()+t.slice(1)); el.hidden=t!==ui.drawerTab; }); LS("st-drawer",open?ui.drawerTab:""); if(open&&state.lastA) renderDrawer(state.lastA); if(open&&ui.drawerTab==="journal") renderJournal(); if(open&&ui.drawerTab==="bot") renderBot(); if(open&&ui.drawerTab==="account") renderAccount(); if(open&&ui.drawerTab==="lab") renderLab(); }
+function setDrawer(open,tab){ ui.drawerOpen=open; if(tab) ui.drawerTab=tab; $("drawer").classList.toggle("closed",!open); $("drawerTgl").textContent=open?"▾":"▴"; document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.t===ui.drawerTab))); ["scan","journal","story","stats","strategy","bot","lab","ask","account"].forEach(t=>{ const el=$("d"+t[0].toUpperCase()+t.slice(1)); el.hidden=t!==ui.drawerTab; }); LS("st-drawer",open?ui.drawerTab:""); if(open&&state.lastA) renderDrawer(state.lastA); if(open&&ui.drawerTab==="journal") renderJournal(); if(open&&ui.drawerTab==="bot") renderBot(); if(open&&ui.drawerTab==="account") renderAccount(); if(open&&ui.drawerTab==="lab") renderLab(); if(open&&ui.drawerTab==="ask") renderAsk(); }
 document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.addEventListener("click",()=>setDrawer(true,b.dataset.t)));
 $("drawerTgl").addEventListener("click",()=>setDrawer(!ui.drawerOpen));
 $("dJournal").addEventListener("click",e=>{ const b=e.target.closest("button.jr"); if(!b) return; jrSet(b.dataset.id,b.dataset.act); renderJournal(); rerender(); });
@@ -784,6 +784,69 @@ setInterval(botPoll,3000);
 setInterval(()=>{ if(bot.on){ botDecide("tick"); if(ui.drawerTab==="bot") renderBot(); } },60000);
 if(bot.on||bot.positions.length||bot.orders.length){ botWsSync(); }
 
+/* ================= masaya sor: hesap bağlamadan, elle girilen plan ya da açık işlem ================= */
+const ask={busy:false,res:null,err:"",hist:(()=>{ try{ return JSON.parse(LS("st-ask-h")||"[]"); }catch(e){ return []; } })()};
+const ASK_F=["sym","open","dir","entry","liq","sl","tp","margin","lev","size","bal"];
+const askNum=v=>{ v=String(v||"").trim().replace(/\s/g,""); if(v.includes(",")) v=v.replace(/\./g,"").replace(",","."); const n=parseFloat(v); return isFinite(n)?n:NaN; };
+function askForm(){ const g=id=>$("ask_"+id); return {sym:(g("sym").value||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"").replace(/^(?!.*USDT$)(.+)$/,"$1USDT"),open:g("open").value==="1",dir:g("dir").value,entry:askNum(g("entry").value),liq:askNum(g("liq").value),sl:askNum(g("sl").value),tp:askNum(g("tp").value),margin:g("margin").value,lev:askNum(g("lev").value),size:askNum(g("size").value),bal:askNum(g("bal").value)}; }
+function renderAsk(){
+  const el=$("dAsk"); if(!el) return;
+  if(!$("askForm")){
+    let sv={}; try{ sv=JSON.parse(LS("st-ask")||"{}"); }catch(e){}
+    const inp=(id,ph,w)=>`<label class="askf" style="display:grid;gap:2px;font-size:11px;color:var(--ink-2);min-width:${w||110}px;flex:1">${ph}<input id="ask_${id}" inputmode="decimal" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;min-width:0"></label>`;
+    const sel=(id,label,opts)=>`<label style="display:grid;gap:2px;font-size:11px;color:var(--ink-2);min-width:100px;flex:1">${label}<select id="ask_${id}" style="width:100%;box-sizing:border-box;min-width:0">${opts.map(([v,t])=>`<option value="${v}">${t}</option>`).join("")}</select></label>`;
+    el.innerHTML=`<div id="askForm" class="card" style="margin-bottom:10px"><h4 style="margin:0 0 4px">Masaya sor</h4><p class="muted" style="margin:0 0 8px;font-size:12px;line-height:1.45">Hesabı bağlamadan işlemini yaz; masa o coinin canlı verisine bakıp oylar. Açık işlemde "devam et / azalt / çık", planda "gir / bekle / girme" der. Stop ve likidasyon uzaklığını, ödül/riski ve botun kurallarıyla kıyası da gösterir. Fiyatlar virgüllü ya da noktalı yazılabilir.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">${`<label style="display:grid;gap:2px;font-size:11px;color:var(--ink-2);min-width:110px;flex:1">Coin<input id="ask_sym" list="symList" spellcheck="false" autocomplete="off" style="width:100%;box-sizing:border-box;min-width:0"></label>`}${sel("open","Durum",[["1","Açık işlem"],["0","Plan · henüz girmedim"]])}${sel("dir","Yön",[["long","Long"],["short","Short"]])}${sel("margin","Marjin",[["cross","Cross"],["isolated","İzole"]])}${inp("lev","Kaldıraç (x)",80)}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:6px">${inp("entry","Giriş")}${inp("liq","Likidasyon")}${inp("sl","Stop (SL)")}${inp("tp","Hedef (TP)")}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:6px">${inp("size","Teminat $ · isteğe bağlı")}${inp("bal","Bakiye $ · isteğe bağlı")}<button type="button" class="ghost" id="askPx" style="flex:0 0 auto">Girişe şu anki fiyat</button><button type="button" class="primary" id="askGo" style="flex:0 0 auto">Masaya sor</button></div>
+      <div id="askStatus" class="muted" style="font-size:12px;margin-top:6px"></div></div><div id="askOut"></div><div id="askHist"></div>`;
+    for(const k of ASK_F){ const e=$("ask_"+k); if(!e) continue; e.value=sv[k]!=null?sv[k]:k==="sym"?state.sym:k==="lev"?"20":k==="open"?"1":k==="dir"?"long":k==="margin"?"cross":""; }
+    $("askGo").addEventListener("click",()=>askRun());
+    $("askPx").addEventListener("click",async()=>{ const f=askForm(); if(!f.sym) return; try{ const p=f.sym===state.sym&&state.lastA?state.lastA.px:+(await j(`/fapi/v1/premiumIndex?symbol=${f.sym}`)).markPrice; if(p>0) $("ask_entry").value=String(p).replace(".",","); }catch(e){ $("askStatus").textContent="Fiyat alınamadı: "+(e.message||e); } });
+    el.querySelectorAll("#askForm input").forEach(i=>i.addEventListener("keydown",e=>{ if(e.key==="Enter") askRun(); }));
+  }
+  $("askGo").disabled=ask.busy; $("askGo").textContent=ask.busy?"Masa toplanıyor…":"Masaya sor";
+  $("askStatus").innerHTML=ask.err?`<span class="down">${esc(ask.err)}</span>`:ask.res?`Son soru ${tl(ask.res.t)} · fiyat ${fmtP(ask.res.px)}`:"";
+  $("askOut").innerHTML=ask.res?askHtml(ask.res):"";
+  $("askHist").innerHTML=ask.hist.length?`<div class="card"><h4 style="margin:0 0 4px">Son sorular</h4>${ask.hist.map((h,i)=>`<div style="display:flex;gap:6px 8px;flex-wrap:wrap;align-items:center;font-size:11.5px;margin:5px 0"><span class="muted" style="min-width:90px">${new Date(h.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><b>${esc(h.sym.replace("USDT",""))}</b> ${chip(h.dir==="long"?"up sm":"down sm",h.dir==="long"?"L":"S")} <span class="muted">${h.open?"açık":"plan"} · ${h.lev}x · giriş ${fmtP(h.entry)}</span> ${chip(h.kind+" sm",h.verdict)} <span class="muted">puan ${fx(h.score,2)}</span><button type="button" class="ghost" data-ask-h="${i}" style="padding:1px 8px;font-size:11px">Forma al</button></div>`).join("")}</div>`:"";
+  $("askHist").querySelectorAll("[data-ask-h]").forEach(b=>b.addEventListener("click",()=>{ const h=ask.hist[+b.dataset.askH]; if(!h||!h.f) return; for(const k of ASK_F){ const e=$("ask_"+k); if(e&&h.f[k]!=null) e.value=h.f[k]; } }));
+}
+async function askRun(){
+  if(ask.busy) return; const f=askForm(); const raw={}; for(const k of ASK_F){ const e=$("ask_"+k); if(e) raw[k]=e.value; } LS("st-ask",JSON.stringify(raw));
+  ask.err=""; if(!/^[A-Z0-9]{2,}USDT$/.test(f.sym)) ask.err="Coin adı geçersiz (örnek: ENAUSDT ya da ENA).";
+  else if(!(f.entry>0)) ask.err="Giriş fiyatını yaz (ya da \"Girişe şu anki fiyat\").";
+  else if(!(f.lev>=1&&f.lev<=125)) ask.err="Kaldıraç 1–125 arası olmalı.";
+  if(ask.err){ renderAsk(); return; }
+  ask.busy=true; renderAsk();
+  try{
+    let A, c24;
+    if(f.sym===state.sym&&state.lastA&&state.slow&&state.slowSym===f.sym&&ui.lastF&&ui.lastF.t24&&ui.lastF.t24.symbol===f.sym){ /* ana ekran bu coini zaten 10 sn'de bir analiz ediyor */ A=state.lastA; c24=+ui.lastF.t24.priceChangePercent; }
+    else { const [fs,sl]=await Promise.all([fetchFast(f.sym),fetchSlow(f.sym)]); A=analyze(fs,sl); c24=+fs.t24.priceChangePercent; }
+    const r=askDesk(A,f,c24,{sym:f.sym}); ask.res=r;
+    ask.hist.unshift({t:r.t,sym:f.sym,dir:r.dir,open:r.open,lev:r.lev,entry:r.entry,verdict:r.verdict,kind:r.kind,score:r.score,f:raw}); ask.hist=ask.hist.slice(0,10); LS("st-ask-h",JSON.stringify(ask.hist));
+  }catch(e){ ask.err="Masa toplanamadı: "+String(e.message||e).slice(0,140); console.warn("SWEEP · masaya sor",e); }
+  finally{ ask.busy=false; renderAsk(); }
+}
+function askHtml(r){
+  const D=r.dir==="long"?"Long":"Short"; const sgn=v=>(v>=0?"+":"")+fx(v,2);
+  const tile=(b,v,s,c)=>`<div class="pv"><b>${b}</b><span class="${c||""}">${v}</span><small>${s||""}</small></div>`;
+  const tiles=[
+    tile("Fiyat şimdi",fmtP(r.px),r.open?`PnL ${pct(r.pnlPct,2)} · ROE ${pct(r.roeNow,1)}`:`girişe ${pct((r.entry/r.px-1)*100,2)}`,r.open?(r.pnlPct>=0?"up":"down"):""),
+    tile("Stop",isFinite(r.sl)?fmtP(r.sl):"yok",isFinite(r.stopPct)?`%${fx(r.stopPct*100,2)} · ${fx(r.slAtr,2)} ATR · ROE ${fx(r.roeSl,0)}%`:"masanın önerisi "+fmtP(r.deskStop),isFinite(r.sl)?"down":"warn"),
+    tile("Hedef",isFinite(r.tp)?fmtP(r.tp):"yok",isFinite(r.rr)?`${fx(r.rr,2)}R · komisyon ${fx(r.costR,2)}R · ROE +${fx(r.roeTp,0)}%`:"masa: 1,5R "+fmtP(r.deskT1),isFinite(r.tp)?"up":""),
+    tile("Likidasyon",fmtP(r.liq),`${r.liqGiven?"":"tahmini · "}%${fx(r.liqPct*100,2)} · ${fx(r.liqAtr,1)} ATR uzakta`,r.liqAtr<1.5?"down":r.liqAtr<3?"warn":""),
+    tile("Pozisyon",`${r.lev}x ${r.iso?"izole":"cross"}`,isFinite(r.notional)?`büyüklük ${fmtB(r.notional)}${isFinite(r.lossUsd)?" · stopta −"+fmtB(r.lossUsd):""}${isFinite(r.riskPct)?" (%"+fx(r.riskPct*100,1)+")":""}`:`başabaş ${fmtP(r.be)} · ATR %${fx(r.atrPct,2)}`)];
+  const notes=[...r.red.map(t=>["down","●",t]),...r.warn.map(t=>["warn","●",t]),...r.ok.map(t=>["up","✓",t])];
+  const chips=r.agents.map(a=>`<span class="chip ${a.v>0.15?"up":a.v<-0.15?"down":"neutral"} sm" title="${esc(a.txt)}">${esc(a.name)} ${a.v>0?"+":""}${fx(a.v,1)}</span>`).join(" ");
+  const yes=r.agents.filter(a=>a.v>0.15).length, no=r.agents.filter(a=>a.v<-0.15).length;
+  const desk=r.talk?talkHtml(r.talk):`<div style="margin-top:8px">${r.lines.map(l=>`<div style="display:flex;gap:6px;font-size:12px;line-height:1.45;margin:3px 0"><b style="min-width:56px;color:${DESK_COL[l.id]||"var(--ink)"}">${esc(l.who)}</b><span>${esc(l.text)}</span></div>`).join("")}</div>`;
+  return `<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><b style="font-size:15px">${esc(r.sym.replace("USDT",""))} ${D}</b> <span class="muted">${r.open?"açık işlem":"plan"} · giriş ${fmtP(r.entry)}</span> <span class="chip ${r.kind}" id="askVerdict" style="font-size:13px;font-weight:800">${esc(r.verdict)}</span> <span class="muted" style="font-size:11.5px">puan ${sgn(r.score)} · ${yes} evet · ${no} hayır${r.oppDecision==="giriş"?" · ters yön giriş "+sgn(r.oppScore):""}</span></div>
+    <div style="font-size:12.5px;line-height:1.5;margin-bottom:8px"><b style="color:${DESK_COL.risk}">Can</b> <span class="muted">Baş trader</span> · ${esc(r.canSay)}</div>
+    <div class="plan" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:8px">${tiles.join("")}</div>
+    ${notes.length?`<div style="display:grid;gap:3px;margin-bottom:8px">${notes.map(([c,i,t])=>`<div style="display:flex;gap:6px;font-size:12px;line-height:1.4"><span class="${c}" style="flex:0 0 12px">${i}</span><span>${esc(t)}</span></div>`).join("")}</div>`:""}
+    <div style="display:flex;gap:4px;flex-wrap:wrap">${chips}</div>${desk}
+    <p class="muted" style="font-size:11px;margin:8px 0 0">Masa kuralla oy verir; kanıt kâğıt botun ileriye dönük sonuçlarında. Coin 24 sa ${pct(r.c24,1)}. ${r.open?"Açık işlemde stop ve hedef emrin varsa yazdığın değerler emir sayılır.":"Plan modunda masa şu anki fiyata bakar; limit girişin uzaksa fiyat oraya gelince yeniden sor."}</p></div>`;
+}
 /* ================= gerçek hesap: Binance USDⓈ-M, salt okunur ================= */
 function renderAccount(){
   const el=$("dAccount"); if(!el) return;
