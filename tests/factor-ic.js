@@ -151,6 +151,6 @@ function selftest(){
   if(FAILED.length) console.log(`UYARI: ${FAILED.length} dosya indirilemedi ve eksik sayıldı; tamamlamak için yeniden çalıştır.`);
   const res=evaluate(D,[1,3,7]); const txt=report(res);
   console.log('\nKesitsel Spearman IC (faktör t kapanışı → t..t+h getiri). t: örtüşmeyen günlerle. zayıf: |t|≥2, |IC|≥0,02, iki yarıda aynı işaret ve |t|≥1; GEÇTİ: ayrıca |t|≥3 (63 test yapıldığı için 2 tek başına yetmez, saf gürültüde ~3 faktör |t|≥2 çıkar).\n'); console.log(txt);
-  const out=path.join(__dirname,'data','factor-ic-result.json'); fs.writeFileSync(out,JSON.stringify({at:new Date().toISOString(),coins:COINS,from:dstr(0),to:dstr(ND-1),res},null,1));
-  fs.writeFileSync(path.join(__dirname,'data','factor-ic-result.txt'),txt); console.log('\nkaydedildi:',out);
+  const out=path.join(CACHE,'factor-ic-result.json'); fs.writeFileSync(out,JSON.stringify({at:new Date().toISOString(),coins:COINS,from:dstr(0),to:dstr(ND-1),res},null,1));
+  fs.writeFileSync(path.join(CACHE,'factor-ic-result.txt'),txt); console.log('\nkaydedildi:',out);
 })().catch(e=>{ console.error(e); process.exit(1); });
