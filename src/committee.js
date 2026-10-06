@@ -53,9 +53,9 @@ function comTalkLines(T, D){
 }
 
 // kâğıt bot varsayılanları (ui.js ve ekransız çalıştırıcı headless/ ortak kullanır)
-const BOT_CFG_DEF={mode:"komite",risk:0.01,lev:20,maxLev:20,maxPos:3,maxOpens:12,maxLosses:6,threshold:0.35,minYes:3,holdH:8,cooldownMin:90,strict:false,useBR:true,useRS:true,feeMaker:0.0002,feeTaker:0.0005,slip:0.0003};
+const BOT_CFG_DEF={mode:"komite",risk:0.03,lev:20,maxLev:20,maxPos:3,maxOpens:12,maxLosses:6,threshold:0.35,minYes:3,holdH:8,cooldownMin:90,strict:false,useBR:true,useRS:true,feeMaker:0.0002,feeTaker:0.0005,slip:0.0003};
 // eski kayıtlı ayarlar: masa ayarı sürümü değişince eşik ve asgari oy yeni (geriye dönük testten seçilen) varsayılana taşınır
-function comMigrate(cfg){ if(!cfg||(cfg.comV||0)>=COM_DEF.v) return cfg; cfg.threshold=BOT_CFG_DEF.threshold; cfg.minYes=BOT_CFG_DEF.minYes; if(cfg.risk===0.03) cfg.risk=BOT_CFG_DEF.risk; /* eski varsayılan %3 elle değiştirilmediyse %1 */ cfg.comV=COM_DEF.v; return cfg; }
+function comMigrate(cfg){ if(!cfg||(cfg.comV||0)>=COM_DEF.v) return cfg; cfg.threshold=BOT_CFG_DEF.threshold; cfg.minYes=BOT_CFG_DEF.minYes; cfg.comV=COM_DEF.v; return cfg; } // risk dokunulmaz (kullanıcı 6 Ekim 2026'da %3'te kalmayı seçti)
 function committee(A, dir, c24, opts){
   opts=Object.assign({},COM_DEF,opts||{}); const isL=dir==="long"; const sg=isL?1:-1; c24=isFinite(c24)?c24:0; const D=isL?"long":"short";
   const ag={}; const talk=[]; const say=(id,stage,text)=>{ const d=DESK.find(x=>x.id===id); talk.push({who:d.name,role:d.role,id,stage,text}); };
