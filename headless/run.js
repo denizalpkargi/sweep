@@ -87,13 +87,13 @@ async function main(o,inj){
         if(n) log('sys',p.sym,`Kapalıyken geçen ${n} dakika 1 dk mumlarla oynatıldı.`,{id:p.id,minutes:n}); }
       catch(e){ log('skip',p.sym,`Boşluk doldurulamadı: ${e.message}`,{id:p.id}); } }
   }
-  function status(){ const s={t:Date.now(),pid:process.pid,startT:bot.startT,bal:bot.bal,equity:B.equity(),roi:(B.equity()/bot.start-1)*100,positions:bot.positions.map(p=>({sym:p.sym,dir:p.dir,entry:p.entry,stop:p.stop,t1:p.t1,t2:p.t2,stage:p.stage,px:rt.px[p.sym]||null,openT:p.openT})),trades:bot.trades.length,day:bot.day,lastScan,priceSrc:rt.src,lastTick:bot.lastTick,weight:E.rest.used,leaders:{at:E.ld.at,n:E.ld.list.length,err:E.ld.err},audit:(()=>{ const A=E.getAud(); return A&&A.summary?{n:A.summary.n,wr:A.summary.wr,avgR:A.summary.avg,lessons:A.lessons.map(l=>({k:l.k,n:l.n,avg:l.avg,lever:l.lever})),mult:A.mult}:null; })()};
+  function status(){ const s={t:Date.now(),pid:process.pid,startT:bot.startT,bal:bot.bal,equity:B.equity(),roi:(B.equity()/bot.start-1)*100,positions:bot.positions.map(p=>({sym:p.sym,dir:p.dir,entry:p.entry,stop:p.stop,t1:p.t1,t2:p.t2,stage:p.stage,px:rt.px[p.sym]||null,openT:p.openT})),trades:bot.trades.length,day:bot.day,lastScan,priceSrc:rt.src,lastTick:bot.lastTick,weight:E.rest.used,goal:(()=>{ const g=B.goal(); return {goal:g.goal,eq:g.eq,peak:g.peak,dd:g.dd,prog:g.prog,mode:g.mode,why:g.why,hit:bot.goalHit||null}; })(),leaders:{at:E.ld.at,n:E.ld.list.length,err:E.ld.err},audit:(()=>{ const A=E.getAud(); return A&&A.summary?{n:A.summary.n,wr:A.summary.wr,avgR:A.summary.avg,lessons:A.lessons.map(l=>({k:l.k,n:l.n,avg:l.avg,lever:l.lever})),mult:A.mult,decs:A.decs,off:A.off}:null; })()};
     try{ atomicWrite(path.join(dir,'status.json'),JSON.stringify(s,null,1)); }catch(e){} return s; }
 
   function shutdown(sig){ if(stopping) return; stopping=true; for(const t of timers) clearInterval(t); if(ws){ try{ ws.onclose=null; ws.close(); }catch(e){} }
     log('sys','',`Durduruldu (${sig}). Açık pozisyonlar bot.json'da; yeniden başlatınca aradaki süre oynatılır.`); B.save(true); store.flush(); status(); }
 
-  const c=bot.cfg; log('sys','',`Ekransız bot başladı · KOMİTE · sanal ${bot.bal.toFixed(2)} $ · risk %${c.risk*100} · ${c.lev}x · aynı anda ${c.maxPos} pozisyon · eşik ${c.threshold}, ${c.minYes}/${E.DESK.length} oy · zaman stopu ${c.holdH} sa · tarama ${Math.round(o.every/60000)} dk · ${bot.positions.length} açık pozisyon`,{cfg:c,opts:o});
+  const c=bot.cfg; log('sys','',`Ekransız bot başladı · KOMİTE · sanal ${bot.bal.toFixed(2)} $ · risk %${c.risk*100} · ${c.lev}x · aynı anda ${c.maxPos} pozisyon · eşik ${c.threshold}, ${c.minYes}/${E.DESK.length} oy · zaman stopu ${c.holdH} sa · hedef ${c.goal} $ · aynı yönde en fazla ${c.maxSameDir} · yer açma ${c.freeMargin?"açık":"kapalı"} · tarama ${Math.round(o.every/60000)} dk · ${bot.positions.length} açık pozisyon`,{cfg:c,opts:o});
   await gapFill(); wsSync();
   await E.ldRefresh(false).catch(()=>{});
   await runScan();

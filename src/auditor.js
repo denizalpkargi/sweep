@@ -17,6 +17,8 @@ const AUD_TAGS={
   lone:{t:"Dar çoğunluk",pre:"lever",why:"Evet oyu asgari sayıdaydı; masanın yarısı ikna değildi."},
   cluster:{t:"Aynı yönde yığılma",pre:"lever",why:"Aynı anda aynı yönde iki ya da daha fazla pozisyon vardı; tek bir BTC hareketi hepsini birden stop eder."},
   afterloss:{t:"Kayıp ardından giriş",pre:"lever",why:"Son 60 dakikada bir stop yenmişti; piyasa aynı yönü cezalandırırken yeniden girildi."},
+  warned:{t:"Uyarıyla giriş",pre:"lever",why:"Giriş aşamalarından biri (rejim, kalite, bütçe) uyarı vermişti; boy küçültülerek girildi."},
+  freed:{t:"Yer açılarak giriş",pre:"lever",why:"Teminat yetmediği için açık bir pozisyondan kâr alınıp bu işleme yer açıldı."},
   noise:{t:"Gürültü stopu",post:true,why:"Fiyat lehimize hiç gitmeden (≤0,3R) 45 dakika içinde stop oldu: stop normal dalgalanmanın içindeydi ya da giriş zamanlaması kötüydü."},
   giveback:{t:"Kârı geri verdi",post:true,why:"En az 1R kârı gördü ama başabaş ya da zararla kapandı."},
   deskcut:{t:"Masa zararla kesti",post:true,why:"Stop gelmeden masa kararıyla zararla kapatıldı."},
@@ -51,12 +53,14 @@ function audTagsOf(t, trades, opts){
   if(t.r<0&&last==="time") tags.push("timeout");
   if(t.risk>0&&isFinite(t.fees)&&t.fees/t.risk>=0.2) tags.push("cost");
   if(t.offline) tags.push("offline");
+  if(s&&s.warn>0) tags.push("warned");
+  if(t.freed) tags.push("freed");
   return tags;
 }
 function audCorr(xs,ys){ const n=xs.length; if(n<3) return 0; const mx=xs.reduce((a,b)=>a+b,0)/n, my=ys.reduce((a,b)=>a+b,0)/n; let sxy=0,sxx=0,syy=0; for(let i=0;i<n;i++){ const dx=xs[i]-mx, dy=ys[i]-my; sxy+=dx*dy; sxx+=dx*dx; syy+=dy*dy; } return sxx>0&&syy>0?sxy/Math.sqrt(sxx*syy):0; }
 function auditRun(trades, log, opts){
   trades=audBackfill((trades||[]).filter(t=>t&&isFinite(t.r)&&t.openT&&t.closeT),log);
-  const out={n:trades.length,at:Date.now(),tags:{},lessons:[],mult:{},thrBump:0,minYesBump:0,maxSameDir:null,pauseMin:0,sdMin:0.015,lockEarly:false,veto:{},vote:{},findings:[],summary:null,clean:null};
+  const out={n:trades.length,at:Date.now(),tags:{},lessons:[],off:{},warnBlock:false,decs:{},mult:{},thrBump:0,minYesBump:0,maxSameDir:null,pauseMin:0,sdMin:0.015,lockEarly:false,veto:{},vote:{},findings:[],summary:null,clean:null};
   if(!trades.length) return out;
   const R=trades.map(t=>t.r), win=trades.filter(t=>t.r>0).length, sum=R.reduce((a,b)=>a+b,0);
   const losses=trades.filter(t=>t.r<0); const fees=trades.reduce((a,t)=>a+(t.risk>0&&isFinite(t.fees)?t.fees/t.risk:0),0);
@@ -73,6 +77,11 @@ function auditRun(trades, log, opts){
   if(bad("afterloss")){ out.pauseMin=60; lesson("afterloss","kayıptan sonra 60 dk yeni giriş yok"); }
   if(losses.length>=AUD_MIN&&T.noise.n>=3&&T.noise.lossShare>=0.4){ out.sdMin=0.02; lesson("noise",`stop tabanı %1,5 → %2 (kayıpların %${Math.round(T.noise.lossShare*100)}'i gürültü stopu)`); }
   const saw1=trades.filter(t=>isFinite(t.mfe)&&t.mfe>=1).length; if(T.giveback.n>=3&&saw1&&T.giveback.n/saw1>=0.25){ out.lockEarly=true; lesson("giveback","1R görüp 0,5R geri gelince momentuma bakmadan yarısı alınır"); }
+  if(bad("warned")){ out.warnBlock=true; lesson("warned","aşamalarda uyarı veren kurulumla girilmez"); }
+  if(bad("freed")){ out.off.free=true; out.off.prune=true; lesson("freed","yer açmak için kâr alma kapatıldı"); }
+  /* masanın pozisyon kararları (goal.js): her karar, sonrasında kalan pozisyonun nasıl kapandığıyla puanlanır */
+  const D=audDecisions(trades); out.decs=D;
+  for(const k in D){ if(D[k].n>=AUD_MIN&&D[k].shr<=-0.25){ out.off[k]=true; out.lessons.push({k:"dec:"+k,t:DEC_KIND[k]||k,why:DEC_CLOSE[k]?"Kapatılan kısım, kalan pozisyondan kötü sonuç verdi.":"Değişiklikten sonra kalan pozisyon kaybettirdi.",n:D[k].n,avg:D[k].avg,avgNot:0,lever:`"${(DEC_KIND[k]||k).toLowerCase()}" kolu kapatıldı`}); } }
   /* ajan ağırlıkları: oy (işlem yönünde) ile sonuç R'si arasındaki ilişki */
   const withSnap=trades.filter(t=>t.snap&&t.snap.v);
   for(const d of DESK){ const xs=[],ys=[]; for(const t of withSnap){ const v=t.snap.v[d.id]; if(isFinite(v)){ xs.push(v); ys.push(clamp(t.r,-1.5,3)); } }
@@ -80,6 +89,17 @@ function auditRun(trades, log, opts){
   const cl=tagged.filter(x=>x.t.snap&&!x.tags.some(k=>out.vote[k]!=null)); if(cl.length>=AUD_MIN){ const s=cl.reduce((a,x)=>a+x.t.r,0); out.clean={n:cl.length,avg:s/cl.length,shr:s/(cl.length+4)}; }
   out.findings=tagged.filter(x=>x.t.r<0).slice(-12).reverse().map(x=>({sym:x.t.sym,dir:x.t.dir,r:x.t.r,openT:x.t.openT,closeT:x.t.closeT,tags:x.tags,exits:x.t.exits||[],mfe:x.t.mfe}));
   return out;
+}
+/* karar puanı: karar anındaki fiyattan sonra kalan pozisyonun kapanışları (R, ilk riskle).
+   Kapatma kararı (yer aç, sönmüş): kalan sonradan karar fiyatından kötü kapandıysa artı (erken almak iyiydi).
+   Hedef/stop değişikliği: değişiklikten sonra kalan pozisyon karar fiyatına göre kazandıysa artı (kaba ölçü). Kalan yoksa puanlanmaz. */
+function audDecisions(trades){
+  const D={}; for(const t of trades){ if(!t.decs||!t.xs||!(t.r0>0)) continue; const sg=t.dir==="long"?1:-1;
+    for(const d of t.decs){ const later=t.xs.filter(x=>x.t>=d.t&&x.k!==d.k&&x.q>0); const Q=later.reduce((a,x)=>a+x.q,0); if(!(Q>0)) continue;
+      const after=later.reduce((a,x)=>a+x.q*sg*(x.px-d.px),0)/Q/t.r0; const g=DEC_CLOSE[d.k]?-after:after;
+      const o=D[d.k]=D[d.k]||{n:0,sum:0,good:0}; o.n++; o.sum+=clamp(g,-3,3); if(g>0) o.good++; } }
+  for(const k in D){ const o=D[k]; o.avg=o.sum/o.n; o.shr=o.sum/(o.n+4); }
+  return D;
 }
 /* komite içinden: Murat'ın oyu, kurulumu kayıtlı hatalarla karşılaştırarak */
 function audVoteFor(ag){

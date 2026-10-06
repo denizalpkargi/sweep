@@ -220,7 +220,8 @@ function paperStep(p, px, now, cfg){
   const isL=p.dir==="long"; const out=[]; p.hi=Math.max(p.hi,px); p.lo=Math.min(p.lo,px);
   const risk=p.risk0||Math.abs(p.entry-(p.stop0||p.stop));
   if(isL? px<=p.stop : px>=p.stop){ out.push({part:1,price:isL?p.stop*(1-cfg.slip):p.stop*(1+cfg.slip),k:"stop",t:p.stage==="open"?"Stop":"Kalan stop",taker:true,final:true}); return out; }
-  if(p.stage==="open" && (isL? px>=p.t1 : px<=p.t1)){ out.push({part:0.5,price:p.t1,k:"tp1",t:"Hedef 1",taker:false}); p.stage="tp1"; p.stop=p.entry; out.push({k:"move",t:`Stop girişe çekildi (${fmtP(p.entry)}).`}); return out; }
+  if(p.stage==="open" && (isL? px>=p.t1 : px<=p.t1)){ if(p.t1Part>=1){ out.push({part:1,price:p.t1,k:"tp1",t:"Hedef 1 (tamamı: 200 $ hedefi)",taker:false,final:true}); return out; }
+    out.push({part:p.t1Part||0.5,price:p.t1,k:"tp1",t:"Hedef 1",taker:false}); p.stage="tp1"; if(isL? p.entry>p.stop : p.entry<p.stop) p.stop=p.entry; out.push({k:"move",t:`Stop girişe çekildi (${fmtP(p.entry)}).`}); return out; }
   if(p.stage==="tp1"){ if(p.t2 && (isL? px>=p.t2 : px<=p.t2)){ out.push({part:0.6,price:p.t2,k:"tp2",t:"Hedef 2",taker:false}); p.stage="tp2"; }
     const trail = isL ? p.hi-1*risk : p.lo+1*risk; if(isL? trail>p.stop : trail<p.stop){ p.stop=trail; } }
   if(p.stage==="tp2"){ const trail = isL ? p.hi-0.7*risk : p.lo+0.7*risk; if(isL? trail>p.stop : trail<p.stop) p.stop=trail; }
