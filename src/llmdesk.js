@@ -40,8 +40,10 @@ ${who}
 Sana JSON olarak piyasa verisi ve her üyenin kural tabanlı ölçümü (oy −1…+1, güven 0…1, not) verilir. "cekimser": true olan üyenin verisi yoktur; konuşturma.
 Görev: her üye veriyi kendi gözüyle yorumlar (en çok 20 kelime), en güçlü iki itiraz söylenir, sonra Can masanın ortak kararını verir.
 Kurallar: yalnız verilen sayılara dayan, sayı uydurma; kural oyundan farklı düşünebilirsin ama gerekçesini söyle; oy masanın gerçekten ne düşündüğü olsun, kural oyunun kopyası değil.
-Türkçe yaz. Yalnız JSON döndür, başka metin yok. Şema:
-{"uyeler":[{"id":"trend","oy":0.3,"guven":0.6,"soz":"..."}],"tartisma":[{"id":"macro","kime":"mom","soz":"..."}],"karar":{"oy":0.1,"guven":0.5,"eylem":"...","gerekce":"..."}}
+"soz" üyenin "not" alanını tekrar etmez: ölçümün bu işlem için ne anlama geldiğini ve görüşünü neyin değiştireceğini kendi cümlesiyle söyler.
+Can'ın "karar" oyu ve güveni sabit bir değer değildir: üyelerin oylarını, güvenlerini ve itirazların gücünü tartarak bu toplantıya özgü belirlenir.
+Türkçe yaz. Yalnız JSON döndür, başka metin yok. Şema (<...> yerine kendi değerini yaz):
+{"uyeler":[{"id":"<üye id>","oy":<-1…1>,"guven":<0…1>,"soz":"<yorum>"}],"tartisma":[{"id":"<itiraz eden>","kime":"<itiraz edilen>","soz":"<itiraz>"}],"karar":{"oy":<-1…1>,"guven":<0…1>,"eylem":"<eylem>","gerekce":"<gerekçe>"}}
 "oy": ${kind==="pozisyon"?"pozisyonu tutmaya destek (+1 kesin tut, −1 hemen çık)":"bu yönde işleme destek (+1 kesin gir, −1 kesin karşı)"}. "eylem": ${(kind==="pozisyon"?LLM_ACT.pozisyon:LLM_ACT.giris).map(x=>'"'+x+'"').join(" | ")}.`;
 }
 // toplantının verisi: kısa anahtarlar, yuvarlanmış sayılar (istem ~1000–1300 token)
