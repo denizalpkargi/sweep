@@ -35,9 +35,10 @@ async function getCsv(rel){
       if(r.status===404){ fs.mkdirSync(path.dirname(f),{recursive:true}); fs.writeFileSync(f,''); return ''; }
       if(!r.ok) throw new Error('HTTP '+r.status);
       const txt=unzip(Buffer.from(await r.arrayBuffer())); fs.mkdirSync(path.dirname(f),{recursive:true}); fs.writeFileSync(f,txt); return txt;
-    }catch(e){ if(a===4) throw new Error(rel+': '+e.message); await sleep(1000*2**a); }
+    }catch(e){ if(a===4){ FAILED.push(rel); console.log('  atlandı (önbelleğe yazılmadı, sonraki çalıştırmada yeniden denenir):',rel,e.message); return ''; } await sleep(1000*2**a); }
   }
 }
+const FAILED=[];
 async function pool(jobs,n,label){
   let i=0, done=0; const t=Date.now();
   await Promise.all(Array.from({length:n},async()=>{ while(i<jobs.length){ const k=i++; await jobs[k](); done++;
@@ -147,6 +148,7 @@ function selftest(){
   console.log(`dönem ${dstr(0)} → ${dstr(ND-1)} (${ND} gün), ${COINS.length} coin, metrics ${METRICS?'açık':'kapalı'}`);
   const D=await load();
   for(const s of COINS){ const c=D[s].close, o=D[s].oi; const n=c.filter(v=>!isNaN(v)).length, m=o.filter(v=>!isNaN(v)).length; const f=c.findIndex(v=>!isNaN(v)); console.log(`  ${s.padEnd(10)} fiyat ${n} gün (ilk ${f<0?'—':dstr(f)}), metrics ${m} gün`); }
+  if(FAILED.length) console.log(`UYARI: ${FAILED.length} dosya indirilemedi ve eksik sayıldı; tamamlamak için yeniden çalıştır.`);
   const res=evaluate(D,[1,3,7]); const txt=report(res);
   console.log('\nKesitsel Spearman IC (faktör t kapanışı → t..t+h getiri). t: örtüşmeyen günlerle. zayıf: |t|≥2, |IC|≥0,02, iki yarıda aynı işaret ve |t|≥1; GEÇTİ: ayrıca |t|≥3 (63 test yapıldığı için 2 tek başına yetmez, saf gürültüde ~3 faktör |t|≥2 çıkar).\n'); console.log(txt);
   const out=path.join(__dirname,'data','factor-ic-result.json'); fs.writeFileSync(out,JSON.stringify({at:new Date().toISOString(),coins:COINS,from:dstr(0),to:dstr(ND-1),res},null,1));
