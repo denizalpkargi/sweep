@@ -7,6 +7,10 @@ const fmtP = p => { p=+p; if(!isFinite(p)) return "—"; if(p>=1000) return p.to
 const fmtUsd = v => { v=+v; if(v>=1e9) return (v/1e9).toFixed(2).replace(".",",")+" mlr $"; if(v>=1e6) return (v/1e6).toFixed(2).replace(".",",")+" M$"; if(v>=1e3) return Math.round(v/1e3)+" bin $"; return Math.round(v)+" $"; };
 const pct = (v,d=1) => isFinite(v)?(v>0?"+":"")+(+v).toFixed(d).replace(".",",")+"%":"—";
 const fx = (v,d=2) => isFinite(v)?(+v).toFixed(d).replace(".",","):"—";
+// masa puanı 100 üzerinden gösterilir (iç hesap −1…+1 sürekli; 1000'e çıkarmak için yalnız SCORE_MAX değişir). Ayarlar içte kesir olarak saklanır.
+const SCORE_MAX = 100;
+const pts = v => isFinite(v)?String(Math.round(v*SCORE_MAX)).replace("-","−"):"—";
+const ptsT = v => pts(v)+"/"+SCORE_MAX;
 const sma = (a,n) => a.length<n?NaN:a.slice(-n).reduce((x,y)=>x+y,0)/n;
 const last = a => a[a.length-1];
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
