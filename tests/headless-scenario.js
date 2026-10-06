@@ -13,7 +13,7 @@ const readJsonl=f=>fs.existsSync(f)?fs.readFileSync(f,'utf8').trim().split('\n')
     ok(b0.positions.length===1&&b0.positions[0].sym==='ENAUSDT','aşamalı girişte tek long beklenirdi: '+b0.positions.map(p=>p.sym).join(','));
     ok(ev0.some(e=>e.type==='stages'&&e.sym==='NEARUSDT'&&!e.ok&&e.stages.some(s=>s.k==='korelasyon'&&s.st==='fail')),'NEAR korelasyon aşamasında kalmadı');
     const p0=b0.positions[0]; ok(p0&&Array.isArray(p0.stages)&&p0.stages.length===5&&p0.quality,'pozisyonda giriş aşamaları yok');
-    if(p0){ b0.bal=197; r0.B.onPrice('ENAUSDT',p0.entry*1.02,Date.now()); ok(!b0.positions.length&&b0.goalHit,'200 $ kilidi çalışmadı');
+    if(p0){ b0.bal=199.5; /* pozisyon küçük; +%2 hareket özkaynağı 200 $'ın üstüne taşımalı */ r0.B.onPrice('ENAUSDT',p0.entry*1.02,Date.now()); ok(!b0.positions.length&&b0.goalHit,'200 $ kilidi çalışmadı');
       const tr0=b0.trades[b0.trades.length-1]; ok(tr0&&tr0.decs&&tr0.decs.some(d=>d.k==='goal'),'200 $ kilidi karar kaydı yok');
       ok(readJsonl(path.join(d0,'logs',`events-${day}.jsonl`)).some(e=>e.type==='goal'),'hedef olayı günlükte yok'); }
     fs.rmSync(d0,{recursive:true,force:true}); }
