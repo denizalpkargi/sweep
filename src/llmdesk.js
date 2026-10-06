@@ -26,7 +26,7 @@ function lmdCfg(){ if(!lmd.cfg){ let sv=null; try{ sv=JSON.parse(localStorage.ge
 function lmdSetCfg(o){ lmd.cfg={...lmdCfg(),...(o||{})}; try{ localStorage.setItem(LMD_KEY,JSON.stringify(lmd.cfg)); }catch(e){} return lmd.cfg; }
 // istemci (src/llm.js, Selim ile ortak): hata fırlatır; burada {ok,...} biçimine çevrilir
 async function lmdCall(system, user, schema, maxTokens){ const t0=Date.now();
-  try{ const r=await llmChat({system,user,schema,name:"masa",maxTokens}); return {ok:true,ms:Date.now()-t0,text:r.text,json:r.out,tokIn:r.usage.in,tokOut:r.usage.out,model:r.model}; }
+  try{ const r=await llmChat({system,user,schema,name:"masa",maxTokens,think:false}); return {ok:true,ms:Date.now()-t0,text:r.text,json:r.out,tokIn:r.usage.in,tokOut:r.usage.out,model:r.model}; }
   catch(e){ return {ok:false,ms:Date.now()-t0,err:String(e&&e.message||e)}; } }
 async function lmdPing(){ const r=await lmdCall("Kısa cevap ver.","Tek kelimeyle cevap ver: hazır mısın?",null,16); lmd.err=r.ok?null:r.err; return r; }
 // bütçe: kapalı, ulaşılamıyor (3 hatadan sonra 10 dk ara), saatlik sınır
