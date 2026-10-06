@@ -31,7 +31,7 @@ globalThis.fetch=(u,opt)=>{ if(u.includes('/copy-trade/')){ const b=opt&&opt.bod
     return resp({code:'000000',data:{list:[]}}); }
   const sym=(u.match(/symbol=(\w+)/)||[])[1]; const k=data.klines[sym]; if(!k) return Promise.resolve({ok:false,status:400,headers:{get:()=>null},text:()=>Promise.resolve('bad symbol')});
   const st=+(u.match(/startTime=(\d+)/)||[])[1]; const lim=+(u.match(/limit=(\d+)/)||[])[1]||500; const rows=st?k.filter(x=>x[0]>=st).slice(0,lim):k.slice(-lim); return resp(rows); };
-const E=loadEngine(); const fails=[]; const ok=(c,msg)=>{ if(!c) fails.push(msg); console.log((c?'✓ ':'✗ ')+msg); };
+const E=loadEngine(); E.ldRate.gap=0; const fails=[]; const ok=(c,msg)=>{ if(!c) fails.push(msg); console.log((c?'✓ ':'✗ ')+msg); };
 (async()=>{
   E.ld.list=data.leaders.map(x=>({id:String(x.leadPortfolioId),nick:x.nickname,roi:+x.roi,aum:+x.aum,copiers:+x.currentCopyCount,mdd:+x.mdd}));
   const t0=Date.now(); await E.labHarvest(99); console.log(`toplama: ${E.lab.trades.length} işlem, ${((Date.now()-t0)/1000).toFixed(1)} sn`);
@@ -43,10 +43,11 @@ const E=loadEngine(); const fails=[]; const ok=(c,msg)=>{ if(!c) fails.push(msg)
   console.log('KAÇIN'); E.lab.avoid.forEach(c=>console.log('  '+fmt(c)));
   console.log('STİLLER'); Object.values(E.lab.styles).slice(0,REAL?30:4).forEach(s=>console.log(`  ${s.nick.padEnd(22)} n=${s.n} kazanma=%${Math.round(s.wr*100)} ort=${s.mean.toFixed(2)} tutuş=${s.hold.toFixed(1)}sa ${s.tags.join(' · ')}`));
   if(REAL){
-    // Selim (LLM): --llm ve ANTHROPIC_API_KEY verilirse gerçek Claude API'ye bir koşu (≈ 0,2–0,4 $). Anahtar dosyaya yazılmaz.
+    // Selim (LLM): --llm → yerel Ollama'ya bir koşu (ücretsiz); ANTHROPIC_API_KEY verilirse Claude API (≈ 0,2–0,4 $). Anahtar dosyaya yazılmaz.
     fs.writeFileSync(__dirname+'/data/lab-payload.txt',E.selPayload());
-    if(process.argv.includes('--llm')){ if(!process.env.ANTHROPIC_API_KEY) console.log('\nSelim: ANTHROPIC_API_KEY ortam değişkeni yok, atlandı.');
-      else { E.selSetKey(process.env.ANTHROPIC_API_KEY,false); globalThis.fetch=realFetch0; console.log('\nSelim çalışıyor (Claude API)…'); const run=await E.selTick(true); console.log(run?`Selim: ${run.hyps} hipotez, ${run.kept} tuttu, ${run.usage.in}+${run.usage.out} belirteç ≈ ${run.usage.cost.toFixed(2)} $`:'Selim hata: '+E.sel.err); } }
+    if(process.argv.includes('--llm')){ globalThis.fetch=realFetch0; const key=process.env.ANTHROPIC_API_KEY;
+      if(key){ E.llmSetCfg({provider:'claude'}); E.llmSetKey(key,false); } else E.llmSetCfg({provider:'ollama'});
+      console.log('\nSelim çalışıyor ('+(key?'Claude API':'yerel Ollama '+E.llm.cfg.model)+')…'); const run=await E.selTick(true); console.log(run?`Selim: ${run.hyps} hipotez, ${run.kept} tuttu, ${run.usage.in}+${run.usage.out} belirteç${run.usage.cost?' ≈ '+run.usage.cost.toFixed(2)+' $':''}`:'Selim hata: '+E.sel.err); }
     fs.writeFileSync(__dirname+'/data/lab-report.md',E.labReport()); fs.writeFileSync(__dirname+'/data/lab-rules.json',JSON.stringify(E.labRulesExport(),null,1));
     console.log('\nNOTLAR'); E.lab.notes.forEach(n=>console.log('  '+n.who+': '+n.text)); console.log('\nyazıldı: tests/data/lab-report.md, lab-rules.json (node tests/research-factors.js 4 --lab tests/data/lab-rules.json), lab-payload.txt (Selim\'in okuduğu veri)'); return; }
   ok(E.lab.trades.length>=1000,'position-history sayfaları toplanıp tekilleştirildi');
@@ -55,6 +56,11 @@ const E=loadEngine(); const fails=[]; const ok=(c,msg)=>{ if(!c) fails.push(msg)
   ok(E.lab.avoid.some(c=>c.conds.some(x=>x.join('=')==='yer=kova')),'kovalama kaçınılacak kalıp olarak bulundu');
   ok(!E.lab.cands.some(c=>c.conds.some(x=>x[0]==='ses')&&c.conds.length===1),'gürültü faktörü (seans) tek başına aday olmadı');
   // ikinci toplama aynı işlemleri çoğaltmamalı
+  { // hız koruması: 418 gelince lider istekleri durur, süre hatırlanır, bekleme bitmeden fetch çağrılmaz
+    const f0=globalThis.fetch; let hits=0; globalThis.fetch=()=>{ hits++; return Promise.resolve({ok:false,status:418,headers:{get:k=>k==='retry-after'?'3600':null},json:()=>Promise.resolve({})}); };
+    let e1=null; try{ await E.ldPost('lead-portfolio/detail',{}); }catch(e){ e1=e.message; } let e2=null; try{ await E.ldPost('lead-portfolio/detail',{}); }catch(e){ e2=e.message; }
+    const r=await E.ldRefresh(true); ok(/418/.test(e1||'')&&/bekleniyor/.test(e2||'')&&hits===1&&r===false&&E.ldRate.cool>Date.now()+3500e3,'418 sonrası lider istekleri 1 saat durdu (ikinci istek ve ldRefresh Binance\'e gitmedi)');
+    E.ldRate.cool=0; globalThis.fetch=f0; }
   const n0=E.lab.trades.length; for(const id in E.lab.harvestAt) E.lab.harvestAt[id]=1; await E.labHarvest(99); ok(E.lab.trades.length===n0,'tekrar toplama çift kayıt üretmedi');
   // canlı eşleşme: adayın koşullarını sağlayan bir an bul, masaya giden labMatch onu görmeli ve gölge sinyal yazmalı
   const c0=E.lab.cands[0]; let hit=null; const KK={}; for(const s in data.klines) KK[s]=E.K(data.klines[s]);

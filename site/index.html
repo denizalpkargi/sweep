@@ -2099,10 +2099,21 @@ const LD_CFG={pages:5,max:40};
 const ld={at:0,list:[],leaders:{},profile:null,sym:{},err:null,busy:false,prog:""};
 try{ const sv=JSON.parse(localStorage.getItem("st-leaders")||"null"); if(sv&&sv.at){ ld.at=sv.at; ld.list=sv.list||[]; ld.leaders=sv.leaders||{}; ld.profile=sv.profile||null; ld.sym=sv.sym||{}; } }catch(e){}
 function ldSave(){ try{ localStorage.setItem("st-leaders",JSON.stringify({at:ld.at,list:ld.list,leaders:ld.leaders,profile:ld.profile,sym:ld.sym})); }catch(e){} }
+// Hız koruması (6 Ekim 2026 gecesi, Binance IP'yi 418 ile yasakladı): istekler sıraya girer ve en az ldRate.gap ms aralıkla gider;
+// 429/418 gelirse (ya da vadeli REST'in rest.cool yasağı sürüyorsa) bekleme süresi bitene kadar istek atılmaz, süre yeniden başlatmada hatırlanır.
+const ldRate={gap:1200,cool:0,last:0,q:Promise.resolve()};
+try{ const c=+(localStorage.getItem("st-ld-cool")||0); if(c>Date.now()) ldRate.cool=c; }catch(e){}
+function ldCoolUntil(){ return Math.max(ldRate.cool,typeof rest!=="undefined"&&rest.cool||0); }
 async function ldPost(path,body){
-  let r; try{ r=await fetch(LD_BASE+path,{method:"POST",headers:{"Content-Type":"application/json","clienttype":"web","lang":"en"},body:JSON.stringify(body)}); }
-  catch(e){ throw new Error("lider verisi tarayıcıdan çekilemiyor (CORS); masaüstü uygulamasında çalışır"); }
-  if(!r.ok) throw new Error(path+" → HTTP "+r.status); const jj=await r.json(); if(jj.code!=="000000") throw new Error(path+" → "+(jj.message||jj.code)); return jj.data||{};
+  const go=async()=>{
+    const cu=ldCoolUntil(); if(Date.now()<cu) throw new Error(`Binance hız sınırı: ${Math.ceil((cu-Date.now())/6e4)} dk bekleniyor`);
+    const wait=ldRate.last+ldRate.gap-Date.now(); if(wait>0) await new Promise(r=>setTimeout(r,wait)); ldRate.last=Date.now();
+    let r; try{ r=await fetch(LD_BASE+path,{method:"POST",headers:{"Content-Type":"application/json","clienttype":"web","lang":"en"},body:JSON.stringify(body)}); }
+    catch(e){ throw new Error("lider verisi tarayıcıdan çekilemiyor (CORS); masaüstü uygulamasında çalışır"); }
+    if(r.status===429||r.status===418){ const ra=+(r.headers&&r.headers.get&&r.headers.get("retry-after")||0); ldRate.cool=Date.now()+Math.max(r.status===418?30*6e4:2*6e4,ra*1000); try{ localStorage.setItem("st-ld-cool",String(ldRate.cool)); }catch(e){}
+      throw new Error(`${path} → hız sınırı (HTTP ${r.status}), ${Math.ceil((ldRate.cool-Date.now())/6e4)} dk bekleniyor`); }
+    if(!r.ok) throw new Error(path+" → HTTP "+r.status); const jj=await r.json(); if(jj.code!=="000000") throw new Error(path+" → "+(jj.message||jj.code)); return jj.data||{}; };
+  const p=ldRate.q.then(go,go); ldRate.q=p.catch(()=>{}); return p;
 }
 // bir liderin geçmişini sindir
 function ldDigest(L,pos,orders){
@@ -2130,16 +2141,15 @@ function ldSymbols(){
 }
 // yenile: en iyi 100 lider (90 gün ROI) → elek → en çok 40 lider → geçmişleri
 async function ldRefresh(force){
-  if(ld.busy) return false; if(!force&&ld.at&&Date.now()-ld.at<3600e3) return false; ld.busy=true; ld.err=null; ld.prog="liste";
+  if(ld.busy) return false; if(!force&&ld.at&&Date.now()-ld.at<3600e3) return false; if(Date.now()<ldCoolUntil()){ ld.err=`Binance hız sınırı: ${Math.ceil((ldCoolUntil()-Date.now())/6e4)} dk bekleniyor`; return false; } ld.busy=true; ld.err=null; ld.prog="liste";
   try{
     let all=[]; for(let pg=1;pg<=LD_CFG.pages;pg++){ const d=await ldPost("home-page/query-list",{pageNumber:pg,pageSize:20,timeRange:"90D",dataType:"ROI",favoriteOnly:false,hideFull:false,nickname:"",order:"DESC",userAsset:0,portfolioType:"ALL"}); all=all.concat(d.list||[]); }
     const picked=all.filter(x=>+x.aum>=20000&&+x.currentCopyCount>=50&&+x.mdd<=60&&+x.winRate>=50).slice(0,LD_CFG.max);
     ld.list=picked.map(x=>({id:String(x.leadPortfolioId),nick:x.nickname,roi:+x.roi,pnl:+x.pnl,aum:+x.aum,mdd:+x.mdd,wr:+x.winRate,copiers:+x.currentCopyCount,sharpe:x.sharpRatio!=null?+x.sharpRatio:null}));
     const keep={}; let i=0;
     for(const L of ld.list){ i++; ld.prog=`${i}/${ld.list.length} ${L.nick}`; if(typeof ldOnProgress==="function") ldOnProgress();
-      try{ const [ph,oh]=await Promise.all([ldPost("lead-portfolio/position-history",{portfolioId:L.id,pageNumber:1,pageSize:50}),ldPost("lead-portfolio/order-history",{portfolioId:L.id,pageNumber:1,pageSize:100})]); keep[L.id]=ldDigest(L,ph.list||[],oh.list||[]); if(typeof labIngest==="function") labIngest(L,ph.list||[]); }
-      catch(e){ keep[L.id]=ld.leaders[L.id]&&!ld.leaders[L.id].err?ld.leaders[L.id]:{id:L.id,nick:L.nick,err:e.message}; }
-      await new Promise(r=>setTimeout(r,300)); }
+      try{ const ph=await ldPost("lead-portfolio/position-history",{portfolioId:L.id,pageNumber:1,pageSize:50}), oh=await ldPost("lead-portfolio/order-history",{portfolioId:L.id,pageNumber:1,pageSize:100}); keep[L.id]=ldDigest(L,ph.list||[],oh.list||[]); if(typeof labIngest==="function") labIngest(L,ph.list||[]); }
+      catch(e){ keep[L.id]=ld.leaders[L.id]&&!ld.leaders[L.id].err?ld.leaders[L.id]:{id:L.id,nick:L.nick,err:e.message}; if(Date.now()<ldCoolUntil()) throw e; } }
     ld.leaders=keep; ld.profile=ldProfile(); ld.sym=ldSymbols(); ld.at=Date.now(); ld.prog=""; ldSave(); if(typeof labPosWatch==="function") try{ labPosWatch(); }catch(e){} return true;
   }catch(e){ ld.err=e.message; ld.prog=""; return false; }
   finally{ ld.busy=false; if(typeof ldOnProgress==="function") ldOnProgress(); }
@@ -2185,7 +2195,7 @@ async function labHarvest(maxLeaders){
   if(typeof ldPost!=="function"||typeof ld==="undefined"||!ld.list.length) return 0; let done=0,added=0;
   for(const L of ld.list){ if(done>=maxLeaders) break; const last=lab.harvestAt[L.id]||0; if(Date.now()-last<LAB_CFG.harvestEveryH*3600e3) continue;
     const pages=last?1:LAB_CFG.firstPages; done++; lab.prog=`geçmiş: ${L.nick}`;
-    try{ for(let pg=1;pg<=pages;pg++){ const d=await ldPost("lead-portfolio/position-history",{portfolioId:L.id,pageNumber:pg,pageSize:LAB_CFG.pageSize}); const list=d.list||[]; added+=labIngest(L,list); if(list.length<LAB_CFG.pageSize) break; await new Promise(r=>setTimeout(r,400)); }
+    try{ for(let pg=1;pg<=pages;pg++){ const d=await ldPost("lead-portfolio/position-history",{portfolioId:L.id,pageNumber:pg,pageSize:LAB_CFG.pageSize}); const list=d.list||[]; added+=labIngest(L,list); if(list.length<LAB_CFG.pageSize) break; }
       lab.harvestAt[L.id]=Date.now(); }
     catch(e){ lab.err=e.message; break; } }
   return added;
