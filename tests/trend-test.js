@@ -10,7 +10,8 @@ let feed={};
 const fetch=async url=>{ const u=String(url); const m=u.match(/symbol=(\w+)&interval=1d/);
   const body=m? raw(feed[m[1]]||[]) : u.includes('premiumIndex')? Object.entries(feed).map(([s,a])=>({symbol:s,markPrice:String(a[a.length-1].c*1.001),lastFundingRate:"0.0001"})) : {};
   return {ok:true,status:200,headers:{get:()=>null},json:async()=>body,text:async()=>JSON.stringify(body)}; };
-const E=loadEngine({fetch});
+const mem={}; const localStorage={getItem:k=>k in mem?mem[k]:null,setItem:(k,v)=>{mem[k]=String(v);},removeItem:k=>{delete mem[k];}};
+const E=loadEngine({fetch,localStorage});
 
 (async()=>{
   const C=Object.assign({},E.TREND_DEF);
@@ -49,5 +50,12 @@ const E=loadEngine({fetch});
   ok(E.trendCache.data.BTCUSDT.length===139,'kapanmamış mum çıkarılmadı');
   const r2=await E.trendTick(s3,now+600e3); ok(r2.evs.length===0,'aynı gün ikinci dengeleme');
   const sm=E.trendSummary(s3,r2.px); ok(sm.lev>0&&sm.lev<=C.cap+1e-9&&isFinite(sm.eq),'özet hatalı');
+  // 7. hedef modu: bakiye 200 $'a varınca korumacı ayara (tvGoal) iner; eski kayıt yeni varsayılana taşınır
+  const s4=E.trendNew({}); s4.bal=205; const r4=await E.trendTick(s4,now,{force:true}); const sm4=E.trendSummary(s4,r4.px);
+  ok(s4.goalHit&&sm4.tvNow===C.tvGoal,'hedefte ayar inmedi');
+  const s5=E.trendNew({}); await E.trendTick(s5,now,{force:true}); const g5=Object.values(s5.pos).reduce((a,p)=>a+p.qty*p.px,0);
+  const s6=E.trendNew({}); s6.goalHit=1; await E.trendTick(s6,now,{force:true}); const g6=Object.values(s6.pos).reduce((a,p)=>a+p.qty*p.px,0);
+  ok(g6<g5,'korumacı ayar boyu küçültmedi: '+g6+' vs '+g5);
+  localStorage.setItem('st-trend',JSON.stringify({cfg:{tv:1.2,cap:6},bal:100,start:100,peak:100,pos:{},log:[],eqHist:[]})); const L=E.trendLoad(); ok(L.cfg.tv===C.tv&&L.cfg.goal===200,'eski kayıt taşınmadı');
   console.log('errors',JSON.stringify(errors)); process.exit(errors.length?1:0);
 })().catch(e=>{ console.error(e); console.log('errors',JSON.stringify([String(e)])); process.exit(1); });

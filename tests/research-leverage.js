@@ -37,8 +37,13 @@ const out={dip:{},trend:{},mix:{}};
 for(const L of [1,2,3,4,6]) for(const br of [0,0.2]){ const c=curveDip({lev:L,brakeDD:br}); out.dip[`cross_E${L}${br?'_fren':''}`]={...metr(c.eq),n:c.n,wr:Math.round(c.wr*100)}; }
 for(const L of [10,20]){ const cat=1/L-0.005; const c=curveDip({lev:L,cat,stop:Math.min(0.10,cat*0.99)}); out.dip[`izole_${L}x`]={...metr(c.eq),n:c.n,wr:Math.round(c.wr*100),liq:c.liq}; }
 const tvs=[0.8,1.2,1.6,2.0,2.4];
-for(const tv of tvs) for(const br of [0,0.2]){ const c=curveTrend({tv,cap:tv*5,brakeDD:br}); out.trend[`tv${tv}${br?'_fren':''}`]=metr(c.eq); }
+for(const tv of [...tvs,1.4].sort()) for(const br of [0,0.2]){ const c=curveTrend({tv,cap:tv*5,brakeDD:br}); out.trend[`tv${tv}${br?'_fren':''}`]=metr(c.eq); }
 // karışım: iki ayrı 50 $ hesap
 for(const [tv,L] of [[0.8,1],[1.2,2],[1.6,2],[1.6,3],[2.0,3]]) for(const br of [0,0.2]){ const a=curveTrend({tv,cap:tv*5,brakeDD:br,bal0:50}).eq, b=curveDip({lev:L,brakeDD:br,bal0:50}).eq; out.mix[`trend${tv}+dip${L}${br?'_fren':''}`]=metr(a.map((x,i)=>x+b[i])); }
+// 2× süresi: her 7 günde başlayan hesap, yarıya inmeden 2× yaptı mı, kaç günde (Ana strateji kartı)
+function t2x(eq){ const res=[]; for(let s=0;s<eq.length-30;s+=7){ const e0=eq[s]; if(!(e0>0)) continue; let d=null,half=false; for(let i=s;i<eq.length;i++){ if(eq[i]<=0.5*e0){half=true;break;} if(eq[i]>=2*e0){d=i-s;break;} } res.push({d,half,s}); }
+  const ok=res.filter(r=>r.d!=null).map(r=>r.d).sort((a,b)=>a-b); const q=p=>ok[Math.floor(p*(ok.length-1))]; const rec=res.filter(r=>r.s>=eq.length-1100); const okr=rec.filter(r=>r.d!=null).map(r=>r.d).sort((a,b)=>a-b);
+  return {n:res.length,hit:Math.round(ok.length/res.length*100),half:Math.round(res.filter(r=>r.half).length/res.length*100),med:q(0.5),p75:q(0.75),p90:q(0.9),recentHit:Math.round(okr.length/rec.length*100),recentHalf:Math.round(rec.filter(r=>r.half).length/rec.length*100),recentMed:okr[okr.length>>1]}; }
+out.t2x={}; for(const tv of [0.8,1.0,1.2,1.4,1.6,2.0]) for(const br of [0,0.2]) out.t2x[`tv${tv}${br?'_fren':''}`]=t2x(curveTrend({tv,cap:tv*5,brakeDD:br}).eq);
 fs.writeFileSync(path.join(__dirname,'backtest-leverage.json'),JSON.stringify(out,null,1));
 for(const g in out){ console.log('---',g); for(const k in out[g]) console.log(k.padEnd(22),JSON.stringify(out[g][k])); }
