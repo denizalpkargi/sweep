@@ -10,7 +10,7 @@ function createBot(E, opt){
   const {dir,write,say}=opt; const file=path.join(dir,'bot.json');
   const fmtP=E.fmtP, fx=E.fx, fmtB=v=>(isFinite(v)?(+v).toFixed(2):"—")+" $";
   const bot={bal:100,start:100,startT:Date.now(),positions:[],trades:[],day:{key:null,opens:0,losses:0},cool:{},eq:[],lastTick:0,goalHit:null,scanId:0,cfg:{...E.BOT_CFG_DEF}};
-  try{ const sv=JSON.parse(fs.readFileSync(file,'utf8')); Object.assign(bot,sv); bot.cfg={...E.BOT_CFG_DEF,...(sv.cfg||{})}; }catch(e){}
+  try{ const sv=JSON.parse(fs.readFileSync(file,'utf8')); Object.assign(bot,sv); bot.cfg={...E.BOT_CFG_DEF,...(sv.cfg||{})}; E.comMigrate(bot.cfg); }catch(e){}
   if(opt.cfg) Object.assign(bot.cfg,opt.cfg);
   bot.cfg.mode="komite";
   const rt={px:{},mark:{},book:{},fund:{},lastTrade:{},lastMark:0,src:null,managing:false,saveT:null};

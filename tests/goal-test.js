@@ -1,7 +1,8 @@
 // Hedef katmanı (src/goal.js) birim testi: mod, aşamalı giriş, yer açma, dinamik hedef, Murat'ın karar puanlaması.
 // Çalıştırma: node tests/goal-test.js  (çıktıda "errors []" beklenir)
 const {loadEngine}=require('./engine-node.js'); const E=loadEngine(); const errors=[]; const ok=(c,m)=>{ if(!c) errors.push(m); };
-const cfg={...E.BOT_CFG_DEF}; const now=Date.now();
+const cfg={...E.BOT_CFG_DEF,risk:0.03,threshold:0.3,minYes:4}; // hedef testleri %3 risk ve eski eşikle kuruldu; varsayılan (6 Ekim 2026) %1 ve 0,35
+const now=Date.now();
 // 1. mod
 ok(E.goalState({start:100,eq:150},cfg).mode==="normal",'normal mod'); ok(E.goalState({start:100,eq:120,peak:140},cfg).mode==="koru",'zirveden %14 düşüşte koru');
 ok(E.goalState({start:100,eq:190},cfg).mode==="yakın",'190 $ hedefe yakın'); ok(E.goalState({start:100,eq:201},cfg).mode==="tamam",'201 $ tamam');
