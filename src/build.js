@@ -1,7 +1,9 @@
 const fs=require('fs'); const P=__dirname+'/';
+// Windows'ta git core.autocrlf=true dosyaları CRLF yazar; aşağıdaki metin yamaları LF bekler. Okurken satır sonlarını LF'ye çevir.
+const rd=(f,e)=>{ const s=fs.readFileSync(f,e); return typeof s==='string'?s.replace(/\r\n/g,'\n'):s; };
 // Motor kaynağına (engine.js) string yamaları uygular ve strat2/strat3'ü ekler. Hem derleme hem Node testleri bunu kullanır.
 function patchedEngine(){
-let eng=fs.readFileSync(P+'engine.js','utf8');
+let eng=rd(P+'engine.js','utf8');
 const rep=(a,b)=>{ if(!eng.includes(a)) throw new Error('engine: not found '+a.slice(0,60)); eng=eng.replace(a,b); };
 rep(`kzS:S?S.kz||null:null,consL,consS,`,`kzS:S?S.kz||null:null,consL,consS,rrL:L&&isFinite(L.rr1)?L.rr1:NaN,rrS:S&&isFinite(S.rr1)?S.rr1:NaN,`);
 rep(`const state = { sym:"DUSKUSDT",`,`const state = { sym:"ENAUSDT",`);
@@ -23,7 +25,7 @@ rep("j(`/fapi/v1/aggTrades?symbol=${s}&limit=1000`)","j(`/fapi/v1/aggTrades?symb
 
 
 // --- kurulum 2 (kırılım + FVG) ve AMD pivot bölgesi ---
-eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readFileSync(P+'strat2.js','utf8')+`\n// backtest: every completed sequence in the history`);
+eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'strat2.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function breakoutRetest')) throw new Error('strat2 insert failed');
 rep(`  const amdGo = r => r && r.stage==="entry" && (r.grade==="A"||r.grade==="B") && r.rr1>=1.5;`,
 `  A.br={long:breakoutRetest(kb,A.med15,"long",biasHTF),short:breakoutRetest(kb,A.med15,"short",biasHTF)};
@@ -39,26 +41,26 @@ rep(`kzS:S?S.kz||null:null,consL,consS,`,`kzS:S?S.kz||null:null,consL,consS,brL:
 
 
 // --- kurulum 3 (rejimli süpürme): strat3.js amdStats'ın önüne, BTC 15 dk mumları fetchSlow/scanDeep'e, sonuçlar analyze'a ---
-eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readFileSync(P+'strat3.js','utf8')+`\n// backtest: every completed sequence in the history`);
+eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'strat3.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function regimeSweep')) throw new Error('strat3 insert failed');
-eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readFileSync(P+'auditor.js','utf8')+`\n// backtest: every completed sequence in the history`);
+eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'auditor.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function auditRun')) throw new Error('auditor insert failed');
-eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readFileSync(P+'committee.js','utf8')+`
+eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'committee.js','utf8')+`
 // backtest: every completed sequence in the history`);
 if(!eng.includes('function committee')) throw new Error('committee insert failed');
-eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>fs.readFileSync(P+'forecast.js','utf8')+`\n// backtest: every completed sequence in the history`);
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'forecast.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function fcObserve')) throw new Error('forecast insert failed');
-eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>fs.readFileSync(P+'goal.js','utf8')+`\n// backtest: every completed sequence in the history`);
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'goal.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function entryStages')) throw new Error('goal insert failed');
-eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>fs.readFileSync(P+'trend.js','utf8')+`\n// backtest: every completed sequence in the history`);
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'trend.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function trendTargets')) throw new Error('trend insert failed');
-eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>fs.readFileSync(P+'dip.js','utf8')+`\n// backtest: every completed sequence in the history`);
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'dip.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function dipClose')) throw new Error('dip insert failed');
-eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readFileSync(P+'account.js','utf8')+`\n// backtest: every completed sequence in the history`);
+eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'account.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function acctStart')) throw new Error('account insert failed');
-eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readFileSync(P+'leaders.js','utf8')+`\n// backtest: every completed sequence in the history`);
+eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'leaders.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function ldRefresh')) throw new Error('leaders insert failed');
-eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readFileSync(P+'research.js','utf8')+`\n// backtest: every completed sequence in the history`);
+eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'research.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function labAnalyze')) throw new Error('research insert failed');
 rep(`sl={k1d:K(k1d),k4h:K(k4h),k1h:K(k1h),toppos,glob};`,`sl={k1d:K(k1d),k4h:K(k4h),k1h:K(k1h),toppos,glob,btc15:await btcKlines()};`);
 rep(`async function fetchSlow(s){`,`const btcCache={t:0,k:null};
@@ -136,9 +138,9 @@ return eng;
 
 function build(){
   const eng=patchedEngine();
-  const ui=fs.readFileSync(P+'ui.js','utf8');
-  const head=fs.readFileSync(P+'term-head.html','utf8').replace('</head>',`<link rel="icon" type="image/png" href="data:image/png;base64,${fs.readFileSync(P+'icon192.b64','utf8')}">\n<link rel="apple-touch-icon" href="data:image/png;base64,${fs.readFileSync(P+'icon192.b64','utf8')}">\n</head>`);
-  const body=fs.readFileSync(P+'term-body.html','utf8');
+  const ui=rd(P+'ui.js','utf8');
+  const head=rd(P+'term-head.html','utf8').replace('</head>',`<link rel="icon" type="image/png" href="data:image/png;base64,${rd(P+'icon192.b64','utf8')}">\n<link rel="apple-touch-icon" href="data:image/png;base64,${rd(P+'icon192.b64','utf8')}">\n</head>`);
+  const body=rd(P+'term-body.html','utf8');
   const script=`(function(){\n"use strict";\n${eng}\n\n${ui}\n})();`;
   try{ new Function(script); }catch(e){ console.error('SYNTAX',e.message); process.exit(1); }
   const html=head+body+`<script>\n${script}\n</script>\n</body>\n</html>\n`;
