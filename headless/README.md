@@ -13,7 +13,7 @@ Gereken: Node 22+ (yerleşik `fetch` ve `WebSocket`). `npm install` gerekmez. Bi
 ## Ne yapar
 
 - Her 5 dakikada UI ile aynı tarama: evren (10 M$ hacim, ilk 120) → hızlı tarama → en iyi 24 aday derin tarama.
-- Taramadan sonra ve dakikada bir masa toplanır; eşik 0,35, en az 3 evet (çekimserler sayılmaz), Can vetosu yoksa aday beş aşamadan geçer (rejim → kalite → bütçe → korelasyon → karar, `src/goal.js`). Bütçe aşamasında risk masanın güvenine göre taban %3'ten en çok %10'a çıkar (`riskMax`; güven = puan payı × not, `deskConf`); açık risk sınırı özkaynağın %15'i. Yer ya da teminat yoksa ve kurulum belirgin iyiyse kârdaki pozisyondan kâr alınıp yer açılır. Giriş fiyatı açılıştan hemen önce REST'ten taze alınır.
+- Taramadan sonra ve dakikada bir masa toplanır; eşik 0,35, en az 3 evet (çekimserler sayılmaz), Can vetosu yoksa aday beş aşamadan geçer (rejim → kalite → bütçe → korelasyon → karar, `src/goal.js`). Bütçe aşamasında risk masanın güvenine göre taban %3'ten en çok %10'a çıkar (`riskMax`; güven = puan payı × not, `deskConf`); açık risk sınırı yok (tam bütçe, 6 Ekim gecesi: bütçeyi teminatın %95'i belirler); aynı anda 6 pozisyon, aynı yönde 4, günde 24 işlem / 12 kayıp. Yer ya da teminat yoksa ve kurulum belirgin iyiyse kârdaki pozisyondan kâr alınıp yer açılır. Giriş fiyatı açılıştan hemen önce REST'ten taze alınır.
 - Özkaynak 200 $'a (`config.json` → `goal`) ulaşınca masa tüm pozisyonları kapatıp kârı kilitler; sonra risk yarıya iner. Zirveden %10 düşüşte risk ×0,6.
 - Açık pozisyonlar tek WebSocket'te (trade, bookTicker, markPrice); akış 6 sn susarsa REST'ten 3 sn'de bir fiyat.
 - 30 sn'de bir (pozisyon başına 2 dk) masa pozisyonu yeniden değerlendirir: çık, azalt, süre doldu, kârı kilitle, ekle (UI `botManage` ile aynı).

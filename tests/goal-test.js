@@ -1,7 +1,7 @@
 // Hedef katmanı (src/goal.js) birim testi: mod, aşamalı giriş, yer açma, dinamik hedef, Murat'ın karar puanlaması.
 // Çalıştırma: node tests/goal-test.js  (çıktıda "errors []" beklenir)
 const {loadEngine}=require('./engine-node.js'); const E=loadEngine(); const errors=[]; const ok=(c,m)=>{ if(!c) errors.push(m); };
-const cfg={...E.BOT_CFG_DEF,risk:0.03,threshold:0.3,minYes:4}; // hedef testleri %3 taban risk ve eski eşikle kuruldu; varsayılan (6 Ekim 2026) eşik 0,35, güvenle en çok %10 (riskMax)
+const cfg={...E.BOT_CFG_DEF,risk:0.03,threshold:0.3,minYes:4,maxSameDir:2,maxPos:3}; // hedef testleri %3 taban risk, eski eşik ve eski sınırlarla kuruldu; varsayılan (6 Ekim 2026) eşik 0,35, güvenle en çok %10 (riskMax), tam bütçe (6 yer, aynı yönde 4)
 const now=Date.now();
 // 1. mod
 ok(E.goalState({start:100,eq:150},cfg).mode==="normal",'normal mod'); ok(E.goalState({start:100,eq:120,peak:140},cfg).mode==="koru",'zirveden %14 düşüşte koru');
@@ -16,7 +16,7 @@ const ag10=Array.from({length:10},(_,i)=>({id:i===0?"liq":i===1?"flow":"a"+i,v:0
 es=E.entryStages(X({score:0.3,yes:4,com:{agents:ag10}}),ctx()); ok(es.ok&&es.riskPct<0.045,'eşikte güven düşük, risk tabana yakın: %'+(es.riskPct*100).toFixed(2));
 es=E.entryStages(X({score:0.7,yes:10,com:{agents:ag10}}),ctx()); ok(es.ok&&Math.abs(es.conf-1)<1e-9&&Math.abs(es.riskUsd-10)<1e-9,'tam güven → %10: '+E.stagesTxt(es));
 es=E.entryStages(X({score:0.7,yes:10,com:{agents:ag10.map(a=>({...a,v:a.id==="liq"||a.id==="flow"?-0.5:a.v}))},feat:{btc:{ch4:0.002,ch24:0.01,bias:"up",ok:true,dump:false}}}),ctx()); ok(es.grade==="C"&&Math.abs(es.riskPct-0.03)<1e-9,'not C → taban risk');
-ok(E.cfgMigrate({risk:0.03,maxOpenRisk:0.09},{maxOpenRisk:0.09}).maxOpenRisk===0.15&&E.cfgMigrate({riskMax:0.1,maxOpenRisk:0.12},{maxOpenRisk:0.12}).maxOpenRisk===0.12,'eski kayıtta açık risk sınırı taşınmalı');
+ok(E.cfgMigrate({risk:0.03,maxOpenRisk:0.09},{maxOpenRisk:0.09}).maxOpenRisk===E.GOAL_DEF.maxOpenRisk&&E.cfgMigrate({riskMax:0.1,maxOpenRisk:0.12},{maxOpenRisk:0.12}).maxOpenRisk===0.12,'eski kayıtta açık risk sınırı taşınmalı');
 // güven bileşenleri (gerçek oylarla seçildi): oy birliği etkisiz, not B güveni yarıya indirir, üst sınır tabanın altındaysa taban
 ok(Math.abs(E.entryStages(X({score:0.7,yes:4,com:{agents:ag10}}),ctx()).riskPct-E.entryStages(X({score:0.7,yes:10,com:{agents:ag10}}),ctx()).riskPct)<1e-9,'oy birliği riski değiştirmemeli');
 es=E.entryStages(X({score:0.7,yes:10,com:{agents:ag10.map(a=>({...a,v:a.id==="flow"?-0.5:a.v}))}}),ctx()); ok(es.grade==="B"&&Math.abs(es.riskPct-0.065)<1e-9,'not B → güven yarım → %6,5: %'+(es.riskPct*100).toFixed(2));

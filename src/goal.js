@@ -7,10 +7,10 @@
    3. freePlan: teminat ya da yer yetmiyorsa ve yeni kurulum açıktakilerden belirgin iyiyse, kârdaki ya da sönmüş pozisyondan kâr alıp yer açar.
    4. deskAdjust: açık pozisyonda hedef ve stopu günceller (başabaş, dirence göre hedef 1, koşucuyu uzat/kısalt, yapısal stop, hedefi 200 $'a taşıyan hedef 1'de tamamını al).
    Murat (auditor.js) her kararı sonradan puanlar; kötü çıkan kolu kapatır (AUD.off). */
-const GOAL_DEF={goal:200,ddGuard:0.10,nearGoal:0.85,lockGoal:true,maxOpenRisk:0.15,maxSameDir:2,dirGapMin:15,lossGapMin:30,
+const GOAL_DEF={goal:200,ddGuard:0.10,nearGoal:0.85,lockGoal:true,maxOpenRisk:1,maxSameDir:4,dirGapMin:15,lossGapMin:30,
   freeMargin:true,freeEdge:0.08,freeMinR:0.3,beR:0,shortRule:"warn",warnMult:0.75,maxWarn:2,dyn:true,riskMax:0.10,confSpan:0.35};
 Object.assign(BOT_CFG_DEF,GOAL_DEF);
-// kayıtlı eski ayar (riskMax yok): açık risk sınırı %9'du, tek bir %10'luk işleme yer kalmazdı → yeni varsayılana taşınır
+// kayıtlı eski ayar (riskMax yok): açık risk sınırı %9'du, tek bir %10'luk işleme yer kalmazdı → yeni varsayılana taşınır. Tam bütçe (6 Ekim gecesi): sınır 1 = özkaynağın tamamı, bütçeyi teminat sınırı (%95) belirler; maxSameDir 4, maxPos 6, günde 24/12 (comMigrate v3)
 function cfgMigrate(saved,cfg){ if(saved&&saved.riskMax==null) cfg.maxOpenRisk=GOAL_DEF.maxOpenRisk; return cfg; }
 /* Masanın güveni (6 Ekim 2026, kullanıcı: "risk %10'a kadar artabilir, önemli olan masanın işleme ne kadar güvendiği"):
    güven = puan payı (eşik → 0, eşik + confSpan 0,35 → 1) × not çarpanı (A 1, B 0,5, C 0);
