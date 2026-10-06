@@ -760,11 +760,11 @@ function renderBot(){
   const audit=renderAudit();
   const tr=bot.trades.slice(-12).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b> ${chip(t.dir==="long"?"up sm":"down sm",t.dir==="long"?"L":"S")} <span class="muted">${t.model} ${t.grade} ${t.lev}x</span></td><td class="num">${fmtP(t.entry)}</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="num ${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${fx(t.r,2)}R</td></tr>`).join("");
   const lg=bot.log.slice(-40).reverse().map(l=>`<div class="tp ${{fill:"buy",tp1:"buy",tp2:"buy",stop:"sell",time:"",desk:"",audit:"",goal:"buy",add:"buy",cancel:"",skip:"",order:"",close:"",sys:"",move:"",fund:""}[l.type]||""}" style="grid-template-columns:110px 70px 1fr"><span class="when">${new Date(l.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><span class="k ${{fill:"up",tp1:"up",tp2:"up",close:"",stop:"down",time:"warn",desk:"cyan",audit:"warn",goal:"up",add:"up",cancel:"warn",skip:"muted",order:"cyan",sys:"muted",move:"cyan",fund:"muted"}[l.type]||""}">${{fill:"DOLDU",tp1:"HEDEF 1",tp2:"HEDEF 2",stop:"STOP",time:"ZAMAN",desk:"MASA",audit:"DENETÇİ",goal:"HEDEF",add:"EKLEME",cancel:"İPTAL",skip:"BEKLE",order:"EMİR",close:"KAPANDI",sys:"SİSTEM",move:"STOP↑",fund:"FONLAMA"}[l.type]||l.type}</span><span>${l.sym?"<b>"+l.sym.replace("USDT","")+"</b> · ":""}${l.text}</span></div>`).join("");
-  el.innerHTML=head+renderTrend()+(c.mode==="komite"?renderLeaders():"")+room+audit+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`;
+  el.innerHTML=head+renderTrend()+renderDip()+(c.mode==="komite"?renderLeaders():"")+room+audit+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`;
   $("botTgl").addEventListener("click",()=>{ bot.on?botStop():botStart(); renderBot(); }); $("botCsv").addEventListener("click",botCsv); $("botReset").addEventListener("click",botReset); $("botCloseAll").addEventListener("click",botCloseAll);
   $("botMode").addEventListener("change",e=>{ bot.cfg.mode=e.target.value; botSave(); renderBot(); });
   const rs=$("botRoomSel"); if(rs) rs.addEventListener("change",e=>{ bot.roomSel=e.target.value; renderBot(); });
-  trendBind();
+  trendBind(); dipBind();
   const lr=$("ldRefresh"); if(lr) lr.addEventListener("click",()=>{ ldRefresh(true); });
   const num=(id,key,f)=>{ const n=$(id); if(n) n.addEventListener("change",e=>{ const v=+e.target.value; if(isFinite(v)){ bot.cfg[key]=f?f(v):v; botSave(); } }); };
   num("botRisk","risk",v=>clamp(v,0.5,25)/100); num("botLev","lev",v=>clamp(Math.round(v),1,50)); num("botMaxPos","maxPos",v=>clamp(Math.round(v),1,10)); num("botThr","threshold",v=>clamp(v,0,1)); num("botMinYes","minYes",v=>clamp(Math.round(v),1,DESK.length)); num("botHold","holdH",v=>clamp(Math.round(v),1,72)); num("botMaxOpens","maxOpens",v=>clamp(Math.round(v),1,50)); num("botMaxLosses","maxLosses",v=>clamp(Math.round(v),1,50)); num("botGoal","goal",v=>clamp(v,110,100000)); num("botSameDir","maxSameDir",v=>clamp(Math.round(v),1,10)); num("botBeR","beR",v=>clamp(v,0,3));
@@ -842,6 +842,36 @@ function trendBind(){
   const r=$("trendReset"); if(r) r.addEventListener("click",()=>{ if(Object.keys(trend.s.pos).length&&!confirm("Trend sepetindeki pozisyonlar silinip bakiye 100 $'a dönsün mü?")) return; const on=trend.s.cfg.on, tv=trend.s.cfg.tv; trend.s=trendNew({on,tv,cap:tv*5}); trendSave(trend.s); renderBot(); });
   const v=$("trendTv"); if(v) v.addEventListener("change",e=>{ const tv=+e.target.value; trend.s.cfg.tv=tv; trend.s.cfg.cap=tv*5; trendSave(trend.s); });
 }
+/* --- Geri çekilme sepeti (src/dip.js): trend içinde düşüşte al, +%3 kâr, kapanış stopu; ayrı sanal bakiye --- */
+const dip={s:dipLoad(),busy:false,err:null,px:{}};
+async function dipRun(){ if(dip.busy||!dip.s.cfg.on) return; dip.busy=true;
+  try{ const r=await dipTick(dip.s,Date.now()); dip.px=r.px; dip.err=null; dipSave(dip.s); if(r.evs.length&&ui.drawerTab==="bot") renderBot(); }
+  catch(e){ dip.err=e.message; } finally{ dip.busy=false; } }
+function renderDip(){
+  const s=dip.s, c=s.cfg, sm=dipSummary(s,dip.px);
+  const rows=c.syms.map(k=>{ const p=s.pos[k], o=s.ord[k]; const px=dip.px[k]||(p&&p.px); const pnl=p&&px?p.qty*(px-p.e):0;
+    return `<tr><td><b>${k.replace("USDT","")}</b></td><td>${p?'<span class="up">açık</span>':o?"limit bekliyor":'<span class="muted">bekle</span>'}</td><td class="num">${p?fmtP(p.e):o?fmtP(o.px):"—"}</td><td class="num up">${p?fmtP(p.e*(1+c.tp)):"—"}</td><td class="num down">${p?fmtP(p.e*(1-c.stop))+" kapanış":"—"}</td><td class="num ${pnl>=0?"up":"down"}">${p?(pnl>=0?"+":"")+fx(pnl,2)+" $":"—"}</td><td class="muted">${p?p.age+". gün / "+c.hold:""}</td></tr>`; }).join("");
+  const tr=s.trades.slice(-8).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b></td><td class="num">${fmtP(t.e)} → ${fmtP(t.x)}</td><td class="num ${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${fx(t.r*100,2)}%</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="muted">${esc(t.why)} · ${t.days} gün</td></tr>`).join("");
+  return `<details class="card" style="margin-bottom:10px;padding:10px" ${s.trades.length||c.on?"open":""}><summary style="cursor:pointer"><b>Geri çekilme sepeti</b> <span class="muted" style="font-size:12px">· trend içinde düşüşte al, +%${fx(c.tp*100,0)} kâr · ayrı sanal bakiye · ${c.on?'<span class="up">● açık</span>':"● kapalı"}</span></summary>
+  <p class="muted" style="font-size:12px;margin:6px 0">BTC 50 günlük ortalamanın üstünde ve coin ortalamaların en az yarısının üstündeyken önceki kapanışın %${fx(c.pull*100,0)} altına bir günlük limit. Kâr +%${fx(c.tp*100,0)}; stop gün sonu kapanışı girişin %${fx(c.stop*100,0)} altındaysa (gün içi fitil saymaz, stop avına yakalanmaz); gün içi −%${fx(c.cat*100,0)} felaket stopu; ${c.hold} günde kapanmazsa çıkar. Coin başına özkaynağın ¼'ü × ${c.lev}x. 2020–2026 testi: 978 işlem, kazanma %83, işlem başı +%1,14, yıllık %47, en büyük düşüş −%37; son yıllar ince (2024 +%0,37, 2025 +%0,16, 2026 +%0,03 işlem başı).</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><button type="button" class="${c.on?"":"primary"}" id="dipTgl">${c.on?"Durdur":"Başlat"}</button><button type="button" class="ghost" id="dipReset">Sıfırla</button>
+    <label style="font-size:12px;color:var(--ink-2)">Kaldıraç <select id="dipLev">${[[1,"1x (düşüş ≈ −%37)"],[2,"2x (≈ −%64)"]].map(([v,t])=>`<option value="${v}" ${c.lev===v?"selected":""}>${t}</option>`).join("")}</select></label>
+    <span class="muted" style="font-size:11.5px">${dip.err?'<span class="down">'+esc(dip.err)+"</span> · ":""}${s.day?"son gün kapanışı "+s.day:"henüz çalışmadı"}</span></div>
+  <div class="plan" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:8px">
+    <div class="pv"><b>Özkaynak</b><span class="${sm.eq>=s.start?"up":"down"}">${fx(sm.eq,2)} $</span><small>${pct(sm.roi,1)} · başlangıç ${fmtB(s.start)}</small></div>
+    <div class="pv"><b>Kazanma</b><span>${sm.n?"%"+Math.round(sm.wr*100):"—"}</span><small>${sm.n} işlem${sm.n?` · ort. ${sm.avg>=0?"+":""}${fx(sm.avg*100,2)}%`:""}</small></div>
+    <div class="pv"><b>Zirveden</b><span class="${sm.dd>0.2?"down":""}">−%${fx(sm.dd*100,1)}</span><small>zirve ${fmtB(s.peak)}</small></div>
+    <div class="pv"><b>Açık / emir</b><span>${sm.open} / ${sm.orders}</span><small>maliyet ${fx(sm.fees+sm.funding,2)} $</small></div>
+  </div>
+  <table class="t" style="margin-bottom:8px"><thead><tr><th>Coin</th><th>Durum</th><th>Giriş / limit</th><th>Kâr</th><th>Stop</th><th>PnL</th><th>Süre</th></tr></thead><tbody>${rows}</tbody></table>
+  ${tr?`<table class="t"><thead><tr><th>Kapanış</th><th>Coin</th><th>Fiyat</th><th>Getiri</th><th>PnL</th><th>Neden</th></tr></thead><tbody>${tr}</tbody></table>`:""}</details>`;
+}
+function dipBind(){
+  const t=$("dipTgl"); if(t) t.addEventListener("click",()=>{ dip.s.cfg.on=!dip.s.cfg.on; dipSave(dip.s); if(dip.s.cfg.on) dipRun(); renderBot(); });
+  const r=$("dipReset"); if(r) r.addEventListener("click",()=>{ if(Object.keys(dip.s.pos).length&&!confirm("Geri çekilme sepetindeki pozisyonlar silinip bakiye 100 $'a dönsün mü?")) return; const on=dip.s.cfg.on, lev=dip.s.cfg.lev; dip.s=dipNew({on,lev}); dipSave(dip.s); renderBot(); });
+  const v=$("dipLev"); if(v) v.addEventListener("change",e=>{ dip.s.cfg.lev=+e.target.value; dipSave(dip.s); });
+}
+setTimeout(()=>{ if(dip.s.cfg.on) dipRun(); },12000); setInterval(()=>{ if(dip.s.cfg.on) dipRun(); },5*60e3);
 setTimeout(()=>{ if(trend.s.cfg.on) trendRun({}); },8000); setInterval(()=>{ if(trend.s.cfg.on) trendRun({}); },5*60e3);
 setInterval(()=>{ botManage().catch(()=>{}); },30000);
 setInterval(botPoll,3000);

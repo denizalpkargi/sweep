@@ -389,6 +389,11 @@ table.t tr.near td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
           <p><b>Neden:</b> 15 dakikalık süpürme kurulumlarının komisyon sonrası kenarı yok (6 ay, 24 coin: K3 −0,04R, K1 −0,12R, K2 −0,18R). Liderlerin yüksek kazanma oranı stopsuz ortalama düşürmeden geliyor; aynı kural 2020–2026 günlük veride 3x'te bile eksi (−%1 ROI/işlem, 40 tasfiye), 20x'te −%12. Akademik çalışmalar (Liu–Tsyvinski, Zarattini vd.) kriptoda günlük–haftalık trendin kalıcı olduğunu bulmuş; tutuş günler–haftalar olunca komisyon önemsizleşir.</p>
           <p><b>Test</b> (<code>node tests/replay-trend.js</code>, canlı kodla, Nis 2020–Eyl 2026, komisyon %0,05 + kayma %0,03 + fonlama %0,01/8 sa): hedef oynaklık 0,8'de yıllık %102, en büyük düşüş −%43, iki yarı yıllık %125 / %82, yıllar 2020 +%195 · 2021 +%434 · 2022 −%32 · 2023 +%157 · 2024 +%126 · 2025 +%19 · 2026 +%29. 0,4'te yıllık %46, düşüş −%24; 1,2'de yıllık %161, düşüş −%58. Her ay başlayan 67 bir yıllık hesabın %51'i 100 $'ı 200 $ yaptı (medyan 151 gün), hiçbiri yarıya düşmedi, en kötüsü 69 $. Short eklemek (SMA50 long/short) iyileştirmedi. Günlük Donchian 20/10 long +0,76R/işlem (t 2,9, iki yarı +1,15 / +0,42), short −0,07R.</p>
           <p><b>Sınırlar:</b> 4 büyük coin hayatta kalanlardır (2020'de seçilseydi bazıları batmış olurdu); 2021 boğası ortalamayı şişiriyor, son iki yıl çok daha zayıf; parametreler (ortalamalar, BTC filtresi, 0,8) bu veride seçildi. İleriye dönük kâğıt sonuç kanıttır.</p></div>
+        <div class="card"><h4>Geri çekilme sepeti · yüksek kazanma oranı, kapanış stopu (6 Ekim 2026)</h4>
+          <p><b>Kural:</b> BTC·ETH·SOL·BNB. BTC 50 günlük ortalamanın üstünde ve coin 10/20/50/100 günlük ortalamaların en az yarısının üstündeyken, gün kapanışında önceki kapanışın %2 altına bir günlük limit alım. Kâr +%3 (giriş günü alınmaz). Stop: gün sonu <b>kapanışı</b> girişin %10 altındaysa çık; gün içi fitil stopu tetiklemez. Gün içi −%25 felaket stopu. 20 günde kapanmazsa çık. Coin başına özkaynağın ¼'ü × 1x. Masa ve Trend sepetinden ayrı 100 $ sanal bakiye.</p>
+          <p><b>Test</b> (<code>node tests/research-highwr.js</code> 288 ayar, <code>node tests/replay-dip.js</code> canlı kodla, Nis 2020–Eyl 2026, maliyet dahil): 978 işlem, kazanma %83, işlem başı +%1,14 (t 5,3); iki yarı +%1,57 / +%0,67; 1x hesapta yıllık %47, en büyük düşüş −%37; 2x'te yıllık %98, −%64. Yıllar (işlem başı): 2020 +%1,61 · 2021 +%2,55 · 2022 −%1,16 · 2023 +%1,80 · 2024 +%0,37 · 2025 +%0,16 · 2026 +%0,03. Ayar 288 denemeden seçildi (%37'si kazanma ≥%80 ve iki yarıda artı).</p>
+          <p><b>Fitil avı:</b> aynı −%10 stop gün içi uygulanınca 166 stopun 115'i fitildi (kapanış stopun üstünde kaldı); işlem başı +%0,81'den +%0,30'a, kazanma %82'den %76'ya düştü. Kapanış stopu + uzak felaket stopu + düşük kaldıraç bu yüzden.</p>
+          <p><b>Sınırlar:</b> kâr %3 / stop %10'da başabaş kazanma oranı %77; kenar ince ve son üç yılda sıfıra yakın. 2022 gibi bir yıl (kazanma %70) bütün yılı siler. İleriye dönük kâğıt sonuç kanıttır.</p></div>
         <div class="card"><h4>On kapı · izin kuralı</h4><p>1 Günlük yön net · 2 Havuz süpürmesi · 3 Emir akışı ≥2 teyit · 4 MSS + yer değiştirme · 5 Fiyat OTE'de (canlı) · 6 Süpürme kill zone'da · 7 Oran ≥1,5 ve stop kaldıraca sığıyor (tutarlılık modunda ≤20x) · 8 Coin tutarlılığı kanıtlı/umut var · 9 Fonlama ve büyük tüccarlar karşı değil, climax/kapitülasyon yok · 10 Günlük disiplin (≤2 işlem, ≤2 kayıp, tek açık pozisyon). İzin yalnızca 10/10. Çıkış: hedef 1'de yarısı + stop girişe; hedef 2'de %30; kalan %20 iz süren stop. Ekleme yalnızca hedef 1'den sonra, bir kez, yarım boy.</p></div>
       </div></div>
       <div id="dStats" hidden><div class="stats" id="stats"></div><div id="amdStatsBox" style="margin-top:10px;font-size:12px;color:var(--ink-2)"></div></div>
@@ -1531,21 +1536,97 @@ function trendMark(s,px,now,fr){
 }
 // günlük mumdan kapanmış olanları al (son mum bugünse çıkar)
 function trendClosed(k,now){ const D=864e5; return k.filter(b=>b.t+D<=now); }
-const trendCache={t:0,data:null};
-// canlı tur: saatte bir günlük mumlar, her turda fiyat; UTC gün değişince dengeleme. force: hemen dengele
+const trendCache={t:0,data:null,live:{},pxT:0,px:null,fr:null};
+// günlük mumlar (saatte bir) + mark fiyat ve fonlama (her çağrı); trend ve geri çekilme sepeti ortak kullanır
+async function trendData(now,syms,refresh){
+  if(!trendCache.data||now-trendCache.t>3600e3||refresh||syms.some(s=>!trendCache.data[s])){ const data={}, live={};
+    for(const sym of syms){ const k=K(await j(`/fapi/v1/klines?symbol=${sym}&interval=1d&limit=130`)); data[sym]=trendClosed(k,now); const l=k[k.length-1]; if(l&&l.t+864e5>now) live[sym]=l; }
+    Object.assign(trendCache,{data,live,t:now}); }
+  if(!trendCache.px||now-trendCache.pxT>60e3){ const px={}; let fr={};
+    try{ const pi=await j(`/fapi/v1/premiumIndex`); for(const r of pi) if(syms.includes(r.symbol)){ px[r.symbol]=+r.markPrice; fr[r.symbol]=+r.lastFundingRate; } }
+    catch(e){ for(const sym of syms){ const a=trendCache.data[sym]; if(a&&a.length) px[sym]=a[a.length-1].c; } fr=null; }
+    // canlı mumu mark fiyatla uzat (saatlik çekim arasında kalan uçlar)
+    for(const sym in trendCache.live){ const l=trendCache.live[sym], x=px[sym]; if(x>0){ l.h=Math.max(l.h,x); l.l=Math.min(l.l,x); l.c=x; } }
+    Object.assign(trendCache,{px,fr,pxT:now}); }
+  return trendCache;
+}
+// canlı tur: UTC gün değişince dengeleme. force: hemen dengele
 async function trendTick(s,now,opts){
   opts=opts||{}; now=now||Date.now(); const cfg=s.cfg; const syms=[...new Set([...cfg.syms,"BTCUSDT"])];
-  if(!trendCache.data||now-trendCache.t>3600e3||opts.refresh){ const data={}; for(const sym of syms){ const raw=await j(`/fapi/v1/klines?symbol=${sym}&interval=1d&limit=130`); data[sym]=trendClosed(K(raw),now); } trendCache.data=data; trendCache.t=now; }
-  const px={}; let fr={};
-  try{ const pi=await j(`/fapi/v1/premiumIndex`); for(const r of pi) if(syms.includes(r.symbol)){ px[r.symbol]=+r.markPrice; fr[r.symbol]=+r.lastFundingRate; } }
-  catch(e){ for(const sym of syms){ const a=trendCache.data[sym]; if(a&&a.length) px[sym]=a[a.length-1].c; } fr=null; }
-  trendMark(s,px,now,fr); const day=new Date(now).toISOString().slice(0,10); let evs=[];
-  if(cfg.on&&(s.day!==day||opts.force)){ const tg=trendTargets(trendCache.data,cfg); evs=trendRebalance(s,tg,px,now); s.day=day; }
+  const C=await trendData(now,syms,opts.refresh); const px=C.px;
+  trendMark(s,px,now,C.fr); const day=new Date(now).toISOString().slice(0,10); let evs=[];
+  if(cfg.on&&(s.day!==day||opts.force)){ const tg=trendTargets(C.data,cfg); evs=trendRebalance(s,tg,px,now); s.day=day; }
   const eq=trendEq(s,px); if(!s.eqHist.length||now-s.eqHist[s.eqHist.length-1][0]>3600e3){ s.eqHist.push([now,+eq.toFixed(4)]); if(s.eqHist.length>2400) s.eqHist.shift(); }
   return {eq,evs,px};
 }
 function trendSummary(s,px){ const eq=trendEq(s,px); const gross=Object.entries(s.pos).reduce((a,[k,p])=>a+Math.abs(p.qty*((px&&px[k])||p.px)),0);
   return {eq,roi:(eq/s.start-1)*100,dd:s.peak>0?1-eq/s.peak:0,gross,lev:eq>0?gross/eq:0,fees:s.fees,funding:s.funding,trades:s.trades,day:s.day,btcOk:s.lastSig?s.lastSig.btcOk:null}; }
+
+/* ---------- Geri çekilme sepeti: trend içinde düşüşte al, küçük kâr, kapanış stopu (6 Ekim 2026) ----------
+   Araştırma (tests/research-highwr.js, BTC·ETH·SOL·BNB günlük, 2020-01 → 2026-09, maliyet dahil): BTC > SMA50 ve coin puanı ≥ 0,5 iken
+   önceki kapanışın %2 altına bir günlük limit alım; +%3'te kâr; günlük KAPANIŞ girişin %10 altındaysa çık (gün içi fitil saymaz);
+   gün içi −%25 felaket stopu; 20 günde kapanmazsa çık. 978 işlem, kazanma %83, ort. +%1,15/işlem, iki yarı +%1,53 / +%0,67;
+   2022 −%1,15, 2024 +%0,37, 2025 +%0,17, 2026 +%0,03 (kenar son yıllarda inceldi). Aynı stop gün içi uygulanınca 166 stopun 115'i fitildi
+   ve ortalama +%0,30'a düştü. 4 yuva, yuva başına özkaynağın ¼'ü × kaldıraç (1x varsayılan: yıllık %23, en büyük düşüş −%34).
+   Trend sepetiyle aynı günlük veriyi kullanır (trendData); ayrı sanal bakiye. Gerçek emir yok. */
+const DIP_DEF={on:true,bal0:100,syms:["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT"],minScore:0.5,pull:0.02,tp:0.03,stop:0.10,cat:0.25,hold:20,lev:1,slots:4,
+  maker:0.0002,taker:0.0005,slip:0.0003,fundDef:0.0001};
+const DIP_KEY="st-dip";
+function dipNew(cfg){ cfg=Object.assign({},DIP_DEF,cfg||{}); return {cfg,bal:cfg.bal0,start:cfg.bal0,peak:cfg.bal0,pos:{},ord:{},trades:[],log:[],day:null,fundT:0,fees:0,funding:0}; }
+function dipLoad(){ let s=null; try{ s=JSON.parse(localStorage.getItem(DIP_KEY)||"null"); }catch(e){} if(!s) s=dipNew(); s.cfg=Object.assign({},DIP_DEF,s.cfg||{}); return s; }
+function dipSave(s){ try{ localStorage.setItem(DIP_KEY,JSON.stringify(s)); }catch(e){} }
+const DAY_MS=864e5;
+function dipEq(s,px){ let u=0; for(const k in s.pos){ const p=s.pos[k]; const x=px&&px[k]||p.px; if(x>0) u+=p.qty*(x-p.e); } return s.bal+u; }
+function dipLog(s,ev){ s.log.push(ev); if(s.log.length>400) s.log.splice(0,s.log.length-400); return ev; }
+function dipExit(s,sym,px,why,now,slip){
+  const p=s.pos[sym]; const c=s.cfg; const fill=px*(1-(slip?c.slip:0)); const fee=p.qty*fill*c.taker; const pnl=p.qty*(fill-p.e);
+  s.bal+=pnl-fee; s.fees+=fee; delete s.pos[sym];
+  const r=(pnl-fee-p.fee-p.fund)/(p.qty*p.e); // fiyat hareketi cinsinden net getiri (giriş komisyonu ve fonlama dahil)
+  const tr={sym,t:p.t,closeT:now,e:p.e,x:fill,why,days:p.age,r,pnl:pnl-fee-p.fee-p.fund}; s.trades.push(tr); if(s.trades.length>1000) s.trades.shift();
+  return dipLog(s,{t:now,type:"exit",sym,why,px:fill,pnl:tr.pnl,r,days:p.age});
+}
+// gün içi: felaket stopu, kâr al (giriş günü değil), bekleyen limitin dolumu. bar = bugünün mumu (şimdiye kadar)
+function dipIntraday(s,sym,bar,now){
+  const c=s.cfg; const evs=[]; const p=s.pos[sym];
+  if(p){ p.px=bar.c; p.age=Math.round((bar.t-p.day)/DAY_MS);
+    if(bar.l<=p.e*(1-c.cat)) evs.push(dipExit(s,sym,Math.min(bar.o,p.e*(1-c.cat)),"felaket",now,true));
+    else if(p.age>0&&bar.h>=p.e*(1+c.tp)) evs.push(dipExit(s,sym,Math.max(bar.o,p.e*(1+c.tp)),"kâr",now,false));
+    return evs; }
+  const o=s.ord[sym];
+  if(o&&o.day===bar.t&&bar.l<=o.px){ const e=Math.min(bar.o,o.px); const eq=dipEq(s,null); const qty=eq/c.slots*c.lev/e; const fee=qty*e*c.maker;
+    s.bal-=fee; s.fees+=fee; s.pos[sym]={e,qty,t:now,day:bar.t,age:0,px:bar.c,fee,fund:0}; delete s.ord[sym];
+    evs.push(dipLog(s,{t:now,type:"fill",sym,px:e,usd:qty*e,fee,tp:e*(1+c.tp),stop:e*(1-c.stop)})); }
+  return evs;
+}
+// gün kapanışı: kapanış stopu, zaman stopu, yaşlandırma; sonra yarın için limit emir (data = kapanmış mumlar, bar dahil)
+function dipClose(s,sym,bar,data,now){
+  const c=s.cfg; const evs=[]; const p=s.pos[sym]; delete s.ord[sym];
+  if(p){ p.age=Math.round((bar.t-p.day)/DAY_MS); // bugün açılan pozisyon (yaş 0) kapanış stopuna bugün girmez
+    if(p.age>0){
+      if(bar.c<=p.e*(1-c.stop)) evs.push(dipExit(s,sym,bar.c,"kapanış stopu",now,true));
+      else if(p.age>=c.hold) evs.push(dipExit(s,sym,bar.c,"zaman",now,true)); }
+    if(s.pos[sym]) return evs; }
+  const a=data[sym], b=data.BTCUSDT; if(!a||!b||a.length<101||b.length<51) return evs;
+  const bm=trSma(b,b.length-1,50); if(!(b[b.length-1].c>bm)) return evs;
+  const sc=trendScore(a,a.length-1,{smas:[10,20,50,100]}); if(sc==null||sc<c.minScore) return evs;
+  const px=a[a.length-1].c*(1-c.pull); s.ord[sym]={px,day:a[a.length-1].t+DAY_MS,score:sc};
+  evs.push(dipLog(s,{t:now,type:"order",sym,px,score:sc}));
+  return evs;
+}
+function dipFund(s,px,now,fr){ const F=8*3600e3; const slot=Math.floor(now/F)*F; if(!s.fundT) s.fundT=slot;
+  while(s.fundT<slot){ s.fundT+=F; for(const k in s.pos){ const p=s.pos[k]; const r=fr&&isFinite(fr[k])?fr[k]:s.cfg.fundDef; const cst=p.qty*(px&&px[k]||p.px)*r; s.bal-=cst; s.funding+=cst; p.fund+=cst; } } }
+// canlı tur: gün değiştiyse dünün kapanmış mumuyla dipClose, sonra bugünün canlı mumuyla dipIntraday
+async function dipTick(s,now){
+  now=now||Date.now(); const c=s.cfg; const syms=[...new Set([...c.syms,"BTCUSDT"])]; const C=await trendData(now,syms,false); const evs=[];
+  dipFund(s,C.px,now,C.fr); const day=new Date(now).toISOString().slice(0,10);
+  if(c.on&&s.day!==day){ for(const sym of c.syms){ const a=C.data[sym]; if(a&&a.length) evs.push(...dipClose(s,sym,a[a.length-1],C.data,now)); } s.day=day; }
+  if(c.on) for(const sym of c.syms){ const l=C.live[sym]; if(l) evs.push(...dipIntraday(s,sym,l,now)); }
+  for(const k in s.pos) if(C.px[k]>0) s.pos[k].px=C.px[k];
+  const eq=dipEq(s,C.px); s.peak=Math.max(s.peak||s.start,eq);
+  return {eq,evs,px:C.px};
+}
+function dipSummary(s,px){ const eq=dipEq(s,px); const tr=s.trades; const w=tr.filter(t=>t.r>0).length;
+  return {eq,roi:(eq/s.start-1)*100,dd:s.peak>0?Math.max(0,1-eq/s.peak):0,n:tr.length,wr:tr.length?w/tr.length:null,avg:tr.length?tr.reduce((a,t)=>a+t.r,0)/tr.length:null,open:Object.keys(s.pos).length,orders:Object.keys(s.ord).length,fees:s.fees,funding:s.funding}; }
 
 /* ---------- Hesap: Binance USDⓈ-M vadeli hesabını salt okunur izler ----------
    Anahtar ve gizli anahtar yalnızca bu cihazda tutulur (isteğe bağlı localStorage), imza tarayıcıda WebCrypto ile atılır, istekler doğrudan Binance'e gider.
@@ -2703,11 +2784,11 @@ function renderBot(){
   const audit=renderAudit();
   const tr=bot.trades.slice(-12).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b> ${chip(t.dir==="long"?"up sm":"down sm",t.dir==="long"?"L":"S")} <span class="muted">${t.model} ${t.grade} ${t.lev}x</span></td><td class="num">${fmtP(t.entry)}</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="num ${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${fx(t.r,2)}R</td></tr>`).join("");
   const lg=bot.log.slice(-40).reverse().map(l=>`<div class="tp ${{fill:"buy",tp1:"buy",tp2:"buy",stop:"sell",time:"",desk:"",audit:"",goal:"buy",add:"buy",cancel:"",skip:"",order:"",close:"",sys:"",move:"",fund:""}[l.type]||""}" style="grid-template-columns:110px 70px 1fr"><span class="when">${new Date(l.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><span class="k ${{fill:"up",tp1:"up",tp2:"up",close:"",stop:"down",time:"warn",desk:"cyan",audit:"warn",goal:"up",add:"up",cancel:"warn",skip:"muted",order:"cyan",sys:"muted",move:"cyan",fund:"muted"}[l.type]||""}">${{fill:"DOLDU",tp1:"HEDEF 1",tp2:"HEDEF 2",stop:"STOP",time:"ZAMAN",desk:"MASA",audit:"DENETÇİ",goal:"HEDEF",add:"EKLEME",cancel:"İPTAL",skip:"BEKLE",order:"EMİR",close:"KAPANDI",sys:"SİSTEM",move:"STOP↑",fund:"FONLAMA"}[l.type]||l.type}</span><span>${l.sym?"<b>"+l.sym.replace("USDT","")+"</b> · ":""}${l.text}</span></div>`).join("");
-  el.innerHTML=head+renderTrend()+(c.mode==="komite"?renderLeaders():"")+room+audit+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`;
+  el.innerHTML=head+renderTrend()+renderDip()+(c.mode==="komite"?renderLeaders():"")+room+audit+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`;
   $("botTgl").addEventListener("click",()=>{ bot.on?botStop():botStart(); renderBot(); }); $("botCsv").addEventListener("click",botCsv); $("botReset").addEventListener("click",botReset); $("botCloseAll").addEventListener("click",botCloseAll);
   $("botMode").addEventListener("change",e=>{ bot.cfg.mode=e.target.value; botSave(); renderBot(); });
   const rs=$("botRoomSel"); if(rs) rs.addEventListener("change",e=>{ bot.roomSel=e.target.value; renderBot(); });
-  trendBind();
+  trendBind(); dipBind();
   const lr=$("ldRefresh"); if(lr) lr.addEventListener("click",()=>{ ldRefresh(true); });
   const num=(id,key,f)=>{ const n=$(id); if(n) n.addEventListener("change",e=>{ const v=+e.target.value; if(isFinite(v)){ bot.cfg[key]=f?f(v):v; botSave(); } }); };
   num("botRisk","risk",v=>clamp(v,0.5,25)/100); num("botLev","lev",v=>clamp(Math.round(v),1,50)); num("botMaxPos","maxPos",v=>clamp(Math.round(v),1,10)); num("botThr","threshold",v=>clamp(v,0,1)); num("botMinYes","minYes",v=>clamp(Math.round(v),1,DESK.length)); num("botHold","holdH",v=>clamp(Math.round(v),1,72)); num("botMaxOpens","maxOpens",v=>clamp(Math.round(v),1,50)); num("botMaxLosses","maxLosses",v=>clamp(Math.round(v),1,50)); num("botGoal","goal",v=>clamp(v,110,100000)); num("botSameDir","maxSameDir",v=>clamp(Math.round(v),1,10)); num("botBeR","beR",v=>clamp(v,0,3));
@@ -2785,6 +2866,36 @@ function trendBind(){
   const r=$("trendReset"); if(r) r.addEventListener("click",()=>{ if(Object.keys(trend.s.pos).length&&!confirm("Trend sepetindeki pozisyonlar silinip bakiye 100 $'a dönsün mü?")) return; const on=trend.s.cfg.on, tv=trend.s.cfg.tv; trend.s=trendNew({on,tv,cap:tv*5}); trendSave(trend.s); renderBot(); });
   const v=$("trendTv"); if(v) v.addEventListener("change",e=>{ const tv=+e.target.value; trend.s.cfg.tv=tv; trend.s.cfg.cap=tv*5; trendSave(trend.s); });
 }
+/* --- Geri çekilme sepeti (src/dip.js): trend içinde düşüşte al, +%3 kâr, kapanış stopu; ayrı sanal bakiye --- */
+const dip={s:dipLoad(),busy:false,err:null,px:{}};
+async function dipRun(){ if(dip.busy||!dip.s.cfg.on) return; dip.busy=true;
+  try{ const r=await dipTick(dip.s,Date.now()); dip.px=r.px; dip.err=null; dipSave(dip.s); if(r.evs.length&&ui.drawerTab==="bot") renderBot(); }
+  catch(e){ dip.err=e.message; } finally{ dip.busy=false; } }
+function renderDip(){
+  const s=dip.s, c=s.cfg, sm=dipSummary(s,dip.px);
+  const rows=c.syms.map(k=>{ const p=s.pos[k], o=s.ord[k]; const px=dip.px[k]||(p&&p.px); const pnl=p&&px?p.qty*(px-p.e):0;
+    return `<tr><td><b>${k.replace("USDT","")}</b></td><td>${p?'<span class="up">açık</span>':o?"limit bekliyor":'<span class="muted">bekle</span>'}</td><td class="num">${p?fmtP(p.e):o?fmtP(o.px):"—"}</td><td class="num up">${p?fmtP(p.e*(1+c.tp)):"—"}</td><td class="num down">${p?fmtP(p.e*(1-c.stop))+" kapanış":"—"}</td><td class="num ${pnl>=0?"up":"down"}">${p?(pnl>=0?"+":"")+fx(pnl,2)+" $":"—"}</td><td class="muted">${p?p.age+". gün / "+c.hold:""}</td></tr>`; }).join("");
+  const tr=s.trades.slice(-8).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b></td><td class="num">${fmtP(t.e)} → ${fmtP(t.x)}</td><td class="num ${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${fx(t.r*100,2)}%</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="muted">${esc(t.why)} · ${t.days} gün</td></tr>`).join("");
+  return `<details class="card" style="margin-bottom:10px;padding:10px" ${s.trades.length||c.on?"open":""}><summary style="cursor:pointer"><b>Geri çekilme sepeti</b> <span class="muted" style="font-size:12px">· trend içinde düşüşte al, +%${fx(c.tp*100,0)} kâr · ayrı sanal bakiye · ${c.on?'<span class="up">● açık</span>':"● kapalı"}</span></summary>
+  <p class="muted" style="font-size:12px;margin:6px 0">BTC 50 günlük ortalamanın üstünde ve coin ortalamaların en az yarısının üstündeyken önceki kapanışın %${fx(c.pull*100,0)} altına bir günlük limit. Kâr +%${fx(c.tp*100,0)}; stop gün sonu kapanışı girişin %${fx(c.stop*100,0)} altındaysa (gün içi fitil saymaz, stop avına yakalanmaz); gün içi −%${fx(c.cat*100,0)} felaket stopu; ${c.hold} günde kapanmazsa çıkar. Coin başına özkaynağın ¼'ü × ${c.lev}x. 2020–2026 testi: 978 işlem, kazanma %83, işlem başı +%1,14, yıllık %47, en büyük düşüş −%37; son yıllar ince (2024 +%0,37, 2025 +%0,16, 2026 +%0,03 işlem başı).</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><button type="button" class="${c.on?"":"primary"}" id="dipTgl">${c.on?"Durdur":"Başlat"}</button><button type="button" class="ghost" id="dipReset">Sıfırla</button>
+    <label style="font-size:12px;color:var(--ink-2)">Kaldıraç <select id="dipLev">${[[1,"1x (düşüş ≈ −%37)"],[2,"2x (≈ −%64)"]].map(([v,t])=>`<option value="${v}" ${c.lev===v?"selected":""}>${t}</option>`).join("")}</select></label>
+    <span class="muted" style="font-size:11.5px">${dip.err?'<span class="down">'+esc(dip.err)+"</span> · ":""}${s.day?"son gün kapanışı "+s.day:"henüz çalışmadı"}</span></div>
+  <div class="plan" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:8px">
+    <div class="pv"><b>Özkaynak</b><span class="${sm.eq>=s.start?"up":"down"}">${fx(sm.eq,2)} $</span><small>${pct(sm.roi,1)} · başlangıç ${fmtB(s.start)}</small></div>
+    <div class="pv"><b>Kazanma</b><span>${sm.n?"%"+Math.round(sm.wr*100):"—"}</span><small>${sm.n} işlem${sm.n?` · ort. ${sm.avg>=0?"+":""}${fx(sm.avg*100,2)}%`:""}</small></div>
+    <div class="pv"><b>Zirveden</b><span class="${sm.dd>0.2?"down":""}">−%${fx(sm.dd*100,1)}</span><small>zirve ${fmtB(s.peak)}</small></div>
+    <div class="pv"><b>Açık / emir</b><span>${sm.open} / ${sm.orders}</span><small>maliyet ${fx(sm.fees+sm.funding,2)} $</small></div>
+  </div>
+  <table class="t" style="margin-bottom:8px"><thead><tr><th>Coin</th><th>Durum</th><th>Giriş / limit</th><th>Kâr</th><th>Stop</th><th>PnL</th><th>Süre</th></tr></thead><tbody>${rows}</tbody></table>
+  ${tr?`<table class="t"><thead><tr><th>Kapanış</th><th>Coin</th><th>Fiyat</th><th>Getiri</th><th>PnL</th><th>Neden</th></tr></thead><tbody>${tr}</tbody></table>`:""}</details>`;
+}
+function dipBind(){
+  const t=$("dipTgl"); if(t) t.addEventListener("click",()=>{ dip.s.cfg.on=!dip.s.cfg.on; dipSave(dip.s); if(dip.s.cfg.on) dipRun(); renderBot(); });
+  const r=$("dipReset"); if(r) r.addEventListener("click",()=>{ if(Object.keys(dip.s.pos).length&&!confirm("Geri çekilme sepetindeki pozisyonlar silinip bakiye 100 $'a dönsün mü?")) return; const on=dip.s.cfg.on, lev=dip.s.cfg.lev; dip.s=dipNew({on,lev}); dipSave(dip.s); renderBot(); });
+  const v=$("dipLev"); if(v) v.addEventListener("change",e=>{ dip.s.cfg.lev=+e.target.value; dipSave(dip.s); });
+}
+setTimeout(()=>{ if(dip.s.cfg.on) dipRun(); },12000); setInterval(()=>{ if(dip.s.cfg.on) dipRun(); },5*60e3);
 setTimeout(()=>{ if(trend.s.cfg.on) trendRun({}); },8000); setInterval(()=>{ if(trend.s.cfg.on) trendRun({}); },5*60e3);
 setInterval(()=>{ botManage().catch(()=>{}); },30000);
 setInterval(botPoll,3000);

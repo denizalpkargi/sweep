@@ -55,16 +55,26 @@ function trendMark(s,px,now,fr){
 }
 // günlük mumdan kapanmış olanları al (son mum bugünse çıkar)
 function trendClosed(k,now){ const D=864e5; return k.filter(b=>b.t+D<=now); }
-const trendCache={t:0,data:null};
-// canlı tur: saatte bir günlük mumlar, her turda fiyat; UTC gün değişince dengeleme. force: hemen dengele
+const trendCache={t:0,data:null,live:{},pxT:0,px:null,fr:null};
+// günlük mumlar (saatte bir) + mark fiyat ve fonlama (her çağrı); trend ve geri çekilme sepeti ortak kullanır
+async function trendData(now,syms,refresh){
+  if(!trendCache.data||now-trendCache.t>3600e3||refresh||syms.some(s=>!trendCache.data[s])){ const data={}, live={};
+    for(const sym of syms){ const k=K(await j(`/fapi/v1/klines?symbol=${sym}&interval=1d&limit=130`)); data[sym]=trendClosed(k,now); const l=k[k.length-1]; if(l&&l.t+864e5>now) live[sym]=l; }
+    Object.assign(trendCache,{data,live,t:now}); }
+  if(!trendCache.px||now-trendCache.pxT>60e3){ const px={}; let fr={};
+    try{ const pi=await j(`/fapi/v1/premiumIndex`); for(const r of pi) if(syms.includes(r.symbol)){ px[r.symbol]=+r.markPrice; fr[r.symbol]=+r.lastFundingRate; } }
+    catch(e){ for(const sym of syms){ const a=trendCache.data[sym]; if(a&&a.length) px[sym]=a[a.length-1].c; } fr=null; }
+    // canlı mumu mark fiyatla uzat (saatlik çekim arasında kalan uçlar)
+    for(const sym in trendCache.live){ const l=trendCache.live[sym], x=px[sym]; if(x>0){ l.h=Math.max(l.h,x); l.l=Math.min(l.l,x); l.c=x; } }
+    Object.assign(trendCache,{px,fr,pxT:now}); }
+  return trendCache;
+}
+// canlı tur: UTC gün değişince dengeleme. force: hemen dengele
 async function trendTick(s,now,opts){
   opts=opts||{}; now=now||Date.now(); const cfg=s.cfg; const syms=[...new Set([...cfg.syms,"BTCUSDT"])];
-  if(!trendCache.data||now-trendCache.t>3600e3||opts.refresh){ const data={}; for(const sym of syms){ const raw=await j(`/fapi/v1/klines?symbol=${sym}&interval=1d&limit=130`); data[sym]=trendClosed(K(raw),now); } trendCache.data=data; trendCache.t=now; }
-  const px={}; let fr={};
-  try{ const pi=await j(`/fapi/v1/premiumIndex`); for(const r of pi) if(syms.includes(r.symbol)){ px[r.symbol]=+r.markPrice; fr[r.symbol]=+r.lastFundingRate; } }
-  catch(e){ for(const sym of syms){ const a=trendCache.data[sym]; if(a&&a.length) px[sym]=a[a.length-1].c; } fr=null; }
-  trendMark(s,px,now,fr); const day=new Date(now).toISOString().slice(0,10); let evs=[];
-  if(cfg.on&&(s.day!==day||opts.force)){ const tg=trendTargets(trendCache.data,cfg); evs=trendRebalance(s,tg,px,now); s.day=day; }
+  const C=await trendData(now,syms,opts.refresh); const px=C.px;
+  trendMark(s,px,now,C.fr); const day=new Date(now).toISOString().slice(0,10); let evs=[];
+  if(cfg.on&&(s.day!==day||opts.force)){ const tg=trendTargets(C.data,cfg); evs=trendRebalance(s,tg,px,now); s.day=day; }
   const eq=trendEq(s,px); if(!s.eqHist.length||now-s.eqHist[s.eqHist.length-1][0]>3600e3){ s.eqHist.push([now,+eq.toFixed(4)]); if(s.eqHist.length>2400) s.eqHist.shift(); }
   return {eq,evs,px};
 }

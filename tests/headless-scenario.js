@@ -55,7 +55,7 @@ const readJsonl=f=>fs.existsSync(f)?fs.readFileSync(f,'utf8').trim().split('\n')
   ok(fs.existsSync(path.join(dir,'status.json'))&&fs.existsSync(path.join(dir,'bot.json')),'durum dosyaları yok');
   // denetçi: kapanan işlemler girişteki oylarla saklanır, durum dosyasında özet var
   { const b2=JSON.parse(fs.readFileSync(path.join(dir,'bot.json'),'utf8')); const t0=(b2.trades||[])[0]; ok(t0&&t0.snap&&isFinite(t0.snap.v.liq)&&Array.isArray(t0.exits)&&typeof t0.exits[0]==='string'&&isFinite(t0.mfe),'denetçi kaydı eksik: '+JSON.stringify(t0&&{snap:!!t0.snap,ex:t0.exits,mfe:t0.mfe}));
-    const st=JSON.parse(fs.readFileSync(path.join(dir,'status.json'),'utf8')); ok(st.audit&&st.audit.n>=1,'status.json denetçi özeti yok'); ok(st.trend&&st.trend.on===true&&isFinite(st.trend.eq),'status.json trend sepeti özeti yok'); }
+    const st=JSON.parse(fs.readFileSync(path.join(dir,'status.json'),'utf8')); ok(st.audit&&st.audit.n>=1,'status.json denetçi özeti yok'); ok(st.trend&&st.trend.on===true&&isFinite(st.trend.eq),'status.json trend sepeti özeti yok'); ok(st.dip&&st.dip.on===true&&isFinite(st.dip.eq),'status.json geri çekilme özeti yok'); }
   console.log('votes',votes.length,'events',ev.length,'trades',readJsonl(path.join(logs,'trades.jsonl')).length);
   console.log('errors',JSON.stringify(errors));
   fs.rmSync(dir,{recursive:true,force:true});

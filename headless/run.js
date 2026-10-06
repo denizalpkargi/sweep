@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // SWEEP · ekransız kâğıt bot. Tarayıcı/Electron penceresi olmadan aynı motoru ve Masa (komite) modunu 7/24 çalıştırır.
 // Kullanım: node headless/run.js [--dir bot-data] [--min-vol 10000000] [--every 300000] [--votes deep|all|go|none] [--once]
-// Trend sepeti (src/trend.js) aynı süreçte, ayrı sanal bakiyeyle çalışır: logs/trend-*.jsonl, status.json → trend; ayarlar config.json → trend (ör. {"trend":{"on":false}} ya da {"trend":{"tv":0.4,"cap":2}}).
+// Trend sepeti (src/trend.js) aynı süreçte, ayrı sanal bakiyeyle çalışır: logs/trend-*.jsonl, status.json → trend; Geri çekilme sepeti (src/dip.js) de aynı şekilde: logs/dip-*.jsonl, status.json → dip, config.json → dip.
+// Trend ayarları config.json → trend (ör. {"trend":{"on":false}} ya da {"trend":{"tv":0.4,"cap":2}}).
 // Çıktılar (--dir altında): bot.json (durum), status.json (nabız), store.json (motor önbellekleri, liderler),
 //   logs/votes-YYYY-MM-DD.jsonl (her taramada masa oyu ve girdileri; deep: derin taranan, eşiğe 0,15 yakın ya da giriş alan coin × yön, all: hepsi), logs/events-*.jsonl (bot olayları),
 //   logs/reviews-*.jsonl (açık pozisyonların 2 dakikalık masa gözden geçirmeleri), logs/trades.jsonl (kapanan her işlem: giriş anındaki özellikler + sonuç).
@@ -88,7 +89,7 @@ async function main(o,inj){
         if(n) log('sys',p.sym,`Kapalıyken geçen ${n} dakika 1 dk mumlarla oynatıldı.`,{id:p.id,minutes:n}); }
       catch(e){ log('skip',p.sym,`Boşluk doldurulamadı: ${e.message}`,{id:p.id}); } }
   }
-  function status(){ const s={t:Date.now(),pid:process.pid,startT:bot.startT,bal:bot.bal,equity:B.equity(),roi:(B.equity()/bot.start-1)*100,positions:bot.positions.map(p=>({sym:p.sym,dir:p.dir,entry:p.entry,stop:p.stop,t1:p.t1,t2:p.t2,stage:p.stage,px:rt.px[p.sym]||null,openT:p.openT})),trades:bot.trades.length,day:bot.day,lastScan,priceSrc:rt.src,lastTick:bot.lastTick,weight:E.rest.used,goal:(()=>{ const g=B.goal(); return {goal:g.goal,eq:g.eq,peak:g.peak,dd:g.dd,prog:g.prog,mode:g.mode,why:g.why,hit:bot.goalHit||null}; })(),trend:(()=>{ const m=E.trendSummary(TR.s,null); return {on:TR.s.cfg.on,tv:TR.s.cfg.tv,eq:m.eq,roi:m.roi,dd:m.dd,lev:m.lev,day:m.day,btcOk:m.btcOk,fees:m.fees,funding:m.funding,pos:Object.fromEntries(Object.entries(TR.s.pos).map(([k,p])=>[k,{qty:p.qty,avg:p.avg,px:p.px}]))}; })(),leaders:{at:E.ld.at,n:E.ld.list.length,err:E.ld.err},audit:(()=>{ const A=E.getAud(); return A&&A.summary?{n:A.summary.n,wr:A.summary.wr,avgR:A.summary.avg,lessons:A.lessons.map(l=>({k:l.k,n:l.n,avg:l.avg,lever:l.lever})),mult:A.mult,decs:A.decs,off:A.off}:null; })()};
+  function status(){ const s={t:Date.now(),pid:process.pid,startT:bot.startT,bal:bot.bal,equity:B.equity(),roi:(B.equity()/bot.start-1)*100,positions:bot.positions.map(p=>({sym:p.sym,dir:p.dir,entry:p.entry,stop:p.stop,t1:p.t1,t2:p.t2,stage:p.stage,px:rt.px[p.sym]||null,openT:p.openT})),trades:bot.trades.length,day:bot.day,lastScan,priceSrc:rt.src,lastTick:bot.lastTick,weight:E.rest.used,goal:(()=>{ const g=B.goal(); return {goal:g.goal,eq:g.eq,peak:g.peak,dd:g.dd,prog:g.prog,mode:g.mode,why:g.why,hit:bot.goalHit||null}; })(),trend:(()=>{ const m=E.trendSummary(TR.s,null); return {on:TR.s.cfg.on,tv:TR.s.cfg.tv,eq:m.eq,roi:m.roi,dd:m.dd,lev:m.lev,day:m.day,btcOk:m.btcOk,fees:m.fees,funding:m.funding,pos:Object.fromEntries(Object.entries(TR.s.pos).map(([k,p])=>[k,{qty:p.qty,avg:p.avg,px:p.px}]))}; })(),dip:(()=>{ const m=E.dipSummary(DP.s,null); return {on:DP.s.cfg.on,lev:DP.s.cfg.lev,eq:m.eq,roi:m.roi,dd:m.dd,n:m.n,wr:m.wr,avg:m.avg,open:m.open,orders:m.orders,pos:DP.s.pos,ord:DP.s.ord}; })(),leaders:{at:E.ld.at,n:E.ld.list.length,err:E.ld.err},audit:(()=>{ const A=E.getAud(); return A&&A.summary?{n:A.summary.n,wr:A.summary.wr,avgR:A.summary.avg,lessons:A.lessons.map(l=>({k:l.k,n:l.n,avg:l.avg,lever:l.lever})),mult:A.mult,decs:A.decs,off:A.off}:null; })()};
     try{ atomicWrite(path.join(dir,'status.json'),JSON.stringify(s,null,1)); }catch(e){} return s; }
 
   /* --- trend sepeti (src/trend.js): Masa'dan ayrı sanal bakiye, depo st-trend (store.json), olaylar logs/trend-*.jsonl --- */
@@ -99,13 +100,20 @@ async function main(o,inj){
       if(r.evs.length||!TR.s.log.length) write('trend',{t:Date.now(),type:'mark',eq:r.eq,sig:TR.s.lastSig}); }
     catch(e){ write('trend',{t:Date.now(),type:'error',text:String(e.message||e)}); }
     finally{ TR.busy=false; } }
+  /* --- geri çekilme sepeti (src/dip.js): depo st-dip, olaylar logs/dip-*.jsonl, ayar config.json → dip --- */
+  const DP={s:E.dipLoad(),busy:false}; if(cfg&&cfg.dip) Object.assign(DP.s.cfg,cfg.dip);
+  async function dipRun(){ if(DP.busy||!DP.s.cfg.on) return; DP.busy=true;
+    try{ const r=await E.dipTick(DP.s,Date.now()); E.dipSave(DP.s);
+      for(const ev of r.evs){ write('dip',ev); if(!o.quiet&&ev.type!=='order') console.log(`${new Date(ev.t).toISOString().slice(11,19)} dip    ${ev.type} ${ev.sym} @ ${ev.px}${ev.why?' · '+ev.why:''}`); } }
+    catch(e){ write('dip',{t:Date.now(),type:'error',text:String(e.message||e)}); }
+    finally{ DP.busy=false; } }
   function shutdown(sig){ if(stopping) return; stopping=true; for(const t of timers) clearInterval(t); if(ws){ try{ ws.onclose=null; ws.close(); }catch(e){} }
     log('sys','',`Durduruldu (${sig}). Açık pozisyonlar bot.json'da; yeniden başlatınca aradaki süre oynatılır.`); B.save(true); store.flush(); status(); }
 
   const c=bot.cfg; log('sys','',`Ekransız bot başladı · KOMİTE · sanal ${bot.bal.toFixed(2)} $ · risk %${c.risk*100} · ${c.lev}x · aynı anda ${c.maxPos} pozisyon · eşik ${c.threshold}, ${c.minYes}/${E.DESK.length} oy · zaman stopu ${c.holdH} sa · hedef ${c.goal} $ · aynı yönde en fazla ${c.maxSameDir} · yer açma ${c.freeMargin?"açık":"kapalı"} · tarama ${Math.round(o.every/60000)} dk · ${bot.positions.length} açık pozisyon`,{cfg:c,opts:o});
   await gapFill(); wsSync();
   await E.ldRefresh(false).catch(()=>{});
-  await trendRun();
+  await trendRun(); await dipRun();
   await runScan();
   if(o.once){ await B.manage().catch(()=>{}); shutdown('once'); return {B,E,status:status()}; }
   timers.push(setInterval(()=>{ runScan(); },o.every));
@@ -115,7 +123,7 @@ async function main(o,inj){
   timers.push(setInterval(()=>{ E.ldRefresh(false).catch(()=>{}); },10*60e3));
   // araştırma ekibi: Node'da CORS yok, lider geçmişi burada da toplanır (depo: st-lab)
   timers.push(setInterval(()=>{ E.labTick(false).catch(()=>{}); },60e3));
-  timers.push(setInterval(trendRun,5*60e3));
+  timers.push(setInterval(trendRun,5*60e3)); timers.push(setInterval(dipRun,5*60e3));
   timers.push(setInterval(status,30000)); status();
   for(const s of ['SIGINT','SIGTERM']) process.on(s,()=>{ shutdown(s); process.exit(0); });
   return {B,E,shutdown,status};
