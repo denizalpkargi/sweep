@@ -7,9 +7,24 @@
    3. freePlan: teminat ya da yer yetmiyorsa ve yeni kurulum açıktakilerden belirgin iyiyse, kârdaki ya da sönmüş pozisyondan kâr alıp yer açar.
    4. deskAdjust: açık pozisyonda hedef ve stopu günceller (başabaş, dirence göre hedef 1, koşucuyu uzat/kısalt, yapısal stop, hedefi 200 $'a taşıyan hedef 1'de tamamını al).
    Murat (auditor.js) her kararı sonradan puanlar; kötü çıkan kolu kapatır (AUD.off). */
-const GOAL_DEF={goal:200,ddGuard:0.10,nearGoal:0.85,lockGoal:true,maxOpenRisk:0.09,maxSameDir:2,dirGapMin:15,lossGapMin:30,
-  freeMargin:true,freeEdge:0.08,freeMinR:0.3,beR:0,shortRule:"warn",warnMult:0.75,maxWarn:2,dyn:true};
+const GOAL_DEF={goal:200,ddGuard:0.10,nearGoal:0.85,lockGoal:true,maxOpenRisk:0.15,maxSameDir:2,dirGapMin:15,lossGapMin:30,
+  freeMargin:true,freeEdge:0.08,freeMinR:0.3,beR:0,shortRule:"warn",warnMult:0.75,maxWarn:2,dyn:true,riskMax:0.10,confSpan:0.35};
 Object.assign(BOT_CFG_DEF,GOAL_DEF);
+// kayıtlı eski ayar (riskMax yok): açık risk sınırı %9'du, tek bir %10'luk işleme yer kalmazdı → yeni varsayılana taşınır
+function cfgMigrate(saved,cfg){ if(saved&&saved.riskMax==null) cfg.maxOpenRisk=GOAL_DEF.maxOpenRisk; return cfg; }
+/* Masanın güveni (6 Ekim 2026, kullanıcı: "risk %10'a kadar artabilir, önemli olan masanın işleme ne kadar güvendiği"):
+   güven = 0,5 × puanın eşiği ne kadar aştığı (eşik → 0, eşik + confSpan → 1) + 0,25 × oy birliği (asgari oy → 0, herkes evet → 1) + 0,25 × not (A 1, B 0,5, C 0);
+   tahmin defterinde masanın "gir" dediklerinin isabeti (≥30 tahmin) %50 altındaysa güven ×0,5, %55 altındaysa ×0,75.
+   risk = taban risk + (riskMax − taban) × güven; not C'de taban risk. Mod çarpanı, uyarılar ve açık risk sınırı bundan sonra uygulanır.
+   Kanıt değil: güvenle sonuç arasındaki ilişki Murat'ın ve tahmin defterinin kayıtlarıyla ölçülmeli. */
+function deskConf(x, thr, minYes, grade, cfg){
+  const n=(x.com&&x.com.agents&&x.com.agents.length)||(typeof DESK!=="undefined"?DESK.length:10);
+  const s=clamp((x.score-thr)/(cfg.confSpan||0.35),0,1), u=n>minYes?clamp(((x.yes||0)-minYes)/(n-minYes),0,1):0, g=grade==="A"?1:grade==="B"?0.5:0;
+  let conf=0.5*s+0.25*u+0.25*g, fcm=1, fcTxt=""; let L=null; try{ L=typeof FC!=="undefined"&&FC&&FC.learn; }catch(e){}
+  if(L&&L.go&&L.go.n>=30&&L.go.hit!=null){ fcm=L.go.hit<0.5?0.5:L.go.hit<0.55?0.75:1; fcTxt=`tahmin defteri "gir" isabeti %${Math.round(L.go.hit*100)} (${L.go.n})${fcm<1?` → güven ×${fx(fcm,2)}`:""}`; }
+  conf=grade==="C"?0:clamp(conf*fcm,0,1); const base=cfg.risk, top=Math.max(base,cfg.riskMax!=null?cfg.riskMax:base);
+  return {conf,pct:base+(top-base)*conf,s,u,g,fcm,fcTxt};
+}
 const DEC_KIND={free:"Yer açmak için kâr al",prune:"Sönmüş pozisyonu kapat",goal:"200 $ kilidi",t1full:"Hedefi 200 $'a taşıyan hedef 1'de tamamı",
   be:"Stop başabaşa",t1pull:"Hedef 1 dirençten önceye",t2ext:"Koşucuyu uzat",t2cut:"Koşucuyu kısalt",tight:"Yapısal stopa sık"};
 const DEC_CLOSE={free:1,prune:1,goal:1};
@@ -24,7 +39,7 @@ function goalState(b, cfg){
   return {goal,start,eq,peak,dd,prog,need,mode,riskMult,thrAdd,why};
 }
 // işlem başına risk ($): yüzde risk × mod çarpanı; hedefe az kaldıysa 1,5R'lik kazancın hedefi geçmesine yetecek kadarıyla sınırlı
-function goalRisk(gs, bal, cfg){ let r=bal*cfg.risk*gs.riskMult; if(gs.mode!=="tamam"&&gs.need>0) r=Math.min(r,Math.max(gs.need/1.5,bal*cfg.risk*0.3)); return r; }
+function goalRisk(gs, bal, cfg, pct){ pct=pct!=null?pct:cfg.risk; let r=bal*pct*gs.riskMult; if(gs.mode!=="tamam"&&gs.need>0) r=Math.min(r,Math.max(gs.need/1.5,bal*cfg.risk*0.3)); return r; }
 const openRiskOf=p=>{ const sg=p.dir==="long"?1:-1; const d=sg*(p.entry-p.stop); return d>0?d*p.qty:0; };
 const posR=(p,px)=>{ const r0=p.risk0||Math.abs(p.entry-(p.stop0||p.stop)); return r0>0&&px>0?(p.dir==="long"?px-p.entry:p.entry-px)/r0:0; };
 /* --- 2. çok aşamalı giriş ---
@@ -56,18 +71,19 @@ function entryStages(x, ctx){
   else if(lastSame&&now-lastSame<cfg.dirGapMin*60e3) f4=`${Math.round((now-lastSame)/60e3)} dk önce aynı yönde giriş yapıldı; aynı bahsi ikinci kez oynamamak için ${cfg.dirGapMin} dk ara`;
   else if(lastLoss&&now-lastLoss<gapLoss*60e3) f4=`son kayıp ${Math.round((now-lastLoss)/60e3)} dk önce; ${gapLoss} dk soğuma`;
   /* aşama 3: risk ve teminat bütçesi */
-  const warn=st.filter(s=>s.st==="warn").length; let riskUsd=goalRisk(gs,ctx.bal,cfg)*Math.pow(cfg.warnMult,warn);
+  const warn=st.filter(s=>s.st==="warn").length; const cf=deskConf(x,thr,minYes,grade,cfg); let riskUsd=goalRisk(gs,ctx.bal,cfg,cf.pct)*Math.pow(cfg.warnMult,warn);
   const openRisk=pos.reduce((a,p)=>a+openRiskOf(p),0); const room=gs.eq*cfg.maxOpenRisk-openRisk; let f3=null, n3=[];
   if(riskUsd>room){ if(room<riskUsd*0.4) f3=`açık risk ${fx(openRisk,2)} $ (özkaynağın %${fx(openRisk/gs.eq*100,1)}); sınır %${fx(cfg.maxOpenRisk*100,0)}`; else { n3.push(`açık risk sınırı yüzünden risk ${fx(riskUsd,2)} → ${fx(room,2)} $`); riskUsd=room; } }
   const lev=ctx.lev||cfg.lev||20; const notional=x.sd>0?riskUsd/x.sd:0, margin=notional/lev; const used=pos.reduce((a,p)=>a+(p.margin||0),0)+(ctx.reserved||0); const free=ctx.bal*0.95-used;
   const need=Math.max(0,margin-free), slot=pos.length>=cfg.maxPos;
+  n3.unshift(`masanın güveni %${Math.round(cf.conf*100)} → risk %${fx(cf.pct*100,1)} (taban %${fx(cfg.risk*100,1)}, üst %${fx(Math.max(cfg.risk,cfg.riskMax||0)*100,1)})${cf.fcTxt?" · "+cf.fcTxt:""}`);
   if(gs.mode!=="normal") n3.push(gs.why); if(warn) n3.push(`${warn} uyarı: boy ×${fx(Math.pow(cfg.warnMult,warn),2)}`);
   add("bütçe","Can",f3?"fail":(need>0||slot)?"warn":"ok",f3||`risk ${fx(riskUsd,2)} $ · pozisyon ${fx(notional,2)} $ · teminat ${fx(margin,2)} $ / boş ${fx(Math.max(0,free),2)} $${need>0?` · ${fx(need,2)} $ eksik`:""}${slot?` · ${pos.length}/${cfg.maxPos} yer dolu`:""}${n3.length?" · "+n3.join(" · "):""}`);
   add("korelasyon","Murat",f4?"fail":"ok",f4||`aynı yönde ${same.length}/${cap} · son ${x.dir} girişi ${lastSame?Math.round((now-lastSame)/60e3)+" dk önce":"yok"}`);
   const warnBlock=au&&au.warnBlock&&warn>0; const tooMany=warn>cfg.maxWarn;
   const fail=st.find(s=>s.st==="fail"); const ok=!fail&&!warnBlock&&!tooMany;
   add("karar","Can",ok?(need>0||slot?"warn":"ok"):"fail",fail?`girmiyoruz: ${fail.k} aşamasında kaldı`:tooMany?`${warn} uyarı fazla; temiz değil, girmiyoruz`:warnBlock?"Murat'ın dersi: uyarılı kurulumla girmiyoruz":(need>0||slot)?"kurulum iyi ama yer/teminat yok; açıktakilerden kâr alıp yer açılabilir mi bakıyorum":`giriyoruz: not ${grade}, risk ${fx(riskUsd,2)} $`);
-  return {ok,need,slot,stages:st,riskUsd,notional,margin,free,warn,grade,gs,thr};
+  return {ok,need,slot,stages:st,riskUsd,notional,margin,free,warn,grade,gs,thr,conf:cf.conf,riskPct:cf.pct};
 }
 /* --- 3. yer açma: teminat/yer yoksa, yeni kurulum belirgin iyiyse açıktakilerden kâr alınır ya da sönmüş pozisyon kapanır.
    Zarardaki pozisyon (−0,25R altı) yer açmak için kesilmez. Döner: [{p,part,kind,why,margin}] ya da null --- */

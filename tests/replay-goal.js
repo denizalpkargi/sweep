@@ -85,14 +85,15 @@ if(require.main!==module) return;
 const T0=Math.min(...sigs.map(s=>s.t)), T1=C.BTCUSDT.k[C.BTCUSDT.k.length-1].t; const mid=T0+(T1-T0)/2;
 const fmt=(v,d=2)=>isFinite(v)?v.toFixed(d):"—";
 const CFGS=[
-  ["Önce · risk %3 (bugünkü bot)",{risk:0.03},{legacy:true}],
-  ["Sonra · risk %3 (yeni masa)",{risk:0.03},{}],
-  ["Sonra · %3 · short uyarısı yok",{risk:0.03,shortRule:"off"},{}],
-  ["Sonra · %3 · short kapalı",{risk:0.03,shortRule:"fail"},{}],
-  ["Sonra · %3 · başabaş 1R",{risk:0.03,beR:1},{}],
-  ["Sonra · %3 · hedef 1 = 1R",{risk:0.03,tp1R:1},{}],
-  ["Önce · risk %10 (dün geceki ayar)",{risk:0.10},{legacy:true}],
-  ["Sonra · risk %10",{risk:0.10},{}],
+  ["Önce · risk %3 (bugünkü bot)",{risk:0.03,riskMax:0.03},{legacy:true}],
+  ["Sonra · risk %3 (yeni masa)",{risk:0.03,riskMax:0.03},{}],
+  ["Sonra · %3 · short uyarısı yok",{risk:0.03,riskMax:0.03,shortRule:"off"},{}],
+  ["Sonra · %3 · short kapalı",{risk:0.03,riskMax:0.03,shortRule:"fail"},{}],
+  ["Sonra · %3 · başabaş 1R",{risk:0.03,riskMax:0.03,beR:1},{}],
+  ["Sonra · %3 · hedef 1 = 1R",{risk:0.03,riskMax:0.03,tp1R:1},{}],
+  ["Önce · risk %10 (dün geceki ayar)",{risk:0.10,riskMax:0.10},{legacy:true}],
+  ["Sonra · risk %10",{risk:0.10,riskMax:0.10},{}],
+  ["Sonra · güvenle %3–10 (masanın güveni)",{risk:0.03,riskMax:0.10},{}],
 ];
 const out={span:new Date(T0).toISOString().slice(0,10)+" → "+new Date(T1).toISOString().slice(0,10),signals:sigs.length,rows:[]};
 console.log(`Dönem ${out.span} · ${sigs.length} K3 sinyali · 24 coin · başlangıç 100 $, hedef 200 $, 20x`);
