@@ -199,6 +199,8 @@ function analyze(f, s){
   A.rangeShare = dist => ({ m5: r5.filter(r=>r>dist).length/r5.length, m15: r15.filter(r=>r>dist).length/r15.length });
   A.med15 = [...r15].sort((a,b)=>a-b)[Math.floor(r15.length/2)] || 0;
   A.src = {k15L:s.k15L||m15, k1h:h1, btc15:s.btc15||null, oi15:s.oi15||null, taker15:s.taker15||null, toppos15:s.toppos15||null, fundTimes:(s.fund||[]).map(x=>+x.fundingTime), nextFund:A.nextFund};
+  A.src.k1d=d; // günlük mumlar (havuzlar: önceki gün tepesi/dibi)
+  A.vp=sessionProfiles(A.src.k15L,A.src.k15L.length,{withCurrent:true,rows:true}).slice(-12).map(p=>({...p,prof:p.current?p.prof:null})); // günlük hacim profilleri (UTC): POC, VAH/VAL, çıplak POC
   const kb=A.src.k15L; A.bt={long:boxTheory(kb,A.med15,"long"),short:boxTheory(kb,A.med15,"short")};
   A.btStats = kb.length>=600 ? {long:boxTheoryStats(kb,A.med15,"long"),short:boxTheoryStats(kb,A.med15,"short")} : {};
   const btReady = d => { const b=A.bt[d]; if(!b) return false; const tolT=Math.max(0.0015,0.3*A.med15); return (b.stage==="retest" && Math.abs(A.px/b.poc-1)<=0.004 && b.rr>=1.5) || (b.stage==="waitRetest" && Math.abs(A.px/b.poc-1)<=tolT); };
@@ -292,13 +294,33 @@ function entryZones(A){
   return z;
 }
 
-function pocOf(k, s0, s1, bins){
-  // volume profile of candles s0..s1 (inclusive): each candle's quote volume spread evenly over its own high-low range
-  let lo=Infinity, hi=-Infinity; for(let i=s0;i<=s1;i++){ lo=Math.min(lo,k[i].l); hi=Math.max(hi,k[i].h); }
-  const n=bins||24, w=(hi-lo)/n||1e-12, vol=new Array(n).fill(0);
-  for(let i=s0;i<=s1;i++){ const c=k[i]; const a=Math.max(0,Math.floor((c.l-lo)/w)), b=Math.min(n-1,Math.floor((c.h-lo)/w)); const share=c.q/(b-a+1); for(let x=a;x<=b;x++) vol[x]+=share; }
-  let best=0; for(let x=1;x<n;x++) if(vol[x]>vol[best]) best=x;
-  return {poc:lo+(best+0.5)*w, lo, hi};
+// Volume profile (fixed range k[s0..s1]): each candle's quote volume is spread evenly over the rows its high–low touches
+// (the same approximation charting platforms use per lower-timeframe bar; with 1m bars it is close to tick data).
+// POC = row with the most volume (tie → the row nearest the profile's centre). Value area = 70% of volume, built from the POC outward
+// by the CBOT rule: compare the next two rows above with the next two below and add the larger pair. HVN/LVN: local peaks/troughs
+// of the smoothed profile. buy = taker-buy quote volume, so each row also has a delta.
+function volProfile(k, s0, s1, opt){
+  opt=opt||{}; let lo=Infinity, hi=-Infinity; for(let i=s0;i<=s1;i++){ lo=Math.min(lo,k[i].l); hi=Math.max(hi,k[i].h); }
+  const n=opt.bins||48, w=(hi-lo)/n||1e-12, vol=new Array(n).fill(0), buy=new Array(n).fill(0);
+  for(let i=s0;i<=s1;i++){ const c=k[i]; const a=Math.max(0,Math.min(n-1,Math.floor((c.l-lo)/w))), b=Math.max(0,Math.min(n-1,Math.ceil((c.h-lo)/w)-1)); const m=Math.max(a,b)-a+1; const sh=c.q/m, sb=(c.tb||0)/m; for(let x=a;x<a+m;x++){ vol[x]+=sh; buy[x]+=sb; } }
+  const total=vol.reduce((x,y)=>x+y,0); const mid=(n-1)/2;
+  let best=0; for(let x=1;x<n;x++) if(vol[x]>vol[best]+1e-12 || (Math.abs(vol[x]-vol[best])<=1e-12 && Math.abs(x-mid)<Math.abs(best-mid))) best=x;
+  let up=best, dn=best, acc=vol[best]; const tgt=(opt.va||0.7)*total;
+  while(acc<tgt && (up<n-1||dn>0)){ const u=(up<n-1?vol[up+1]:0)+(up<n-2?vol[up+2]:0), d=(dn>0?vol[dn-1]:0)+(dn>1?vol[dn-2]:0);
+    if(u>=d&&up<n-1){ const st=Math.min(2,n-1-up); for(let q=1;q<=st;q++) acc+=vol[up+q]; up+=st; } else if(dn>0){ const st=Math.min(2,dn); for(let q=1;q<=st;q++) acc+=vol[dn-q]; dn-=st; } else { const st=Math.min(2,n-1-up); for(let q=1;q<=st;q++) acc+=vol[up+q]; up+=st; } }
+  const sm=vol.map((v,x)=>(vol[x-1]??v)*0.25+v*0.5+(vol[x+1]??v)*0.25); const hvn=[], lvn=[];
+  for(let x=1;x<n-1;x++){ if(sm[x]>sm[x-1]&&sm[x]>=sm[x+1]&&sm[x]>=total/n*1.3) hvn.push(lo+(x+0.5)*w); if(sm[x]<sm[x-1]&&sm[x]<=sm[x+1]&&sm[x]<=total/n*0.6&&x>dn&&x<up) lvn.push(lo+(x+0.5)*w); }
+  return {lo,hi,w,rows:vol.map((v,x)=>({p:lo+(x+0.5)*w,v,buy:buy[x]})),total,poc:lo+(best+0.5)*w,vah:lo+(up+1)*w,val:lo+dn*w,hvn,lvn,s0,s1};
+}
+function pocOf(k, s0, s1, bins){ const v=volProfile(k,s0,s1,{bins:bins||24}); return {poc:v.poc, lo:v.lo, hi:v.hi, vah:v.vah, val:v.val}; }
+// Daily (UTC session) profiles from candles k: [{day,t0,t1,s0,s1,open,close,poc,vah,val,naked}]. naked: the POC has not been traded
+// through by any later candle up to `at` (a "virgin"/naked POC). Only complete sessions, plus the running one when withCurrent.
+function sessionProfiles(k, at, opt){
+  opt=opt||{}; at=at??k.length; const out=[]; let s0=0;
+  for(let i=1;i<=at;i++){ const d0=Math.floor(k[i-1].t/86400e3), d1=i<at?Math.floor(k[i].t/86400e3):null;
+    if(d1!==d0){ const done=i<at || k[i-1].t+ (k[1]?k[1].t-k[0].t:9e5) >= (d0+1)*86400e3; if((done||opt.withCurrent) && i-s0>=Math.max(4,opt.minBars||0)){ const v=volProfile(k,s0,i-1,{bins:opt.bins||48}); out.push({day:new Date(d0*86400e3).toISOString().slice(0,10),t0:d0*86400e3,s0,s1:i-1,open:k[s0].o,close:k[i-1].c,poc:v.poc,vah:v.vah,val:v.val,hvn:v.hvn,lvn:v.lvn,current:!done,prof:opt.rows?v:null}); } s0=i; } }
+  for(const p of out){ if(p.current){ p.naked=null; continue; } let hit=false; for(let j=p.s1+1;j<at;j++){ if(k[j].l<=p.poc&&k[j].h>=p.poc){ hit=true; break; } } p.naked=!hit; }
+  return out;
 }
 // Finds the latest box-theory sequence for one direction in candles k (15m). Returns the stage reached and the trade plan.
 function boxTheory(k, med15, dir, from, to){
@@ -347,23 +369,32 @@ function boxTheoryStats(k, med15, dir){
 
 function killZone(ms){ const h=new Date(ms).getUTCHours()+new Date(ms).getUTCMinutes()/60; if(h>=7&&h<10) return "Londra"; if(h>=12.5&&h<16) return "New York"; if(h>=0&&h<2) return "Asya açılışı"; return null; }
 function swingsOf(k, w, from, to){ const H=[],L=[]; for(let i=Math.max(w,from);i<to-w;i++){ let ph=true,pl=true; for(let d=1;d<=w;d++){ if(k[i].h<=k[i-d].h||k[i].h<=k[i+d].h) ph=false; if(k[i].l>=k[i-d].l||k[i].l>=k[i+d].l) pl=false; } if(ph) H.push({i,p:k[i].h}); if(pl) L.push({i,p:k[i].l}); } return {H,L}; }
-// Liquidity pools visible at candle index `at` (exclusive): equal lows/highs, single swings, previous-day high/low, Asian range, accumulation box
+// Liquidity pools visible at candle index `at` (exclusive): equal lows/highs, single swings, previous-day high/low, Asian range, accumulation box.
+// Each pool carries `i` = the candle that formed its extreme, and only untaken liquidity is returned: if any candle after `i` and before `at`
+// already traded beyond the level (≥0.05%), the stops resting there are gone and the level is no longer a pool (6 Oct 2026 audit:
+// 72% of detected "sweeps" were of already-taken levels; previous-day, Asian and box pools carried i=at-1 and could never be swept).
 function poolsAt(k, k1d, med15, at){
   const tolEq=Math.max(0.001,0.25*med15); const out=[];
   const sw=swingsOf(k,3,Math.max(0,at-192),at);
-  const cluster=(arr,type)=>{ const s=[...arr].sort((a,b)=>a.p-b.p); let g=[]; const flush=()=>{ if(!g.length) return; const avg=g.reduce((a,x)=>a+x.p,0)/g.length; out.push({p:avg,type,name:g.length>=2?(type==="low"?"eşit dipler":"eşit tepeler")+" ×"+g.length:(type==="low"?"swing dip":"swing tepe"),w:g.length>=2?3:1,i:g[g.length-1].i}); g=[]; }; for(const x of s){ if(g.length && Math.abs(x.p/g[0].p-1)>tolEq) flush(); g.push(x); } flush(); };
+  const cluster=(arr,type)=>{ const s=[...arr].sort((a,b)=>a.p-b.p); let g=[]; const flush=()=>{ if(!g.length) return; const avg=g.reduce((a,x)=>a+x.p,0)/g.length; out.push({p:avg,type,name:g.length>=2?(type==="low"?"eşit dipler":"eşit tepeler")+" ×"+g.length:(type==="low"?"swing dip":"swing tepe"),w:g.length>=2?3:1,i:Math.max(...g.map(x=>x.i))}); g=[]; }; for(const x of s){ if(g.length && Math.abs(x.p/g[0].p-1)>tolEq) flush(); g.push(x); } flush(); };
   cluster(sw.L,"low"); cluster(sw.H,"high");
+  const tAt=k[Math.min(at,k.length-1)].t;
+  // index of the 15m candle that printed extreme p inside [t0,t1); -1 when that stretch is not in the 15m history
+  const idxOf=(t0,t1,p,isLow)=>{ let f=-1; for(let i=Math.max(0,at-200);i<Math.min(at,k.length);i++){ const c=k[i]; if(c.t<t0) continue; if(c.t>=t1) break; if(f<0) f=i; if(isLow? c.l<=p*(1+1e-9) : c.h>=p*(1-1e-9)) return i; } return f; };
   // previous UTC day high/low from daily candles that closed before `at`
-  const tAt=k[Math.min(at,k.length-1)].t; const prevD=[...k1d].filter(d=>d.t+86400e3<=tAt).slice(-1)[0];
-  if(prevD){ out.push({p:prevD.l,type:"low",name:"önceki gün dibi",w:3,i:at-1}); out.push({p:prevD.h,type:"high",name:"önceki gün tepesi",w:3,i:at-1}); }
-  // Asian range of the current UTC day (00:00–07:00 UTC) when at least 8 of its candles exist before `at`
-  const dayStart=Math.floor(tAt/86400e3)*86400e3; const asia=k.filter(c=>c.t>=dayStart && c.t<dayStart+7*3600e3 && c.t<tAt);
-  if(asia.length>=8){ out.push({p:Math.min(...asia.map(c=>c.l)),type:"low",name:"Asya dibi",w:3,i:at-1}); out.push({p:Math.max(...asia.map(c=>c.h)),type:"high",name:"Asya tepesi",w:3,i:at-1}); }
+  const prevD=k1d.filter(d=>d.t+86400e3<=tAt).slice(-1)[0];
+  if(prevD){ const il=idxOf(prevD.t,prevD.t+86400e3,prevD.l,true), ih=idxOf(prevD.t,prevD.t+86400e3,prevD.h,false);
+    if(il>=0) out.push({p:prevD.l,type:"low",name:"önceki gün dibi",w:3,i:il}); if(ih>=0) out.push({p:prevD.h,type:"high",name:"önceki gün tepesi",w:3,i:ih}); }
+  // Asian range (00:00–07:00 UTC) of the current day, only once the session has closed: a new low during Asia is not a sweep of Asia
+  const dayStart=Math.floor(tAt/86400e3)*86400e3;
+  if(tAt>=dayStart+7*3600e3){ let lo=-1,hi=-1; for(let i=Math.max(0,at-130);i<Math.min(at,k.length);i++){ const c=k[i]; if(c.t<dayStart||c.t>=dayStart+7*3600e3) continue; if(lo<0||c.l<k[lo].l) lo=i; if(hi<0||c.h>k[hi].h) hi=i; }
+    if(lo>=0&&hi>=0&&(k[lo].t-dayStart)>=0){ out.push({p:k[lo].l,type:"low",name:"Asya dibi",w:3,i:lo}); out.push({p:k[hi].h,type:"high",name:"Asya tepesi",w:3,i:hi}); } }
   // adaptive accumulation box ending just before `at`: extend backwards while the range stays within tol (16–60 candles)
-  const tol=Math.max(0.012,2.5*med15); let lo=Infinity,hi=-Infinity,len=0;
-  for(let i=at-1;i>=Math.max(0,at-60);i--){ const nlo=Math.min(lo,k[i].l), nhi=Math.max(hi,k[i].h); if((nhi-nlo)/((nhi+nlo)/2)>tol) break; lo=nlo; hi=nhi; len++; }
-  if(len>=16){ out.push({p:lo,type:"low",name:"kutu dibi ("+len+" mum)",w:2,i:at-1,box:{lo,hi,len,s0:at-len,e:at-1}}); out.push({p:hi,type:"high",name:"kutu tepesi ("+len+" mum)",w:2,i:at-1}); }
-  return out;
+  const tol=Math.max(0.012,2.5*med15); let lo=Infinity,hi=-Infinity,len=0,ilo=-1,ihi=-1;
+  for(let i=at-1;i>=Math.max(0,at-60);i--){ const nlo=Math.min(lo,k[i].l), nhi=Math.max(hi,k[i].h); if((nhi-nlo)/((nhi+nlo)/2)>tol) break; if(k[i].l<lo) ilo=i; if(k[i].h>hi) ihi=i; lo=nlo; hi=nhi; len++; }
+  if(len>=16){ out.push({p:lo,type:"low",name:"kutu dibi ("+len+" mum)",w:2,i:ilo,box:{lo,hi,len,s0:at-len,e:at-1}}); out.push({p:hi,type:"high",name:"kutu tepesi ("+len+" mum)",w:2,i:ihi}); }
+  // drop taken liquidity
+  return out.filter(p=>{ const isL=p.type==="low"; const lv=isL?p.p*(1-0.0005):p.p*(1+0.0005); for(let j=Math.max(0,p.i+1);j<Math.min(at,k.length);j++){ if(isL? k[j].l<lv : k[j].h>lv) return false; } return true; });
 }
 function cvdSeries(k){ const c=new Array(k.length); let s=0; for(let i=0;i<k.length;i++){ s+= (2*(k[i].tb||0) - k[i].q); c[i]=s; } return c; }
 // Detects the latest AMD sequence for one direction. maps: {oi:Map ts→OI value, tk:Map ts→taker ratio} (may be empty).
@@ -548,7 +579,7 @@ async function scanOne(u){
   if(k1d.length<60 || !oi5.length || !taker5.length || !toppos.length || !glob.length) return null;
   const f={t24:u.t24,prem:u.prem,k5:K(k5),k15:K(k15),oi5,taker5}, sl={k1d:K(k1d),k4h:K(k4h),k1h:K(k1h),toppos,glob};
   const A=analyze(f,sl);
-  const row=rowOf(A,u); row._f=f; row._s=sl; return row;
+  const row=rowOf(A,u); row._f=f; row._s=sl; if(typeof fcObserve==='function') fcObserve(u.t24.symbol,A,row.com); return row;
 }
 function rowOf(A,u){
   const s=u.t24.symbol; const p=scan.prev[s]; const delta=(p && Date.now()-p.t<90*60e3)?A.score-p.score:NaN;
@@ -566,5 +597,5 @@ async function scanDeep(r){
   const kb=K(k15L); if(kb.length<600) return null;
   const A=analyze({...r._f,k15:kb},{...r._s,k15L:kb,oi15:oi15||null,taker15:taker15||null});
   consPut(s,A);
-  const u={t24:r._f.t24,prem:r._f.prem}; const row=rowOf(A,u); row._f=r._f; row._s=r._s; return row;
+  const u={t24:r._f.t24,prem:r._f.prem}; const row=rowOf(A,u); row._f=r._f; row._s=r._s; if(typeof fcObserve==='function') fcObserve(s,A,row.com); return row;
 }
