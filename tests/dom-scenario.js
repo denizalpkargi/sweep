@@ -85,6 +85,8 @@ setTimeout(async()=>{
   d.querySelector('#drawer .bar [data-t="account"]').click(); d.getElementById('acctKey').value='test-key'; d.getElementById('acctSecret').value='test-secret'; d.getElementById('acctConnect').click(); await new Promise(r=>setTimeout(r,1500));
   await new Promise(r=>setTimeout(r,2500)); console.log('account:', txt('acctStatus'), '|', txt('acctData').slice(0,1400));
   d.querySelector('#drawer .bar [data-t="bot"]').click(); await new Promise(r=>setTimeout(r,800)); console.log('leaders:', (d.getElementById('ldBox')||{textContent:''}).textContent.replace(/\s+/g,' ').slice(0,700));
+  console.log('desk has Selin:', /Selin/.test(txt('acctData')+txt('dBot')));
+  d.querySelector('#drawer .bar [data-t="lab"]').click(); d.getElementById('labNow').click(); await new Promise(r=>setTimeout(r,2500)); console.log('lab:', txt('dLab').slice(0,400));
   console.log('errors', errors, 'console.error', logs);
   w.close(); process.exit(0);
 },2500);

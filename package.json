@@ -5,7 +5,9 @@
   "description": "SWEEP · Likidite Terminali — Binance USDⓈ-M vadeli için AMD / likidite süpürmesi / emir akışı analiz terminali ve kâğıt bot",
   "scripts": {
     "build": "node src/build.js",
-    "test": "npm run build && node tests/dom-scenario.js",
+    "test": "npm run build && node tests/dom-scenario.js && node tests/research-node.js",
+    "lab:record": "node tests/record-leaders.js",
+    "lab:real": "node tests/research-node.js --real",
     "shot": "npm run build && node tests/screenshot.js",
     "shot:bot": "npm run build && node tests/screenshot-bot.js",
     "serve": "npx --yes http-server site -p 8080 -c-1",

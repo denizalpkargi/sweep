@@ -198,7 +198,7 @@ function analyze(f, s){
   const r5 = m5.map(c=>(c.h-c.l)/c.c), r15 = m15.slice(-192).map(c=>(c.h-c.l)/c.c);
   A.rangeShare = dist => ({ m5: r5.filter(r=>r>dist).length/r5.length, m15: r15.filter(r=>r>dist).length/r15.length });
   A.med15 = [...r15].sort((a,b)=>a-b)[Math.floor(r15.length/2)] || 0;
-  A.src = {k15L:s.k15L||m15, oi15:s.oi15||null, taker15:s.taker15||null, toppos15:s.toppos15||null, fundTimes:(s.fund||[]).map(x=>+x.fundingTime), nextFund:A.nextFund};
+  A.src = {k15L:s.k15L||m15, k1h:h1, btc15:s.btc15||null, oi15:s.oi15||null, taker15:s.taker15||null, toppos15:s.toppos15||null, fundTimes:(s.fund||[]).map(x=>+x.fundingTime), nextFund:A.nextFund};
   const kb=A.src.k15L; A.bt={long:boxTheory(kb,A.med15,"long"),short:boxTheory(kb,A.med15,"short")};
   A.btStats = kb.length>=600 ? {long:boxTheoryStats(kb,A.med15,"long"),short:boxTheoryStats(kb,A.med15,"short")} : {};
   const btReady = d => { const b=A.bt[d]; if(!b) return false; const tolT=Math.max(0.0015,0.3*A.med15); return (b.stage==="retest" && Math.abs(A.px/b.poc-1)<=0.004 && b.rr>=1.5) || (b.stage==="waitRetest" && Math.abs(A.px/b.poc-1)<=tolT); };

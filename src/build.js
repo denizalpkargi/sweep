@@ -48,6 +48,8 @@ eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readF
 if(!eng.includes('function acctStart')) throw new Error('account insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readFileSync(P+'leaders.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function ldRefresh')) throw new Error('leaders insert failed');
+eng=eng.replace(`// backtest: every completed sequence in the history`, fs.readFileSync(P+'research.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function labAnalyze')) throw new Error('research insert failed');
 rep(`sl={k1d:K(k1d),k4h:K(k4h),k1h:K(k1h),toppos,glob};`,`sl={k1d:K(k1d),k4h:K(k4h),k1h:K(k1h),toppos,glob,btc15:await btcKlines()};`);
 rep(`async function fetchSlow(s){`,`const btcCache={t:0,k:null};
 async function btcKlines(){ if(btcCache.k && Date.now()-btcCache.t<9e5) return btcCache.k; const raw=await opt(\`/fapi/v1/klines?symbol=BTCUSDT&interval=15m&limit=1500\`, null); if(raw){ btcCache.k=K(raw); btcCache.t=Date.now(); } return btcCache.k; }
