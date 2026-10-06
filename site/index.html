@@ -461,12 +461,17 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const chip=(cls,txt)=>`<span class="chip ${cls}">${txt}</span>`;
 const tl = ms => new Date(ms).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
 const K = k => k.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5],q:+x[7],tb:+x[10]}));
-const rest={cool:0,fails:0,used:0};
+const rest={cool:0,fails:0,used:0,usedT:0};
+// Binance yasağı (418) ya da hız sınırı (429) yeniden başlatmada unutulmasın: art arda açılışlar 429'u saatlik 418'e çeviriyordu (6 Ekim 2026 gecesi)
+try{ const c=+(localStorage.getItem("st-rest-cool")||0); if(c>Date.now()) rest.cool=c; }catch(e){}
+const restSleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function j(path){
-  if(Date.now()<rest.cool) await new Promise(r=>setTimeout(r,rest.cool-Date.now()));
+  for(let g=0;g<20;g++){ const now=Date.now(); if(now<rest.cool){ await restSleep(rest.cool-now); continue; }
+    // dakikalık ağırlık 2400: 1800'ü geçtiyse dakika dolana kadar bekle (429'a varmadan)
+    if(rest.used>=1800&&Math.floor(rest.usedT/6e4)===Math.floor(now/6e4)){ await restSleep(6e4-now%6e4+500); continue; } break; }
   let r; try{ r=await fetch(BASE+path); }catch(e){ throw new Error(path.split("?")[0]+" → bağlantı kurulamadı ("+e.message+")"); }
-  try{ const w=+r.headers.get("x-mbx-used-weight-1m"); if(w) rest.used=w; }catch(e){}
-  if(r.status===429||r.status===418){ const ra=+(r.headers.get("retry-after")||0); rest.cool=Date.now()+Math.max(15000,ra*1000); throw new Error(path.split("?")[0]+" → hız sınırı (HTTP "+r.status+"), "+Math.round((rest.cool-Date.now())/1000)+" sn bekleniyor"); }
+  try{ const w=+r.headers.get("x-mbx-used-weight-1m"); if(w){ rest.used=w; rest.usedT=Date.now(); } }catch(e){}
+  if(r.status===429||r.status===418){ const ra=+(r.headers.get("retry-after")||0); rest.cool=Date.now()+Math.max(15000,ra*1000); try{ localStorage.setItem("st-rest-cool",String(rest.cool)); }catch(e){} throw new Error(path.split("?")[0]+" → hız sınırı (HTTP "+r.status+"), "+Math.round((rest.cool-Date.now())/1000)+" sn bekleniyor"); }
   if(!r.ok){ let t=""; try{ t=(await r.text()).slice(0,120); }catch(e){} throw new Error(path.split("?")[0]+" → HTTP "+r.status+(t?" · "+t:"")); }
   const data=await r.json();
   if(path.startsWith("/futures/data/") && (!Array.isArray(data) || !data.length)) throw new Error(path.split("?")[0]+" → boş yanıt (Binance bu coin için kalabalık/OI verisi vermiyor ya da veri uç noktası geçici olarak kısıtlı)");
@@ -2495,18 +2500,21 @@ async function labTick(force){
 }
 
 /* ---------- LLM istemcisi (sağlayıcıdan bağımsız, 7 Ekim 2026) ----------
-   Tek giriş noktası: llmChat({system, user, schema, maxTokens}) → {out (şema verildiyse ayrıştırılmış JSON), text, usage:{in,out,cost}, model, provider}.
+   Tek giriş noktası: llmChat({system, user, schema, maxTokens, think}) → {out (şema verildiyse ayrıştırılmış JSON), text, usage:{in,out,cost}, model, provider}.
    Sağlayıcılar (llm.cfg.provider):
-     "ollama"  (varsayılan, ücretsiz, yerel) → http://localhost:11434/api/chat; şema "format" ile zorlanır, bağlam num_ctx ile açılır.
+     "ollama"  (varsayılan, ücretsiz, yerel) → http://localhost:11434/api/chat; şema "format" ile zorlanır, bağlam num_ctx ile açılır;
+              think:false düşünen modellerde (qwen3) düşünmeyi kapatır (CPU'da yüzlerce düşünme belirteci dakikalar demek).
      "openai"  herhangi bir OpenAI uyumlu yerel sunucu (LM Studio, llama.cpp server, vLLM) → <url>/v1/chat/completions, response_format json_schema.
      "claude"  Anthropic Claude API (ücretli, isteğe bağlı) → api.anthropic.com/v1/messages, output_config.format json_schema.
    Ayarlar localStorage["st-llm"] (anahtar hariç); Claude anahtarı yalnız "hatırla" seçilirse localStorage["st-llm-key"], ekransız botta ANTHROPIC_API_KEY
    (bellekte kalır). Depoya hiçbir anahtar yazılmaz. Masanın yerel LLM üyeleri de bu modülü kullanabilir (tek istemci, tek ayar). */
-const LLM_DEF={on:true,provider:"ollama",url:"http://localhost:11434",model:"qwen3:8b",ctx:32768,temp:0.2,claudeModel:"claude-opus-5-5",effort:"high",timeoutMs:600e3};
+const LLM_DEF={v:2,on:true,provider:"ollama",url:"http://localhost:11434",model:"qwen3:8b",ctx:8192,temp:0.2,claudeModel:"claude-opus-5-5",effort:"high",timeoutMs:600e3};
 const LLM_PRICE={"claude-opus-5-5":{in:4,out:20}};
 const llm={cfg:{...LLM_DEF},envKey:null,last:null,err:null,models:null};
-try{ const sv=JSON.parse(localStorage.getItem("st-llm")||"null"); if(sv&&typeof sv==="object") Object.assign(llm.cfg,sv); }catch(e){}
-function llmSave(){ try{ localStorage.setItem("st-llm",JSON.stringify(llm.cfg)); }catch(e){} }
+// ctx: kullanıcının PC'si (16 GB RAM, ayrık GPU yok, Ollama CPU'da) 8B modelde 32768 bağlamın KV önbelleğini (~5 GB) boş belleğe sığdıramıyor → 8192.
+// Ollama'da num_ctx değişince model yeniden yüklenir; masa (llmdesk.js) ve Selim aynı ctx'i kullanır. Eski varsayılanla (32768) kayıtlı ayar taşınır (v2).
+try{ const sv=JSON.parse(localStorage.getItem("st-llm")||"null"); if(sv&&typeof sv==="object"){ if(!(sv.v>=2)&&sv.ctx===32768) delete sv.ctx; Object.assign(llm.cfg,sv); llm.cfg.v=2; } }catch(e){}
+function llmSave(){ try{ localStorage.setItem("st-llm",JSON.stringify({...llm.cfg,v:2})); }catch(e){} }
 function llmKey(){ if(llm.envKey) return llm.envKey; try{ return localStorage.getItem("st-llm-key")||null; }catch(e){ return null; } }
 // Claude anahtarı: remember=false → yalnız bu oturumda bellekte
 function llmSetKey(k,remember){ k=String(k||"").trim()||null; llm.envKey=k; try{ if(remember&&k) localStorage.setItem("st-llm-key",k); else localStorage.removeItem("st-llm-key"); }catch(e){} }
@@ -2528,7 +2536,7 @@ async function llmChat(o){
     text=(jj.content||[]).filter(b=>b.type==="text").map(b=>b.text).join(""); model=jj.model||c.claudeModel; const u=jj.usage||{}; const P=LLM_PRICE[c.claudeModel]||LLM_PRICE["claude-opus-5-5"];
     usage={in:u.input_tokens||0,out:u.output_tokens||0,cost:+(((u.input_tokens||0)*P.in+(u.output_tokens||0)*P.out)/1e6).toFixed(4)}; }
   else if(c.provider==="ollama"){ const url=c.url.replace(/\/+$/,"")+"/api/chat";
-    const jj=await llmFetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({model:c.model,stream:false,messages:[{role:"system",content:sys},{role:"user",content:user}],...(o.schema?{format:o.schema}:{}),options:{num_ctx:c.ctx,temperature:c.temp,num_predict:o.maxTokens||8000}})},"Ollama ("+c.url+")");
+    const jj=await llmFetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({model:c.model,stream:false,messages:[{role:"system",content:sys},{role:"user",content:user}],...(o.schema?{format:o.schema}:{}),...(o.think!==undefined?{think:!!o.think}:{}),options:{num_ctx:c.ctx,temperature:c.temp,num_predict:o.maxTokens||8000}})},"Ollama ("+c.url+")");
     text=jj.message&&jj.message.content||""; usage={in:jj.prompt_eval_count||0,out:jj.eval_count||0,cost:0}; }
   else { const url=c.url.replace(/\/+$/,"")+"/v1/chat/completions";
     const jj=await llmFetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({model:c.model,temperature:c.temp,max_tokens:o.maxTokens||8000,messages:[{role:"system",content:sys},{role:"user",content:user}],...(o.schema?{response_format:{type:"json_schema",json_schema:{name:o.name||"cikti",schema:o.schema,strict:true}}}:{})})},"Yerel LLM sunucusu ("+c.url+")");
@@ -2560,7 +2568,7 @@ async function llmModels(){ const c=llm.cfg; if(c.provider==="claude") return [c
    belirteci, Opus 5.5 ($4 / $20 milyon) ≈ 0,2–0,35 $, günde bir ≈ ayda 6–10 $.
    Uyarı: liderlerin kazandığı koşul bizim için kanıt değildir (hayatta kalma yanlılığı, stopsuz ortalama düşürme; bkz. arastirma/neden-kaybediyoruz).
    Selim'in hipotezi de böyledir; kanıt yalnızca ileri testtir. */
-const SEL_CFG={everyH:24,minNew:40,minTrades:60,sample:{claude:800,local:250},maxHyps:40,maxTokens:16000};
+const SEL_CFG={everyH:24,minNew:40,minTrades:60,sample:{claude:800,local:250},maxHyps:40,maxTokens:16000,localOut:3000,minRows:30};
 const sel={hyps:[],runs:[],at:0,lastN:0,summary:"",styleNotes:[],dataAsks:[],err:null,busy:false,posProvider:null,posSeen:{}};
 try{ const sv=JSON.parse(localStorage.getItem("st-sel")||"null"); if(sv&&sv.v===1){ for(const k of ["hyps","runs","at","lastN","summary","styleNotes","dataAsks","posSeen"]) if(sv[k]!=null) sel[k]=sv[k]; } }catch(e){}
 function selSave(){ try{ localStorage.setItem("st-sel",JSON.stringify({v:1,hyps:sel.hyps,runs:sel.runs.slice(-30),at:sel.at,lastN:sel.lastN,summary:sel.summary,styleNotes:sel.styleNotes,dataAsks:sel.dataAsks,posSeen:sel.posSeen})); }catch(e){} }
@@ -2601,13 +2609,16 @@ BURAK'IN ADAYLARI: ${JSON.stringify(lab.cands.map(cand))}
 BURAK'IN KAÇINILACAKLARI: ${JSON.stringify(lab.avoid.map(cand))}
 LİDER STİLLERİ: ${JSON.stringify(styles)}
 SENİN ÖNCEKİ HİPOTEZLERİN VE SONUÇLARI: ${JSON.stringify(prev)}
-İŞLEMLER (son ${T.length}, eskiden yeniye):
-${rows.join("\n")}`;
-  return txt;
+İŞLEMLER (son {N}, eskiden yeniye):
+`;
+  // yerel modelde bağlam dar (llm.cfg.ctx, varsayılan 8192): istem + çıktı sığsın diye en yeni işlemlerden başlayarak sığanı al (≈3 karakter/belirteç)
+  let R=rows.slice(1); if(llm.cfg.provider!=="claude"){ const room=(llm.cfg.ctx-SEL_CFG.localOut-1500)*3-txt.length-SEL_SYS.length-rows[0].length; let used=0, k=R.length;
+    while(k>0&&(R.length-k<SEL_CFG.minRows||used+R[k-1].length+1<=room)){ used+=R[k-1].length+1; k--; } R=R.slice(k); }
+  return txt.replace("{N}",R.length)+[rows[0]].concat(R).join("\n");
 }
 /* --- LLM çağrısı (llm.js: Ollama / yerel OpenAI uyumlu sunucu / Claude API), yapılandırılmış JSON çıktısı --- */
 async function selCall(payload){
-  const r=await llmChat({system:SEL_SYS.replace("{FEATS}",selFeatTxt()),user:payload+"\n\nBu veriden hipotezlerini çıkar. Yalnız istenen JSON nesnesini döndür.",schema:SEL_SCHEMA(),maxTokens:SEL_CFG.maxTokens,name:"selim"});
+  const r=await llmChat({system:SEL_SYS.replace("{FEATS}",selFeatTxt()),user:payload+"\n\nBu veriden hipotezlerini çıkar. Yalnız istenen JSON nesnesini döndür.",schema:SEL_SCHEMA(),maxTokens:llm.cfg.provider==="claude"?SEL_CFG.maxTokens:SEL_CFG.localOut,think:llm.cfg.provider==="claude"?undefined:false,name:"selim"});
   return {out:r.out,usage:r.usage,model:r.model,provider:r.provider};
 }
 /* --- hipotezleri liderlerin geçmişinde ölç (her analizde yeniden; veri büyüdükçe durum değişebilir) --- */
@@ -3152,7 +3163,7 @@ async function runScan(){
     await Promise.all(Array.from({length:3},worker));
     const cand=out.filter(r=>DEEP_STAGES.has(r.stageL)||DEEP_STAGES.has(r.stageS)||r.pick||r.pickS).sort((a,b)=>b.qv-a.qv).slice(0,24);
     if(cand.length){ let d2=0; const q2=[...cand]; const w2=async()=>{ while(q2.length){ await hold(); const r=q2.shift(); try{ const deep=await scanDeep(r); if(deep) Object.assign(r,deep); }catch(e){} d2++; bar.style.width=(63+d2/cand.length*37)+"%"; st.textContent=`${d2}/${cand.length} aday derin tarandı`; } }; await Promise.all(Array.from({length:2},w2)); }
-    scan.rows=out; const now=Date.now(); const prev={}; out.forEach(r=>prev[r.s]={score:r.score,t:now}); scan.prev=prev; LS("rp-scan-prev",JSON.stringify(prev));
+    scan.rows=out; const now=Date.now(); scan.at=now; const prev={}; out.forEach(r=>prev[r.s]={score:r.score,t:now}); scan.prev=prev; LS("rp-scan-prev",JSON.stringify(prev));
     const n=signalsFromRows(out); renderFeed(); renderWatch(); renderScanTable(); try{ botDecide("scan"); }catch(e){ console.error("SWEEP · bot",e); } try{ lmdScanAsk(out); }catch(e){}
     st.textContent=`${out.length} coin · ${new Date().toLocaleTimeString("tr-TR")}${failed?" · "+failed+" okunamadı":""}${n?" · "+n+" yeni sinyal":""}`;
   }catch(e){ st.textContent="tarama hatası: "+e.message; }
@@ -3262,7 +3273,7 @@ $("feed").addEventListener("click",e=>{ const li=e.target.closest("li[data-s]");
 $("scanBody").addEventListener("click",e=>{ const tr=e.target.closest("tr[data-s]"); if(tr) openSym(tr.dataset.s,tr.dataset.d); });
 document.querySelectorAll("#scanTable th").forEach(th=>th.addEventListener("click",()=>{ const k=th.dataset.k; if(scanUI.k===k) scanUI.dir*=-1; else { scanUI.k=k; scanUI.dir=(k==="s"||k==="stage"||k==="dir"||k==="trend")?1:-1; } renderScanTable(); }));
 $("scanNow").addEventListener("click",runScan); $("onlyPick").addEventListener("change",renderScanTable); $("minVol").addEventListener("change",()=>{ if(!scan.running) runScan(); });
-function scheduleScan(){ clearInterval(scan.timer); const ev=+$("scanEvery").value; if(ev>0) scan.timer=setInterval(()=>{ if(!document.hidden) runScan(); },ev); }
+function scheduleScan(){ clearInterval(scan.timer); const ev=+$("scanEvery").value; if(ev>0) scan.timer=setInterval(()=>{ if(!document.hidden||bot.on) runScan(); },ev); } // bot açıkken pencere küçük/örtülü olsa da tarama sürer (masa bayat satırlarla karar vermesin)
 $("scanEvery").addEventListener("change",scheduleScan);
 function setDrawer(open,tab){ ui.drawerOpen=open; if(tab) ui.drawerTab=tab; $("drawer").classList.toggle("closed",!open); $("drawerTgl").textContent=open?"▾":"▴"; document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.t===ui.drawerTab))); ["scan","journal","story","stats","strategy","bot","lab","ask","account"].forEach(t=>{ const el=$("d"+t[0].toUpperCase()+t.slice(1)); el.hidden=t!==ui.drawerTab; }); LS("st-drawer",open?ui.drawerTab:""); if(open&&state.lastA) renderDrawer(state.lastA); if(open&&ui.drawerTab==="journal") renderJournal(); if(open&&ui.drawerTab==="bot") renderBot(); if(open&&ui.drawerTab==="account") renderAccount(); if(open&&ui.drawerTab==="lab") renderLab(); if(open&&ui.drawerTab==="ask") renderAsk(); }
 document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.addEventListener("click",()=>setDrawer(true,b.dataset.t)));
@@ -3411,6 +3422,9 @@ function botDecide(reason){
   if(d.losses>=cfg.maxLosses){ if(reason==="scan") botLog("skip","",`Bugün ${d.losses}/${cfg.maxLosses} kayıp: gün kapalı.`); return; }
   const slots=cfg.maxPos-bot.positions.length-bot.orders.length; if(slots<=0&&cfg.mode!=="komite") return;
   if(!scan.rows.length){ if(reason==="scan"||now-(bot._emptyWarn||0)>600e3){ bot._emptyWarn=now; botLog("skip","",'Tarama boş: Binance\'e ulaşılamıyor ya da ilk tur bitmedi. Üstteki akış noktası kırmızıysa bağlantı (VPN) sorunudur; veri gelmeden masa toplanamaz.'); } return; }
+  // bayat tarama: satırlar 15 dk'dan (ya da 3 tarama aralığından) eskiyse masa giriş kararı vermez (eski oyla güncel fiyattan market giriş olmasın)
+  const scanAge=now-(scan.at||0), scanMax=Math.max(15*60e3,3*(+(($("scanEvery")||{}).value)||300e3));
+  if(scanAge>scanMax){ if(reason==="scan"||now-(bot._staleWarn||0)>600e3){ bot._staleWarn=now; botLog("skip","",`Tarama ${Math.round(scanAge/6e4)} dk önce bitti (bayat): yeni giriş yok, tarama yenilenince masa yeniden toplanır.`); if(!scan.running) runScan(); } return; }
   if(cfg.mode==="komite"){
     const c=botCandidatesCommittee(); bot.lastVotes=c.slice(0,24).map(x=>({sym:x.sym,dir:x.dir,score:x.score,yes:x.yes,veto:x.veto,go:x.go,held:x.held,cool:x.cool,agents:x.com.agents,talk:x.com.talk,decision:x.com.decision}));
     botGoalWatch(); const go=c.filter(x=>x.go);
@@ -3830,6 +3844,24 @@ setTimeout(()=>{ if(trend.s.cfg.on) trendRun({}); },8000); setInterval(()=>{ if(
 setInterval(()=>{ botManage().catch(()=>{}); },30000);
 setInterval(botPoll,3000);
 setInterval(()=>{ if(bot.on){ botDecide("tick"); if(ui.drawerTab==="bot") renderBot(); } },60000);
+/* --- durum özeti (6 Ekim 2026, gece nöbeti): Electron bunu %APPDATA%/SWEEP/logs/bot-YYYY-MM-DD.jsonl dosyasına yazar; uzaktan izlemek için. Anahtar/hesap bilgisi yok. --- */
+const botDig={lastN:null,lastT:0};
+function botDigest(){ try{ const now=Date.now(); if(botDig.lastN==null) botDig.lastN=bot.trades.length;
+    const r2=v=>isFinite(v)?Math.round(v*100)/100:null; const d24=bot.trades.filter(t=>now-t.closeT<864e5);
+    const pos=bot.positions.map(p=>{ const px=botMk(p.sym); const r=px&&p.risk0?((p.dir==="long"?px-p.entry0:p.entry0-px)/p.risk0):NaN; return {sym:p.sym,dir:p.dir,entry:p.entry,px:px||null,r:r2(r),stop:p.stop,risk:r2(p.risk),score:r2(p.score),yes:p.yes,ageMin:Math.round((now-p.openT)/6e4),stage:p.stage,realized:r2(p.realized)}; });
+    const closed=bot.trades.slice(botDig.lastN).map(t=>({sym:t.sym,dir:t.dir,r:r2(t.r),pnl:r2(t.pnl),fees:r2(t.fees),score:r2(t.score),exits:t.exits||[],holdMin:Math.round((t.closeT-t.openT)/6e4),mfe:r2(t.mfe)})); botDig.lastN=bot.trades.length;
+    const logs=bot.log.filter(l=>l.t>botDig.lastT); const types={}; for(const l of logs) types[l.type]=(types[l.type]||0)+1;
+    const ab={}, yes={}; for(const v of bot.lastVotes||[]) for(const a of v.agents||[]){ const k=a.id||a.name; ab[k]=(ab[k]||0)+(a.abst?1:0); yes[k]=(yes[k]||0)+(!a.abst&&a.v>0.3?1:0); }
+    const F=FC||fcLoad(), L=F.learn;
+    const out={t:new Date(now).toISOString(),on:bot.on,mode:bot.cfg.mode,bal:r2(bot.bal),eq:r2(botEquity()),start:bot.start,goalMode:bot.goalMode||null,day:bot.day,thr:r2(botThr()),minYes:botMinYes(),
+      scan:{rows:scan.rows.length,ageMin:scan.at?Math.round((now-scan.at)/6e4):null,running:!!scan.running,hidden:document.hidden},rest:{fails:rest.fails||0},
+      pos,orders:bot.orders.length,trades:bot.trades.length,all:{n:bot.trades.length,win:bot.trades.filter(t=>t.pnl>0).length,R:r2(bot.trades.reduce((a,t)=>a+t.r,0))},d24:{n:d24.length,win:d24.filter(t=>t.pnl>0).length,R:r2(d24.reduce((a,t)=>a+t.r,0)),pnl:r2(d24.reduce((a,t)=>a+t.pnl,0))},closed,
+      logTypes:types,log:logs.filter(l=>l.type!=="skip"||/bayat|boş|hata/.test(l.text)).slice(-25).map(l=>new Date(l.t).toISOString().slice(11,16)+" "+l.type+" "+l.sym+" "+String(l.text).slice(0,260)),lastSkip:(logs.filter(l=>l.type==="skip").pop()||{}).text||null,
+      votes:{n:(bot.lastVotes||[]).length,abst:ab,yes,top:(bot.lastVotes||[]).slice(0,5).map(v=>v.sym+" "+v.dir+" "+pts(v.score)+" "+v.yes+"e"+(v.go?" go":"")+(v.veto?" veto":""))},
+      fc:{pend:F.pend.length,done:F.done.length,base:L?r2(L.base):null,go:L&&L.go?{n:L.go.n,hit:r2(L.go.hit)}:null,buckets:L?L.buckets.filter(b=>b.n).map(b=>b.t+":"+b.n+"/"+(b.hit!=null?Math.round(b.hit*100):"-")):[],lessons:L?L.lessons.length:0},
+      aud:AUD?{lessons:(AUD.lessons||[]).map(l=>l.k)}:null};
+    botDig.lastT=now; console.info("SWEEP · durum "+JSON.stringify(out)); }catch(e){ console.warn("SWEEP · durum özeti yazılamadı: "+e.message); } }
+setTimeout(botDigest,90e3); setInterval(botDigest,10*60e3);
 if(bot.on||bot.positions.length||bot.orders.length){ botWsSync(); }
 
 /* ================= masaya sor: hesap bağlamadan, elle girilen plan ya da açık işlem ================= */

@@ -18,7 +18,7 @@
    belirteci, Opus 5.5 ($4 / $20 milyon) ≈ 0,2–0,35 $, günde bir ≈ ayda 6–10 $.
    Uyarı: liderlerin kazandığı koşul bizim için kanıt değildir (hayatta kalma yanlılığı, stopsuz ortalama düşürme; bkz. arastirma/neden-kaybediyoruz).
    Selim'in hipotezi de böyledir; kanıt yalnızca ileri testtir. */
-const SEL_CFG={everyH:24,minNew:40,minTrades:60,sample:{claude:800,local:250},maxHyps:40,maxTokens:16000};
+const SEL_CFG={everyH:24,minNew:40,minTrades:60,sample:{claude:800,local:250},maxHyps:40,maxTokens:16000,localOut:3000,minRows:30};
 const sel={hyps:[],runs:[],at:0,lastN:0,summary:"",styleNotes:[],dataAsks:[],err:null,busy:false,posProvider:null,posSeen:{}};
 try{ const sv=JSON.parse(localStorage.getItem("st-sel")||"null"); if(sv&&sv.v===1){ for(const k of ["hyps","runs","at","lastN","summary","styleNotes","dataAsks","posSeen"]) if(sv[k]!=null) sel[k]=sv[k]; } }catch(e){}
 function selSave(){ try{ localStorage.setItem("st-sel",JSON.stringify({v:1,hyps:sel.hyps,runs:sel.runs.slice(-30),at:sel.at,lastN:sel.lastN,summary:sel.summary,styleNotes:sel.styleNotes,dataAsks:sel.dataAsks,posSeen:sel.posSeen})); }catch(e){} }
@@ -59,13 +59,16 @@ BURAK'IN ADAYLARI: ${JSON.stringify(lab.cands.map(cand))}
 BURAK'IN KAÇINILACAKLARI: ${JSON.stringify(lab.avoid.map(cand))}
 LİDER STİLLERİ: ${JSON.stringify(styles)}
 SENİN ÖNCEKİ HİPOTEZLERİN VE SONUÇLARI: ${JSON.stringify(prev)}
-İŞLEMLER (son ${T.length}, eskiden yeniye):
-${rows.join("\n")}`;
-  return txt;
+İŞLEMLER (son {N}, eskiden yeniye):
+`;
+  // yerel modelde bağlam dar (llm.cfg.ctx, varsayılan 8192): istem + çıktı sığsın diye en yeni işlemlerden başlayarak sığanı al (≈3 karakter/belirteç)
+  let R=rows.slice(1); if(llm.cfg.provider!=="claude"){ const room=(llm.cfg.ctx-SEL_CFG.localOut-1500)*3-txt.length-SEL_SYS.length-rows[0].length; let used=0, k=R.length;
+    while(k>0&&(R.length-k<SEL_CFG.minRows||used+R[k-1].length+1<=room)){ used+=R[k-1].length+1; k--; } R=R.slice(k); }
+  return txt.replace("{N}",R.length)+[rows[0]].concat(R).join("\n");
 }
 /* --- LLM çağrısı (llm.js: Ollama / yerel OpenAI uyumlu sunucu / Claude API), yapılandırılmış JSON çıktısı --- */
 async function selCall(payload){
-  const r=await llmChat({system:SEL_SYS.replace("{FEATS}",selFeatTxt()),user:payload+"\n\nBu veriden hipotezlerini çıkar. Yalnız istenen JSON nesnesini döndür.",schema:SEL_SCHEMA(),maxTokens:SEL_CFG.maxTokens,name:"selim"});
+  const r=await llmChat({system:SEL_SYS.replace("{FEATS}",selFeatTxt()),user:payload+"\n\nBu veriden hipotezlerini çıkar. Yalnız istenen JSON nesnesini döndür.",schema:SEL_SCHEMA(),maxTokens:llm.cfg.provider==="claude"?SEL_CFG.maxTokens:SEL_CFG.localOut,think:llm.cfg.provider==="claude"?undefined:false,name:"selim"});
   return {out:r.out,usage:r.usage,model:r.model,provider:r.provider};
 }
 /* --- hipotezleri liderlerin geçmişinde ölç (her analizde yeniden; veri büyüdükçe durum değişebilir) --- */

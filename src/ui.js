@@ -312,7 +312,7 @@ async function runScan(){
     await Promise.all(Array.from({length:3},worker));
     const cand=out.filter(r=>DEEP_STAGES.has(r.stageL)||DEEP_STAGES.has(r.stageS)||r.pick||r.pickS).sort((a,b)=>b.qv-a.qv).slice(0,24);
     if(cand.length){ let d2=0; const q2=[...cand]; const w2=async()=>{ while(q2.length){ await hold(); const r=q2.shift(); try{ const deep=await scanDeep(r); if(deep) Object.assign(r,deep); }catch(e){} d2++; bar.style.width=(63+d2/cand.length*37)+"%"; st.textContent=`${d2}/${cand.length} aday derin tarandı`; } }; await Promise.all(Array.from({length:2},w2)); }
-    scan.rows=out; const now=Date.now(); const prev={}; out.forEach(r=>prev[r.s]={score:r.score,t:now}); scan.prev=prev; LS("rp-scan-prev",JSON.stringify(prev));
+    scan.rows=out; const now=Date.now(); scan.at=now; const prev={}; out.forEach(r=>prev[r.s]={score:r.score,t:now}); scan.prev=prev; LS("rp-scan-prev",JSON.stringify(prev));
     const n=signalsFromRows(out); renderFeed(); renderWatch(); renderScanTable(); try{ botDecide("scan"); }catch(e){ console.error("SWEEP · bot",e); } try{ lmdScanAsk(out); }catch(e){}
     st.textContent=`${out.length} coin · ${new Date().toLocaleTimeString("tr-TR")}${failed?" · "+failed+" okunamadı":""}${n?" · "+n+" yeni sinyal":""}`;
   }catch(e){ st.textContent="tarama hatası: "+e.message; }
@@ -422,7 +422,7 @@ $("feed").addEventListener("click",e=>{ const li=e.target.closest("li[data-s]");
 $("scanBody").addEventListener("click",e=>{ const tr=e.target.closest("tr[data-s]"); if(tr) openSym(tr.dataset.s,tr.dataset.d); });
 document.querySelectorAll("#scanTable th").forEach(th=>th.addEventListener("click",()=>{ const k=th.dataset.k; if(scanUI.k===k) scanUI.dir*=-1; else { scanUI.k=k; scanUI.dir=(k==="s"||k==="stage"||k==="dir"||k==="trend")?1:-1; } renderScanTable(); }));
 $("scanNow").addEventListener("click",runScan); $("onlyPick").addEventListener("change",renderScanTable); $("minVol").addEventListener("change",()=>{ if(!scan.running) runScan(); });
-function scheduleScan(){ clearInterval(scan.timer); const ev=+$("scanEvery").value; if(ev>0) scan.timer=setInterval(()=>{ if(!document.hidden) runScan(); },ev); }
+function scheduleScan(){ clearInterval(scan.timer); const ev=+$("scanEvery").value; if(ev>0) scan.timer=setInterval(()=>{ if(!document.hidden||bot.on) runScan(); },ev); } // bot açıkken pencere küçük/örtülü olsa da tarama sürer (masa bayat satırlarla karar vermesin)
 $("scanEvery").addEventListener("change",scheduleScan);
 function setDrawer(open,tab){ ui.drawerOpen=open; if(tab) ui.drawerTab=tab; $("drawer").classList.toggle("closed",!open); $("drawerTgl").textContent=open?"▾":"▴"; document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.t===ui.drawerTab))); ["scan","journal","story","stats","strategy","bot","lab","ask","account"].forEach(t=>{ const el=$("d"+t[0].toUpperCase()+t.slice(1)); el.hidden=t!==ui.drawerTab; }); LS("st-drawer",open?ui.drawerTab:""); if(open&&state.lastA) renderDrawer(state.lastA); if(open&&ui.drawerTab==="journal") renderJournal(); if(open&&ui.drawerTab==="bot") renderBot(); if(open&&ui.drawerTab==="account") renderAccount(); if(open&&ui.drawerTab==="lab") renderLab(); if(open&&ui.drawerTab==="ask") renderAsk(); }
 document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.addEventListener("click",()=>setDrawer(true,b.dataset.t)));
@@ -571,6 +571,9 @@ function botDecide(reason){
   if(d.losses>=cfg.maxLosses){ if(reason==="scan") botLog("skip","",`Bugün ${d.losses}/${cfg.maxLosses} kayıp: gün kapalı.`); return; }
   const slots=cfg.maxPos-bot.positions.length-bot.orders.length; if(slots<=0&&cfg.mode!=="komite") return;
   if(!scan.rows.length){ if(reason==="scan"||now-(bot._emptyWarn||0)>600e3){ bot._emptyWarn=now; botLog("skip","",'Tarama boş: Binance\'e ulaşılamıyor ya da ilk tur bitmedi. Üstteki akış noktası kırmızıysa bağlantı (VPN) sorunudur; veri gelmeden masa toplanamaz.'); } return; }
+  // bayat tarama: satırlar 15 dk'dan (ya da 3 tarama aralığından) eskiyse masa giriş kararı vermez (eski oyla güncel fiyattan market giriş olmasın)
+  const scanAge=now-(scan.at||0), scanMax=Math.max(15*60e3,3*(+(($("scanEvery")||{}).value)||300e3));
+  if(scanAge>scanMax){ if(reason==="scan"||now-(bot._staleWarn||0)>600e3){ bot._staleWarn=now; botLog("skip","",`Tarama ${Math.round(scanAge/6e4)} dk önce bitti (bayat): yeni giriş yok, tarama yenilenince masa yeniden toplanır.`); if(!scan.running) runScan(); } return; }
   if(cfg.mode==="komite"){
     const c=botCandidatesCommittee(); bot.lastVotes=c.slice(0,24).map(x=>({sym:x.sym,dir:x.dir,score:x.score,yes:x.yes,veto:x.veto,go:x.go,held:x.held,cool:x.cool,agents:x.com.agents,talk:x.com.talk,decision:x.com.decision}));
     botGoalWatch(); const go=c.filter(x=>x.go);
@@ -990,6 +993,24 @@ setTimeout(()=>{ if(trend.s.cfg.on) trendRun({}); },8000); setInterval(()=>{ if(
 setInterval(()=>{ botManage().catch(()=>{}); },30000);
 setInterval(botPoll,3000);
 setInterval(()=>{ if(bot.on){ botDecide("tick"); if(ui.drawerTab==="bot") renderBot(); } },60000);
+/* --- durum özeti (6 Ekim 2026, gece nöbeti): Electron bunu %APPDATA%/SWEEP/logs/bot-YYYY-MM-DD.jsonl dosyasına yazar; uzaktan izlemek için. Anahtar/hesap bilgisi yok. --- */
+const botDig={lastN:null,lastT:0};
+function botDigest(){ try{ const now=Date.now(); if(botDig.lastN==null) botDig.lastN=bot.trades.length;
+    const r2=v=>isFinite(v)?Math.round(v*100)/100:null; const d24=bot.trades.filter(t=>now-t.closeT<864e5);
+    const pos=bot.positions.map(p=>{ const px=botMk(p.sym); const r=px&&p.risk0?((p.dir==="long"?px-p.entry0:p.entry0-px)/p.risk0):NaN; return {sym:p.sym,dir:p.dir,entry:p.entry,px:px||null,r:r2(r),stop:p.stop,risk:r2(p.risk),score:r2(p.score),yes:p.yes,ageMin:Math.round((now-p.openT)/6e4),stage:p.stage,realized:r2(p.realized)}; });
+    const closed=bot.trades.slice(botDig.lastN).map(t=>({sym:t.sym,dir:t.dir,r:r2(t.r),pnl:r2(t.pnl),fees:r2(t.fees),score:r2(t.score),exits:t.exits||[],holdMin:Math.round((t.closeT-t.openT)/6e4),mfe:r2(t.mfe)})); botDig.lastN=bot.trades.length;
+    const logs=bot.log.filter(l=>l.t>botDig.lastT); const types={}; for(const l of logs) types[l.type]=(types[l.type]||0)+1;
+    const ab={}, yes={}; for(const v of bot.lastVotes||[]) for(const a of v.agents||[]){ const k=a.id||a.name; ab[k]=(ab[k]||0)+(a.abst?1:0); yes[k]=(yes[k]||0)+(!a.abst&&a.v>0.3?1:0); }
+    const F=FC||fcLoad(), L=F.learn;
+    const out={t:new Date(now).toISOString(),on:bot.on,mode:bot.cfg.mode,bal:r2(bot.bal),eq:r2(botEquity()),start:bot.start,goalMode:bot.goalMode||null,day:bot.day,thr:r2(botThr()),minYes:botMinYes(),
+      scan:{rows:scan.rows.length,ageMin:scan.at?Math.round((now-scan.at)/6e4):null,running:!!scan.running,hidden:document.hidden},rest:{fails:rest.fails||0},
+      pos,orders:bot.orders.length,trades:bot.trades.length,all:{n:bot.trades.length,win:bot.trades.filter(t=>t.pnl>0).length,R:r2(bot.trades.reduce((a,t)=>a+t.r,0))},d24:{n:d24.length,win:d24.filter(t=>t.pnl>0).length,R:r2(d24.reduce((a,t)=>a+t.r,0)),pnl:r2(d24.reduce((a,t)=>a+t.pnl,0))},closed,
+      logTypes:types,log:logs.filter(l=>l.type!=="skip"||/bayat|boş|hata/.test(l.text)).slice(-25).map(l=>new Date(l.t).toISOString().slice(11,16)+" "+l.type+" "+l.sym+" "+String(l.text).slice(0,260)),lastSkip:(logs.filter(l=>l.type==="skip").pop()||{}).text||null,
+      votes:{n:(bot.lastVotes||[]).length,abst:ab,yes,top:(bot.lastVotes||[]).slice(0,5).map(v=>v.sym+" "+v.dir+" "+pts(v.score)+" "+v.yes+"e"+(v.go?" go":"")+(v.veto?" veto":""))},
+      fc:{pend:F.pend.length,done:F.done.length,base:L?r2(L.base):null,go:L&&L.go?{n:L.go.n,hit:r2(L.go.hit)}:null,buckets:L?L.buckets.filter(b=>b.n).map(b=>b.t+":"+b.n+"/"+(b.hit!=null?Math.round(b.hit*100):"-")):[],lessons:L?L.lessons.length:0},
+      aud:AUD?{lessons:(AUD.lessons||[]).map(l=>l.k)}:null};
+    botDig.lastT=now; console.info("SWEEP · durum "+JSON.stringify(out)); }catch(e){ console.warn("SWEEP · durum özeti yazılamadı: "+e.message); } }
+setTimeout(botDigest,90e3); setInterval(botDigest,10*60e3);
 if(bot.on||bot.positions.length||bot.orders.length){ botWsSync(); }
 
 /* ================= masaya sor: hesap bağlamadan, elle girilen plan ya da açık işlem ================= */

@@ -13,12 +13,17 @@ rep(`const inZone=!!(r&&r.stage==="entry");`,`const inZone=!!(r&&(r.stageLive||r
 rep(`async function j(path){
   let r; try{ r=await fetch(BASE+path); }catch(e){ throw new Error(path.split("?")[0]+" → bağlantı kurulamadı ("+e.message+")"); }
   if(!r.ok){ let t=""; try{ t=(await r.text()).slice(0,120); }catch(e){} throw new Error(path.split("?")[0]+" → HTTP "+r.status+(t?" · "+t:"")); }`,
-`const rest={cool:0,fails:0,used:0};
+`const rest={cool:0,fails:0,used:0,usedT:0};
+// Binance yasağı (418) ya da hız sınırı (429) yeniden başlatmada unutulmasın: art arda açılışlar 429'u saatlik 418'e çeviriyordu (6 Ekim 2026 gecesi)
+try{ const c=+(localStorage.getItem("st-rest-cool")||0); if(c>Date.now()) rest.cool=c; }catch(e){}
+const restSleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function j(path){
-  if(Date.now()<rest.cool) await new Promise(r=>setTimeout(r,rest.cool-Date.now()));
+  for(let g=0;g<20;g++){ const now=Date.now(); if(now<rest.cool){ await restSleep(rest.cool-now); continue; }
+    // dakikalık ağırlık 2400: 1800'ü geçtiyse dakika dolana kadar bekle (429'a varmadan)
+    if(rest.used>=1800&&Math.floor(rest.usedT/6e4)===Math.floor(now/6e4)){ await restSleep(6e4-now%6e4+500); continue; } break; }
   let r; try{ r=await fetch(BASE+path); }catch(e){ throw new Error(path.split("?")[0]+" → bağlantı kurulamadı ("+e.message+")"); }
-  try{ const w=+r.headers.get("x-mbx-used-weight-1m"); if(w) rest.used=w; }catch(e){}
-  if(r.status===429||r.status===418){ const ra=+(r.headers.get("retry-after")||0); rest.cool=Date.now()+Math.max(15000,ra*1000); throw new Error(path.split("?")[0]+" → hız sınırı (HTTP "+r.status+"), "+Math.round((rest.cool-Date.now())/1000)+" sn bekleniyor"); }
+  try{ const w=+r.headers.get("x-mbx-used-weight-1m"); if(w){ rest.used=w; rest.usedT=Date.now(); } }catch(e){}
+  if(r.status===429||r.status===418){ const ra=+(r.headers.get("retry-after")||0); rest.cool=Date.now()+Math.max(15000,ra*1000); try{ localStorage.setItem("st-rest-cool",String(rest.cool)); }catch(e){} throw new Error(path.split("?")[0]+" → hız sınırı (HTTP "+r.status+"), "+Math.round((rest.cool-Date.now())/1000)+" sn bekleniyor"); }
   if(!r.ok){ let t=""; try{ t=(await r.text()).slice(0,120); }catch(e){} throw new Error(path.split("?")[0]+" → HTTP "+r.status+(t?" · "+t:"")); }`);
 rep("j(`/fapi/v1/depth?symbol=${s}&limit=500`),","j(`/fapi/v1/depth?symbol=${s}&limit=100`),");
 rep("j(`/fapi/v1/aggTrades?symbol=${s}&limit=1000`)","j(`/fapi/v1/aggTrades?symbol=${s}&limit=300`)");
