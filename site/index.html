@@ -1000,6 +1000,100 @@ function regimeStats_(k, k1d, med15, dir, btc){
 }
 function rsPlanOf(r,k){ if(!r||!r.rsOk||!isFinite(r.entry)||!(r.stage==="entry"||r.stage==="waitEntry")) return null; return {stage:r.stage,grade:r.grade,kz:r.kz||null,entry:r.entry,stop:r.stop,t1:r.tp1,t2:r.run,rr1:RS_CFG.tp1R,rr2:r.rr2,expires:(k&&r.mss!=null&&k[r.mss]?k[r.mss].t:Date.now())+(RS_CFG.maxWait+1)*9e5}; }
 
+/* ---------- Denetçi (Murat): kapanan işlemleri inceler, hataları etiketler, dersleri masaya geri verir (6 Ekim 2026) ----------
+   Her kapanan kâğıt işlemde girişteki oylar (snap), stop mesafesi, en iyi/en kötü gidiş (mfe/mae, R) ve çıkış nedenleri saklanır.
+   auditRun(trades): her işlemi etiketler (giriş anında görülebilen hatalar + sonradan görülen hatalar), etiket başına ortalama R'yi
+   küçülterek (sum/(n+4)) hesaplar ve yeterli örnekte "ders" çıkarır. Dersler masaya kolla bağlanır:
+   oy etiketleri → Murat o kalıba benzeyen kuruluma karşı oy verir (çok kötüyse veto); eşikte giriş → eşik +0,05/+0,10;
+   tek başına çoğunluk → asgari oy +1; aynı yönde yığılma → aynı yönde en fazla 1 pozisyon; kayıp ardından giriş → 60 dk ara;
+   gürültü stopu → stop tabanı %1,5 → %2; kârı geri verme → 1R görünce momentuma bakmadan yarısını al.
+   Ajan ağırlıkları: oy ile sonuç R'si arasındaki ilişki (≥8 işlem) ağırlığı 0,6–1,4 arasında çarpar. Kanıt değil; örnek büyüdükçe güçlenir. */
+let AUD=null;
+const AUD_MIN=5;
+const AUD_TAGS={
+  nosweep:{t:"Süpürmesiz giriş",pre:"vote",why:"Kerem süpürülmüş havuz görmeden girildi; manipülasyon olmadan giriş rastgele girişe yakındır."},
+  counter:{t:"Trende karşı",pre:"vote",why:"Emre günlük yönün ters olduğunu söylemişti."},
+  btc:{t:"BTC'ye karşı",pre:"vote",why:"Arda BTC rejiminin karşı olduğunu söylemişti; altcoinler BTC'yi izler."},
+  flow:{t:"Akış karşı",pre:"vote",why:"Mert emir akışının karşı tarafta olduğunu söylemişti."},
+  thin:{t:"Eşikte giriş",pre:"lever",why:"Puan eşiğin hemen üstündeydi; masa ikna olmadan girdi."},
+  lone:{t:"Dar çoğunluk",pre:"lever",why:"Evet oyu asgari sayıdaydı; masanın yarısı ikna değildi."},
+  cluster:{t:"Aynı yönde yığılma",pre:"lever",why:"Aynı anda aynı yönde iki ya da daha fazla pozisyon vardı; tek bir BTC hareketi hepsini birden stop eder."},
+  afterloss:{t:"Kayıp ardından giriş",pre:"lever",why:"Son 60 dakikada bir stop yenmişti; piyasa aynı yönü cezalandırırken yeniden girildi."},
+  noise:{t:"Gürültü stopu",post:true,why:"Fiyat lehimize hiç gitmeden (≤0,3R) 45 dakika içinde stop oldu: stop normal dalgalanmanın içindeydi ya da giriş zamanlaması kötüydü."},
+  giveback:{t:"Kârı geri verdi",post:true,why:"En az 1R kârı gördü ama başabaş ya da zararla kapandı."},
+  deskcut:{t:"Masa zararla kesti",post:true,why:"Stop gelmeden masa kararıyla zararla kapatıldı."},
+  timeout:{t:"Zaman stopu zararda",post:true,why:"Hareket gelmedi, süre dolunca zararda kapandı."},
+  cost:{t:"Maliyet ağır",post:true,why:"Komisyon ve fonlama riskin %20'sini aştı."},
+  offline:{t:"Uygulama kapalıyken",post:true,why:"Pozisyon açıkken uygulama kapandı; stop ve hedef izlenmedi, sonuç yeniden açılışta o anki fiyattan hesaplandı."}};
+const AUD_VOTE={nosweep:a=>a.liq!=null&&a.liq<=0.3,counter:a=>a.trend!=null&&a.trend<-0.3,btc:a=>a.macro!=null&&a.macro<0,flow:a=>a.flow!=null&&a.flow<0};
+/* eski kayıtlar: girişteki oylar karar günlüğündeki "DOLDU" satırından, çıkış nedenleri aynı coinin satırlarından okunur */
+function audBackfill(trades, log){
+  const byName={}; for(const d of DESK) byName[d.name]=d.id; Object.assign(byName,{"Ayşe":"trend","Elif":"macro","Selin":"quant"});
+  const num=s=>+String(s).replace(",",".");
+  for(const t of trades){
+    if(!t.snap){ const f=(log||[]).find(l=>l.type==="fill"&&l.sym===t.sym&&Math.abs(l.t-t.openT)<10e3&&/Oylar:/.test(l.text));
+      if(f){ const v={}; const m=f.text.split("Oylar:")[1]||""; for(const x of m.matchAll(/([A-Za-zÇĞİÖŞÜçğıöşü]+) ([+-]?\d+(?:,\d+)?)/g)){ const id=byName[x[1]]; if(id) v[id]=num(x[2]); }
+        const sd=(f.text.match(/stop [^(]*\((\d+(?:,\d+)?)%\)/)||[])[1]; const sc=(f.text.match(/puan (-?\d+(?:,\d+)?)/)||[])[1]; const yes=(f.text.match(/(\d+)\/\d+ evet/)||[])[1];
+        if(Object.keys(v).length) t.snap={v,sd:sd?num(sd)/100:NaN,score:sc?num(sc):t.score,yes:yes?+yes:Object.values(v).filter(x=>x>0.15).length,src:"log"}; } }
+    if(!t.exits){ const ex=(log||[]).filter(l=>l.sym===t.sym&&l.t>=t.openT-1e3&&l.t<=(t.closeT||0)+1e3&&/^(stop|tp1|tp2|time|desk)$/.test(l.type)).map(l=>l.type); if(ex.length) t.exits=ex; }
+  }
+  return trades;
+}
+function audTagsOf(t, trades, opts){
+  const thr=opts&&isFinite(opts.thr)?opts.thr:COM_DEF.threshold, minYes=opts&&opts.minYes||COM_DEF.minYes; const tags=[]; const s=t.snap; const a=s?s.v:null;
+  if(a){ for(const k in AUD_VOTE) if(AUD_VOTE[k](a)) tags.push(k); }
+  const sc=s&&isFinite(s.score)?s.score:t.score; if(isFinite(sc)&&sc<thr+0.05) tags.push("thin");
+  if(s&&isFinite(s.yes)&&s.yes<=minYes) tags.push("lone");
+  const same=trades.filter(o=>o!==t&&o.dir===t.dir&&o.openT<=t.openT+60e3&&o.closeT>t.openT).length; if(same>=2) tags.push("cluster");
+  if(trades.some(o=>o!==t&&o.r<0&&o.closeT<=t.openT&&t.openT-o.closeT<=60*60e3)) tags.push("afterloss");
+  const hold=(t.closeT-t.openT)/60e3; const ex=t.exits||[]; const last=ex[ex.length-1];
+  if(t.r<0&&(last==="stop"||(!ex.length&&t.r<=-0.8))&&hold<=45&&!(isFinite(t.mfe)&&t.mfe>0.3)) tags.push("noise");
+  if(isFinite(t.mfe)&&t.mfe>=1&&t.r<=0.1) tags.push("giveback");
+  if(t.r<0&&last==="desk") tags.push("deskcut");
+  if(t.r<0&&last==="time") tags.push("timeout");
+  if(t.risk>0&&isFinite(t.fees)&&t.fees/t.risk>=0.2) tags.push("cost");
+  if(t.offline) tags.push("offline");
+  return tags;
+}
+function audCorr(xs,ys){ const n=xs.length; if(n<3) return 0; const mx=xs.reduce((a,b)=>a+b,0)/n, my=ys.reduce((a,b)=>a+b,0)/n; let sxy=0,sxx=0,syy=0; for(let i=0;i<n;i++){ const dx=xs[i]-mx, dy=ys[i]-my; sxy+=dx*dy; sxx+=dx*dx; syy+=dy*dy; } return sxx>0&&syy>0?sxy/Math.sqrt(sxx*syy):0; }
+function auditRun(trades, log, opts){
+  trades=audBackfill((trades||[]).filter(t=>t&&isFinite(t.r)&&t.openT&&t.closeT),log);
+  const out={n:trades.length,at:Date.now(),tags:{},lessons:[],mult:{},thrBump:0,minYesBump:0,maxSameDir:null,pauseMin:0,sdMin:0.015,lockEarly:false,veto:{},vote:{},findings:[],summary:null,clean:null};
+  if(!trades.length) return out;
+  const R=trades.map(t=>t.r), win=trades.filter(t=>t.r>0).length, sum=R.reduce((a,b)=>a+b,0);
+  const losses=trades.filter(t=>t.r<0); const fees=trades.reduce((a,t)=>a+(t.risk>0&&isFinite(t.fees)?t.fees/t.risk:0),0);
+  out.summary={n:trades.length,win,wr:win/trades.length,sum,avg:sum/trades.length,losses:losses.length,feeR:fees/trades.length,snap:trades.filter(t=>t.snap).length};
+  const tagged=trades.map(t=>({t,tags:audTagsOf(t,trades,opts)}));
+  for(const k in AUD_TAGS){ const has=tagged.filter(x=>x.tags.includes(k)), not=tagged.filter(x=>!x.tags.includes(k)&&(AUD_TAGS[k].pre!=="vote"||x.t.snap));
+    const s=has.reduce((a,x)=>a+x.t.r,0), s2=not.reduce((a,x)=>a+x.t.r,0);
+    out.tags[k]={n:has.length,sum:s,avg:has.length?s/has.length:0,shr:s/(has.length+4),nNot:not.length,avgNot:not.length?s2/not.length:0,lossShare:losses.length?has.filter(x=>x.t.r<0).length/losses.length:0}; }
+  const T=out.tags; const bad=k=>T[k].n>=AUD_MIN&&T[k].shr<=-0.25&&T[k].avg<T[k].avgNot-0.25; const lesson=(k,lever)=>out.lessons.push({k,t:AUD_TAGS[k].t,why:AUD_TAGS[k].why,n:T[k].n,avg:T[k].avg,avgNot:T[k].avgNot,lever});
+  for(const k in AUD_VOTE) if(bad(k)){ const strong=T[k].n>=10&&T[k].shr<=-0.5; out.vote[k]=clamp(T[k].shr*1.5,-1,-0.3); if(strong) out.veto[k]=true; lesson(k,strong?"Murat bu kalıba veto koyar":"Murat bu kalıba karşı oy verir"); }
+  if(bad("thin")){ out.thrBump=T.thin.shr<=-0.5?0.1:0.05; lesson("thin",`eşik +${fx(out.thrBump,2)}`); }
+  if(bad("lone")){ out.minYesBump=1; lesson("lone","asgari evet oyu +1"); }
+  if(bad("cluster")){ out.maxSameDir=1; lesson("cluster","aynı yönde en fazla 1 pozisyon"); }
+  if(bad("afterloss")){ out.pauseMin=60; lesson("afterloss","kayıptan sonra 60 dk yeni giriş yok"); }
+  if(losses.length>=AUD_MIN&&T.noise.n>=3&&T.noise.lossShare>=0.4){ out.sdMin=0.02; lesson("noise",`stop tabanı %1,5 → %2 (kayıpların %${Math.round(T.noise.lossShare*100)}'i gürültü stopu)`); }
+  const saw1=trades.filter(t=>isFinite(t.mfe)&&t.mfe>=1).length; if(T.giveback.n>=3&&saw1&&T.giveback.n/saw1>=0.25){ out.lockEarly=true; lesson("giveback","1R görüp 0,5R geri gelince momentuma bakmadan yarısı alınır"); }
+  /* ajan ağırlıkları: oy (işlem yönünde) ile sonuç R'si arasındaki ilişki */
+  const withSnap=trades.filter(t=>t.snap&&t.snap.v);
+  for(const d of DESK){ const xs=[],ys=[]; for(const t of withSnap){ const v=t.snap.v[d.id]; if(isFinite(v)){ xs.push(v); ys.push(clamp(t.r,-1.5,3)); } }
+    if(xs.length>=8){ const c=audCorr(xs,ys); out.mult[d.id]={m:+clamp(1+c*0.6*Math.min(1,xs.length/30),0.6,1.4).toFixed(2),corr:+c.toFixed(2),n:xs.length}; } }
+  const cl=tagged.filter(x=>x.t.snap&&!x.tags.some(k=>out.vote[k]!=null)); if(cl.length>=AUD_MIN){ const s=cl.reduce((a,x)=>a+x.t.r,0); out.clean={n:cl.length,avg:s/cl.length,shr:s/(cl.length+4)}; }
+  out.findings=tagged.filter(x=>x.t.r<0).slice(-12).reverse().map(x=>({sym:x.t.sym,dir:x.t.dir,r:x.t.r,openT:x.t.openT,closeT:x.t.closeT,tags:x.tags,exits:x.t.exits||[],mfe:x.t.mfe}));
+  return out;
+}
+/* komite içinden: Murat'ın oyu, kurulumu kayıtlı hatalarla karşılaştırarak */
+function audVoteFor(ag){
+  const a={}; for(const k in ag) a[k]=ag[k].v;
+  if(!AUD||!AUD.summary||AUD.summary.snap<AUD_MIN) return {v:0,c:0,w:0,hits:[],veto:null,txt:AUD&&AUD.summary?`${AUD.summary.n} işlem kayıtlı, ders için en az ${AUD_MIN} oylu işlem gerekir`:"henüz kapanmış işlem yok"};
+  const hits=Object.keys(AUD.vote).filter(k=>AUD_VOTE[k](a)); const veto=hits.find(k=>AUD.veto[k])||null;
+  let v=0,c=0.4; if(hits.length){ v=Math.min(...hits.map(k=>AUD.vote[k])); c=Math.min(0.9,0.4+0.03*Math.max(...hits.map(k=>AUD.tags[k].n))); }
+  else if(AUD.clean&&AUD.clean.shr>0.1){ v=clamp(AUD.clean.shr,0,0.6); c=Math.min(0.8,0.3+AUD.clean.n/40); }
+  const txt=hits.length?hits.map(k=>`${AUD_TAGS[k].t}: ${AUD.tags[k].n} işlemde ort. ${fx(AUD.tags[k].avg,2)}R`).join(" · "):`kayıtlı hatalardan hiçbiri yok${AUD.clean?` · temiz kurulumlar ${AUD.clean.n} işlemde ort. ${fx(AUD.clean.avg,2)}R`:""}`;
+  return {v,c,w:1,hits,veto,txt};
+}
+
 /* ---------- Masa: yedi kişilik, üç tur ----------
    Analistler: Emre (trend), Kerem (likidite / ICT), Mert (emir akışı). Araştırmacılar: Arda (makro · BTC rejimi, kalabalık), Onur (kantitatif · kanıt, maliyet).
    Araştırma ekibi (research.js): Tolga (liderlerin coin uzlaşısı), Burak (liderlerin geçmişinden çıkan aday stratejiler ve kaçınılacak kalıplar).
@@ -1015,6 +1109,7 @@ const DESK=[
   {id:"mom",name:"Baran",role:"Trader · agresif",w:0.8},
   {id:"copy",name:"Tolga",role:"Kopya trader araştırmacısı",w:1},
   {id:"lab",name:"Burak",role:"Strateji araştırmacısı",w:0.9},
+  {id:"audit",name:"Murat",role:"Denetçi · hatalardan ders",w:1},
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 const COM_DEF={threshold:0.3,minYes:4};
@@ -1071,6 +1166,7 @@ function committee(A, dir, c24, opts){
   const cap=liqDist(20)*0.6; const pump=isL?c24>15:c24<-15; const fundBad=isL?A.fund>0.001:A.fund<-0.001;
   let veto=null; if(sd>cap) veto=`oynaklık 20x stopuna sığmıyor (${fx(sd*100,1)}%)`; else if(pump) veto=`24 saatte ${pct(c24)}: kovalama`; else if(fundBad) veto=`fonlama aşırı (${fx(A.fund*100,3)}%)`;
   let rv=veto?-1:0.6; if(!veto){ if(isL&&A.distrib) rv-=0.4; if(!isL&&A.accum) rv-=0.4; if(isL?A.fund>0.0005:A.fund<-0.0005) rv-=0.2; if(isL&&A.climax) rv-=0.2; if(!isL&&A.capit) rv-=0.2; }
+  if(typeof AUD!=="undefined"&&AUD&&AUD.summary){ const S=AUD.summary; say("audit","açılış",`Kayıtta ${S.n} kapanmış işlem: kazanma %${Math.round(S.wr*100)}, ortalama ${S.avg>=0?"+":""}${fx(S.avg,2)}R.${AUD.lessons.length?" Çıkardığımız dersler: "+AUD.lessons.map(l=>l.t.toLowerCase()).join(", ")+".":" Henüz kesin bir ders yok."} Tartışmada kurulumu bunlarla karşılaştıracağım.`); }
   set("risk",rv,0.8,veto?"VETO: "+veto:`stop ${fx(sd*100,2)}% · 20x'e sığar · fonlama ${fx(A.fund*100,4)}%`);
   say("risk","açılış",veto?`Daha dinlemeden söyleyeyim: ${veto}. Bu masadan ${D} çıkmaz.`:`Stop ${fx(sd*100,2)}% ile 20x'e sığıyor, likidasyon uzak. Boyu risk yüzdesinden hesaplarım. Önce sizi dinleyeyim.`);
   /* ---- 2. tur: tartışma (oyları gerçekten değiştirir) ---- */
@@ -1086,12 +1182,17 @@ function committee(A, dir, c24, opts){
     if(best&&LM.f.sw==="var"&&ag.liq.v>0.5){ say("lab","tartışma","Kerem, liderlerin kazanan işlemleri de süpürmeden sonra geliyor; senin okumanı destekliyor."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
     if(best&&best.conds.some(c=>c[0]==="btc")&&ag.macro.v>0){ say("macro","tartışma","Burak'ın adayı BTC yönüne bağlı; BTC tarafı da bizimle, güvenimi artırıyorum."); ag.macro.c=Math.min(1,ag.macro.c+0.1); chg.push("macro"); }
     if(n>=3&&sum<0){ say("quant","tartışma",`Bu coinde K3 geçmişi ${fx(sum,1)}R, yani eksi. Herkesin güvenini %15 kısıyorum; kanıtsız yere kalite A demeyelim.`); for(const k in ag) if(k!=="risk") ag[k].c*=0.85; chg.push("all"); }
-    if(sd<0.015){ say("quant","tartışma",`Stop ${fx(sd*100,2)}% dar; testte %1,5 altı stoplar eksiydi. Stopu %1,5 tabanına çekelim, boy ona göre küçülür.`); sd=0.015; say("risk","tartışma","Tamam, stop %1,5; pozisyon boyu buna göre."); }
+    const sdMin=AUD&&AUD.sdMin>0.015?AUD.sdMin:0.015;
+    if(sd<sdMin){ if(sdMin>0.015) say("audit","tartışma",`Kayıplarımızın çoğu gürültü stopu: fiyat lehimize gitmeden 45 dakikada stop oluyoruz. Stop tabanı %${fx(sdMin*100,1)}, boy ona göre küçülsün.`); else say("quant","tartışma",`Stop ${fx(sd*100,2)}% dar; testte %1,5 altı stoplar eksiydi. Stopu %1,5 tabanına çekelim, boy ona göre küçülür.`); sd=sdMin; say("risk","tartışma",`Tamam, stop %${fx(sdMin*100,1)}; pozisyon boyu buna göre.`); }
   }
+  /* ---- denetçi: kurulumu kapanmış işlemlerden çıkan derslerle karşılaştırır ---- */
+  const au=audVoteFor(ag); ag.audit={id:"audit",v:au.v,c:au.c,txt:au.txt};
+  if(!veto&&au.w){ if(au.hits.length){ say("audit","tartışma",`Bu kurulum daha önce kaybettiğimiz kalıba benziyor: ${au.txt}. ${au.veto?"Bu ders kesinleşti, veto istiyorum.":"Oyum karşı."}`); if(au.veto){ veto=`denetçi: ${AUD_TAGS[au.veto].t.toLowerCase()} kalıbı ${AUD.tags[au.veto].n} işlemde ort. ${fx(AUD.tags[au.veto].avg,2)}R`; say("risk","tartışma","Murat'ın kaydı açık, aynı hatayı tekrar etmiyoruz."); } }
+    else say("audit","tartışma",`Kayıtlı hatalardan hiçbirine benzemiyor.${AUD.clean?` Temiz kurulumlarımız ${AUD.clean.n} işlemde ort. ${fx(AUD.clean.avg,2)}R.`:""}`); }
   /* ---- puan ---- */
   // Burak'ın elinde eşleşen aday ya da kaçınılacak kalıp yoksa çekimserdir: ağırlığı 0, puanı sulandırmaz
   const labIdle=!best&&!bad;
-  const agents=DESK.map(d=>{ const a=ag[d.id]; return {id:d.id,k:d.name+" · "+d.role.split(" ")[0],name:d.name,role:d.role,w:d.id==="lab"&&labIdle?0:d.w,v:+a.v.toFixed(2),c:+a.c.toFixed(2),txt:a.txt}; });
+    const agents=DESK.map(d=>{ const a=ag[d.id]; const m=AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1; return {id:d.id,k:d.name+" · "+d.role.split(" ")[0],name:d.name,role:d.role,w:d.id==="audit"?au.w:d.id==="lab"&&labIdle?0:+(d.w*m).toFixed(2),v:+a.v.toFixed(2),c:+a.c.toFixed(2),txt:a.txt}; });
   let num=0,den=0,yes=0,no=0; for(const a of agents){ num+=a.w*a.v*a.c; den+=a.w; if(a.v>0.15) yes++; if(a.v<-0.15) no++; }
   let score=den?num/den:0;
   if(!veto&&score>=opts.threshold-0.06&&score<opts.threshold&&yes>=opts.minYes&&ag.mom.v>0){ say("mom","tartışma",`Eşiğin dibindeyiz (${fx(score,2)}), ${yes} evet var. Ben küçük boyla girerim; fırsatı kaçırmayalım.`); const m=agents.find(a=>a.id==="mom"); m.v=+Math.min(1,m.v+0.15).toFixed(2); num=0; for(const a of agents) num+=a.w*a.v*a.c; score=num/den; }
@@ -2024,8 +2125,11 @@ try{ const saved=JSON.parse(LS("st-bot")||"null"); if(saved){ const cfg={...BOT_
   // eski kayıtlardaki ajan isimleri (5 Ekim 2026'da yeniden adlandırıldı)
   const RN={"Ayşe":"Emre","Elif":"Arda","Selin":"Onur"}; const fixA=a=>{ if(!a) return; if(RN[a.name]){ a.k=String(a.k||"").replace(a.name,RN[a.name]); a.name=RN[a.name]; } }; const fixT=t=>{ if(t&&RN[t.who]) t.who=RN[t.who]; };
   for(const v of bot.lastVotes||[]){ (v.agents||[]).forEach(fixA); (v.talk||[]).forEach(fixT); } for(const p of bot.positions||[]){ (p.agents||[]).forEach(fixA); (p.talk||[]).forEach(fixT); if(Array.isArray(p.votes)) p.votes=p.votes.map(x=>x.replace(/^(Ayşe|Elif|Selin)/,m=>RN[m])); } bot.lastVotes=bot.lastVotes||[]; for(const p of bot.positions){ if(!p.expiresAt) p.expiresAt=(p.openT||Date.now())+cfg.holdH*3600e3; } } }catch(e){}
-function botSave(){ const {ws,...rest}=bot; try{ localStorage.setItem("st-bot",JSON.stringify({...rest,log:bot.log.slice(-300),eq:bot.eq.slice(-2000),lastVotes:bot.lastVotes.slice(0,24)})); }catch(e){ console.error("SWEEP · bot kaydı yazılamadı: "+e.message); } }
-function botLog(type,sym,text){ bot.log.push({t:Date.now(),type,sym:sym||"",text}); bot.log=bot.log.slice(-300); botSave(); if(ui.drawerTab==="bot") renderBot(); }
+const BOOT_T=Date.now();
+try{ AUD=auditRun(bot.trades,bot.log,{thr:bot.cfg.threshold,minYes:bot.cfg.minYes}); }catch(e){ AUD=null; }
+function botSave(){ const {ws,...rest}=bot; try{ localStorage.setItem("st-bot",JSON.stringify({...rest,log:bot.log,eq:bot.eq.slice(-2000),lastVotes:bot.lastVotes.slice(0,24)})); }catch(e){ console.error("SWEEP · bot kaydı yazılamadı: "+e.message); } }
+function botLogTrim(){ if(bot.log.length<=300) return; let drop=bot.log.length-300; bot.log=bot.log.filter((l,i)=>{ if(drop>0&&l.type==="skip"&&i<bot.log.length-60){ drop--; return false; } return true; }); if(bot.log.length>300) bot.log=bot.log.slice(-300); }
+function botLog(type,sym,text){ bot.log.push({t:Date.now(),type,sym:sym||"",text}); botLogTrim(); botSave(); if(ui.drawerTab==="bot") renderBot(); }
 function botDay(){ const k=dayKey(Date.now()); if(bot.day.key!==k){ bot.day={key:k,opens:0,losses:0}; } return bot.day; }
 function botPnl(p,px){ return (p.dir==="long"?(px-p.entry):(p.entry-px))*p.qty; }
 function botMk(sym){ return bot.mark[sym]||bot.px[sym]; }
@@ -2047,13 +2151,21 @@ function botCandidatesGate(){
   }
   return out.sort((a,b)=>b.score-a.score);
 }
+/* --- denetçinin kolları: eşik, asgari oy, aynı yön sınırı, kayıp sonrası ara --- */
+function botThr(){ return bot.cfg.threshold+(AUD?AUD.thrBump:0); }
+function botMinYes(){ return Math.min(DESK.length,bot.cfg.minYes+(AUD?AUD.minYesBump:0)); }
+function botAudit(rec){
+  const prev=AUD?AUD.lessons.map(l=>l.k).join(","):""; AUD=auditRun(bot.trades,bot.log,{thr:bot.cfg.threshold,minYes:bot.cfg.minYes});
+  if(rec){ const f=AUD.findings.find(x=>x.openT===rec.openT&&x.sym===rec.sym); if(f&&f.tags.length) botLog("audit",rec.sym,`Murat: ${fx(rec.r,2)}R · ${f.tags.map(k=>AUD_TAGS[k].t.toLowerCase()).join(", ")}.${isFinite(rec.mfe)?` En iyi gidiş +${fx(rec.mfe,1)}R.`:""}`); }
+  const now=AUD.lessons.map(l=>l.k).join(","); if(now!==prev){ const add=AUD.lessons.filter(l=>!prev.split(",").includes(l.k)); for(const l of add) botLog("audit","",`Murat yeni ders: ${l.t} · ${l.n} işlemde ort. ${fx(l.avg,2)}R (diğerleri ${fx(l.avgNot,2)}R) → ${l.lever}.`); }
+}
 /* --- adaylar: komite modu (altı ajanın ortak puanı) --- */
 function botCandidatesCommittee(){
   const out=[]; const now=Date.now();
   for(const r of scan.rows){ if(!r.com) continue;
     for(const dir of ["long","short"]){ const c=r.com[dir]; if(!c) continue;
       const held=botHas(r.s), cool=bot.cool[r.s]&&now<bot.cool[r.s];
-      const go=!!c.plan&&c.score>=bot.cfg.threshold&&c.yes>=bot.cfg.minYes&&!c.veto&&!held&&!cool;
+      const go=!!c.plan&&c.score>=botThr()&&c.yes>=botMinYes()&&!c.veto&&!held&&!cool;
       out.push({sym:r.s,dir,model:"KOMİTE",grade:c.score>=0.5?"A":c.score>=bot.cfg.threshold?"B":"C",kz:null,entry:bot.px[r.s]||r.px,sd:c.plan?c.plan.sd:NaN,stop:c.plan?c.plan.stop:NaN,t1:c.plan?c.plan.t1:NaN,t2:c.plan?c.plan.t2:NaN,rr1:1.5,rr2:3,com:c,go,held,cool:!!cool,score:c.score,yes:c.yes,veto:c.veto});
     }
   }
@@ -2063,10 +2175,10 @@ function botOpenMarket(x){
   const cfg=bot.cfg; const isL=x.dir==="long"; const px=bot.px[x.sym]||x.entry; if(!(px>0)||!(x.sd>0)) return false;
   const sd=x.sd; const stop=isL?px*(1-sd):px*(1+sd), t1=isL?px*(1+1.5*sd):px*(1-1.5*sd), t2=isL?px*(1+3*sd):px*(1-3*sd);
   const lev=cfg.lev||20; const risk=bot.bal*cfg.risk; const notional=risk/sd; const margin=notional/lev;
-  if(margin+botMarginUsed()>bot.bal*0.95){ botLog("skip",x.sym,`Teminat yetmiyor: ${fmtB(margin)} gerekli, kullanılabilir ${fmtB(Math.max(0,bot.bal*0.95-botMarginUsed()))}.`); return false; }
+  if(margin+botMarginUsed()>bot.bal*0.95){ bot._noMargin={need:margin,free:Math.max(0,bot.bal*0.95-botMarginUsed())}; return false; }
   const fill=isL?px*(1+cfg.slip):px*(1-cfg.slip); const qty=notional/fill; const fee=notional*cfg.feeTaker; bot.bal-=fee; botDay().opens++;
   const votes=x.com.agents.map(a=>`${a.name||a.k} ${a.v>0?"+":""}${fx(a.v,1)}`);
-  bot.positions.push({sym:x.sym,dir:x.dir,model:"KOMİTE",grade:x.grade,agents:x.com.agents,talk:x.com.talk,entry:fill,stop,t1,t2,rr1:1.5,rr2:x.com.plan?x.com.plan.rr2:3,lev,notional,margin,risk,risk0:Math.abs(fill-stop),stop0:stop,qty,qty0:qty,fees:fee,openT:Date.now(),expiresAt:Date.now()+((x.com.plan&&x.com.plan.holdH)||cfg.holdH)*3600e3,stage:"open",hi:fill,lo:fill,realized:0,score:x.score,votes});
+  bot.positions.push({sym:x.sym,dir:x.dir,model:"KOMİTE",grade:x.grade,agents:x.com.agents,talk:x.com.talk,entry:fill,stop,t1,t2,rr1:1.5,rr2:x.com.plan?x.com.plan.rr2:3,lev,notional,margin,risk,risk0:Math.abs(fill-stop),stop0:stop,qty,qty0:qty,fees:fee,openT:Date.now(),expiresAt:Date.now()+((x.com.plan&&x.com.plan.holdH)||cfg.holdH)*3600e3,stage:"open",hi:fill,lo:fill,realized:0,score:x.score,yes:x.yes,votes});
   botLog("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · Can'ın kararı · puan ${fx(x.score,2)} · ${x.yes}/${DESK.length} evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · 1,5R ${fmtP(t1)} · 3R ${fmtP(t2)} · ${lev}x · pozisyon ${fmtB(notional)} · teminat ${fmtB(margin)} · risk ${fmtB(risk)}. Oylar: ${votes.join(", ")}.`);
   botSave(); botWsSync(); return true;
 }
@@ -2080,10 +2192,12 @@ function botDecide(reason){
   if(!scan.rows.length){ if(reason==="scan"||now-(bot._emptyWarn||0)>600e3){ bot._emptyWarn=now; botLog("skip","",'Tarama boş: Binance\'e ulaşılamıyor ya da ilk tur bitmedi. Üstteki akış noktası kırmızıysa bağlantı (VPN) sorunudur; veri gelmeden masa toplanamaz.'); } return; }
   if(cfg.mode==="komite"){
     const c=botCandidatesCommittee(); bot.lastVotes=c.slice(0,24).map(x=>({sym:x.sym,dir:x.dir,score:x.score,yes:x.yes,veto:x.veto,go:x.go,held:x.held,cool:x.cool,agents:x.com.agents,talk:x.com.talk,decision:x.com.decision}));
-    const go=c.filter(x=>x.go);
-    if(!go.length){ if(reason==="scan") botLog("skip","",`Komite ${scan.rows.length} coin × 2 yön puanladı; eşik ${fx(cfg.threshold,2)} ve ${cfg.minYes}/${DESK.length} oyu sağlayan yok. En iyi: ${c.slice(0,3).map(x=>x.sym.replace("USDT","")+" "+(x.dir==="long"?"L":"S")+" "+fx(x.score,2)+(x.veto?" (veto)":"")).join(", ")||"—"}.`); botSave(); return; }
+    let go=c.filter(x=>x.go);
+    if(AUD&&AUD.pauseMin){ const lastLoss=bot.trades.filter(t=>t.r<0).slice(-1)[0]; if(lastLoss&&now-lastLoss.closeT<AUD.pauseMin*60e3){ if(go.length&&reason==="scan") botLog("skip","",`Murat: son kayıptan bu yana ${Math.round((now-lastLoss.closeT)/60e3)} dk geçti; ders gereği ${AUD.pauseMin} dk ara.`); go=[]; } }
+    if(AUD&&AUD.maxSameDir){ const n0={long:bot.positions.filter(p=>p.dir==="long").length,short:bot.positions.filter(p=>p.dir==="short").length}; const keep=[]; for(const x of go){ if(n0[x.dir]>=AUD.maxSameDir){ if(reason==="scan") botLog("skip",x.sym,`Murat: zaten ${n0[x.dir]} ${x.dir==="long"?"long":"short"} açık; ders gereği aynı yönde en fazla ${AUD.maxSameDir}.`); continue; } keep.push(x); n0[x.dir]++; } go=keep; }
+    if(!go.length){ if(reason==="scan") botLog("skip","",`Komite ${scan.rows.length} coin × 2 yön puanladı; eşik ${fx(botThr(),2)} ve ${botMinYes()}/${DESK.length} oyu sağlayan yok. En iyi: ${c.slice(0,3).map(x=>x.sym.replace("USDT","")+" "+(x.dir==="long"?"L":"S")+" "+fx(x.score,2)+(x.veto?" (veto)":"")).join(", ")||"—"}.`); botSave(); return; }
     let opened=0; const seen=new Set(); for(const x of go){ if(opened>=slots) break; if(seen.has(x.sym)) continue; seen.add(x.sym); if(botOpenMarket(x)) opened++; }
-    if(!opened&&reason==="scan") botLog("skip","",`Komite ${go.length} giriş onayladı ama teminat/slot yetmedi.`);
+    if(!opened&&reason==="scan") botLog("skip","",`Komite ${go.length} giriş onayladı ama teminat/slot yetmedi${bot._noMargin?` (en az ${fmtB(bot._noMargin.need)} gerekli, kullanılabilir ${fmtB(bot._noMargin.free)})`:""}.`); bot._noMargin=null;
     botSave(); return;
   }
   const c=botCandidatesGate();
@@ -2120,7 +2234,7 @@ function botOnPrice(sym,px,T){
     bot.positions.push({...o,entry:fill,qty,qty0:qty,risk0:Math.abs(fill-o.stop),stop0:o.stop,fees:fee,openT:T||now,expiresAt:now+cfg.holdH*3600e3,stage:"open",hi:fill,lo:fill,realized:0});
     botLog("fill",o.sym,`Limit doldu ${fmtP(fill)} · ${o.dir==="long"?"LONG":"SHORT"} ${o.lev}x · ${fmtB(o.notional)} · komisyon ${fmtB(fee)}.`); botSave(); }
   for(const p of [...bot.positions]){ if(p.sym!==sym) continue; const isL=p.dir==="long";
-    const close=(part,price,why,taker)=>{ const q=p.qty*part; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*(taker?cfg.feeTaker:cfg.feeMaker); bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty-=q; botLog(why.k,p.sym,`${why.t} ${fmtP(price)} · %${Math.round(part*100)} kapandı · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); };
+    const close=(part,price,why,taker)=>{ const q=p.qty*part; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*(taker?cfg.feeTaker:cfg.feeMaker); bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty-=q; (p.exits=p.exits||[]).push(why.k); botLog(why.k,p.sym,`${why.t} ${fmtP(price)} · %${Math.round(part*100)} kapandı · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); };
     const acts=paperStep(p,px,now,cfg); let fin=false;
     for(const a of acts){ if(a.k==="move"){ botLog("move",p.sym,a.t); continue; } close(a.part,a.price,{k:a.k,t:a.t},a.taker); if(a.final){ fin=true; break; } }
     if(fin) botClosePos(p); else if(acts.length) botSave();
@@ -2142,7 +2256,7 @@ function botLive(){
   const rv=$("botRoiV"); if(rv){ rv.textContent=pct(roi,1); rv.className=roi>=100?"up":roi>=0?"":"down"; } const rb=$("botRoiBar"); if(rb) rb.style.width=clamp(roi,0,100)+"%"; const rr=$("botRoiRem"); if(rr) rr.textContent=roi>=100?"ulaşıldı":"kalan "+pct(100-roi,1);
 }
 /* --- masa: sekiz kişilik, açılış → tartışma → karar dökümü --- */
-const DESK_COL={trend:"#39c6f2",liq:"#a78bfa",flow:"#2ee59d",macro:"#f5b53f",quant:"#f9a8d4",mom:"#ff8a3d",copy:"#60a5fa",risk:"#ff5c6c"};
+const DESK_COL={trend:"#39c6f2",liq:"#a78bfa",flow:"#2ee59d",macro:"#f5b53f",quant:"#f9a8d4",mom:"#ff8a3d",copy:"#60a5fa",audit:"#e2e8f0",risk:"#ff5c6c"};
 function talkHtml(talk){
   if(!talk||!talk.length) return "";
   const stages=[["açılış","1. tur · açılış görüşleri"],["tartışma","2. tur · tartışma"],["karar","3. tur · karar"]];
@@ -2152,13 +2266,13 @@ function talkHtml(talk){
 function renderRoom(){
   const opts=[]; for(const p of bot.positions){ if(p.agents) opts.push({key:"pos:"+p.sym,label:`${p.sym.replace("USDT","")} ${p.dir==="long"?"L":"S"} · açık pozisyon (giriş anı)`,agents:p.agents,talk:p.talk,score:p.score,yes:null,veto:null,go:true,dir:p.dir,sym:p.sym}); }
   for(const v of bot.lastVotes){ opts.push({key:v.sym+"|"+v.dir,label:`${v.sym.replace("USDT","")} ${v.dir==="long"?"L":"S"} · puan ${fx(v.score,2)}${v.go?" · giriş":v.veto?" · veto":""}`,agents:v.agents,talk:v.talk,score:v.score,yes:v.yes,veto:v.veto,go:v.go,dir:v.dir,sym:v.sym}); }
-  if(!opts.length) return `<div class="card" style="margin-bottom:10px"><h4 style="margin:0 0 4px">Masa</h4><div class="empty">İlk tarama bitince dokuz kişilik masanın tartışması burada canlanır.</div></div>`;
+  if(!opts.length) return `<div class="card" style="margin-bottom:10px"><h4 style="margin:0 0 4px">Masa</h4><div class="empty">İlk tarama bitince on kişilik masanın tartışması burada canlanır.</div></div>`;
   let sel=opts.find(o=>o.key===bot.roomSel)||opts.find(o=>o.go)||opts[0]; const ag=sel.agents; const thr=bot.cfg.threshold;
   const W=400,H=300,cx=200,cy=150,R=108; const n=ag.length; const posOf=i=>{ const a=-Math.PI/2+i*2*Math.PI/n; return [cx+R*Math.cos(a),cy+R*Math.sin(a)]; };
   const col=v=>v>0.15?"var(--long)":v<-0.15?"var(--short)":"var(--ink-2)";
-  let num=0,den=0; for(const a of ag){ const w=(a.w!=null?a.w:COM_W[a.k]||1); num+=w*a.v*a.c; den+=w; } const score=sel.score!=null?sel.score:(den?num/den:0);
+  let num=0,den=0; for(const a of ag){ const w=a.w!=null?a.w:(COM_W[a.k]||1); num+=w*a.v*a.c; den+=w; } const score=sel.score!=null?sel.score:(den?num/den:0);
   let lines="",nodes="",conf="";
-  ag.forEach((a,i)=>{ const [x,y]=posOf(i); const w=(a.w!=null?a.w:COM_W[a.k]||1); const k=w*a.v*a.c; const sw=0.6+Math.abs(k)*7; const flow=Math.abs(a.v)>0.15;
+  ag.forEach((a,i)=>{ const [x,y]=posOf(i); const w=a.w!=null?a.w:(COM_W[a.k]||1); const k=w*a.v*a.c; const sw=0.6+Math.abs(k)*7; const flow=Math.abs(a.v)>0.15;
     lines+=`<line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${cx}" y2="${cy}" stroke="${col(a.v)}" stroke-width="${sw.toFixed(1)}" stroke-opacity="${(0.25+0.6*a.c).toFixed(2)}" class="${flow?(a.v>0?"flow-in":"flow-out"):""}"/>`;
     const r=16+10*a.c; nodes+=`<g class="agent" data-i="${i}"><title>${esc(a.name||a.k)} · ${esc(a.role||"")}: oy ${a.v>0?"+":""}${fx(a.v,2)} · güven ${fx(a.c,2)} · ağırlık ${w} · ${esc(a.txt)}</title><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${col(a.v)}" fill-opacity="${(0.15+0.55*Math.abs(a.v)).toFixed(2)}" stroke="${col(a.v)}" stroke-width="${(1+3*a.c).toFixed(1)}"/><text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">${a.v>0?"+":""}${fx(a.v,1)}</text><text x="${x.toFixed(1)}" y="${(y+r+13).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)">${esc(a.name||a.k)}</text><text x="${x.toFixed(1)}" y="${(y+r+24).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="var(--ink-2)">${esc((a.role||"").split(" · ")[0].replace(" analisti","").replace(" araştırmacısı","").replace("Baş trader","baş trader"))}</text></g>`; });
   for(let i=0;i<n;i++) for(let j=i+1;j<n;j++){ const a=ag[i],b=ag[j]; if((a.v>0.4&&b.v<-0.4)||(a.v<-0.4&&b.v>0.4)){ const [x1,y1]=posOf(i),[x2,y2]=posOf(j); conf+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="4 4" stroke-opacity=".8"><title>Çelişki: ${esc(a.name||a.k)} ${a.v>0?"+":""}${fx(a.v,1)} ↔ ${esc(b.name||b.k)} ${b.v>0?"+":""}${fx(b.v,1)}</title></line>`; } }
@@ -2166,21 +2280,24 @@ function renderRoom(){
   const center=`<circle cx="${cx}" cy="${cy}" r="40" fill="var(--bg-2, #111822)" stroke="${dcol}" stroke-width="2"/><circle cx="${cx}" cy="${cy}" r="34" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="6"/><circle cx="${cx}" cy="${cy}" r="34" fill="none" stroke="${score>=thr?"var(--long)":"var(--ink-2)"}" stroke-width="6" stroke-dasharray="${(circ*pctArc).toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90 ${cx} ${cy})"/><text x="${cx}" y="${cy-2}" text-anchor="middle" font-size="15" font-weight="800" fill="var(--ink)">${score>=0?"+":""}${fx(score,2)}</text><text x="${cx}" y="${cy+14}" text-anchor="middle" font-size="10" font-weight="700" fill="${dcol}">${decision}</text>${veto?`<text x="${cx}" y="${cy+58}" text-anchor="middle" font-size="10.5" fill="var(--short)">${esc(veto)}</text>`:""}`;
   const yes=ag.filter(a=>a.v>0.15).length, no=ag.filter(a=>a.v<-0.15).length;
   const list=ag.map(a=>`<div style="display:flex;gap:8px;align-items:baseline;font-size:11.5px;margin:2px 0"><span style="min-width:150px;font-weight:700;color:${col(a.v)}">${esc(a.name||a.k)} <span class="muted" style="font-weight:400">${esc(a.role||"")}</span></span><span class="num" style="min-width:36px">${a.v>0?"+":""}${fx(a.v,1)}</span><span class="muted" style="min-width:52px">güven ${fx(a.c,1)}</span><span class="muted">${esc(a.txt)}</span></div>`).join("");
-  return `<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:4px"><h4 style="margin:0">Masa</h4><select id="botRoomSel">${opts.map(o=>`<option value="${o.key}" ${o.key===sel.key?"selected":""}>${esc(o.label)}</option>`).join("")}</select><span class="muted" style="font-size:11.5px">${yes} evet · ${no} hayır · eşik ${fx(thr,2)} · ${bot.cfg.minYes}/${DESK.length} oy gerekli${sel.yes!=null?" · "+sel.yes+"/8 evet":""}</span></div>
+  return `<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:4px"><h4 style="margin:0">Masa</h4><select id="botRoomSel">${opts.map(o=>`<option value="${o.key}" ${o.key===sel.key?"selected":""}>${esc(o.label)}</option>`).join("")}</select><span class="muted" style="font-size:11.5px">${yes} evet · ${no} hayır · eşik ${fx(thr,2)} · ${botMinYes()}/${DESK.length} oy gerekli${sel.yes!=null?" · "+sel.yes+"/"+DESK.length+" evet":""}</span></div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start"><svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:420px;height:auto" role="img" aria-label="Komite odası">${lines}${conf}${nodes}${center}</svg><div>${list}<p class="muted" style="font-size:11px;margin:6px 0 0">Daire boyu ve çerçeve = güven; renk ve dolgu = oy; çizgi kalınlığı = karara katkı (ağırlık × oy × güven); turuncu kesikli çizgi = çelişki. Merkez: ağırlıklı puan ve Can'ın kararı. Oylar tartışma sonrası değerler.</p></div></div>${talkHtml(sel.talk)}</div>`;
 }
 function botClosePos(p){
-  const r=p.realized/p.risk; const rec={sym:p.sym,dir:p.dir,model:p.model,grade:p.grade,lev:p.lev,entry:p.entry,openT:p.openT,closeT:Date.now(),pnl:p.realized,fees:p.fees,r,score:p.score};
+  const r=p.realized/p.risk; const isL=p.dir==="long"; const r0=p.risk0||Math.abs(p.entry-(p.stop0||p.stop));
+  const rec={sym:p.sym,dir:p.dir,model:p.model,grade:p.grade,lev:p.lev,entry:p.entry,openT:p.openT,closeT:Date.now(),pnl:p.realized,fees:p.fees,risk:p.risk,r,score:p.score,exits:p.exits||[],offline:p.openT<BOOT_T&&Date.now()-BOOT_T<180e3,
+    mfe:r0>0?+((isL?p.hi-p.entry:p.entry-p.lo)/r0).toFixed(2):NaN,mae:r0>0?+((isL?p.entry-p.lo:p.hi-p.entry)/r0).toFixed(2):NaN,
+    snap:p.agents?{v:Object.fromEntries(p.agents.map(a=>[a.id,a.v])),sd:r0/p.entry,score:p.score,yes:p.yes!=null?p.yes:p.agents.filter(a=>a.v>0.15).length}:undefined};
   bot.trades.push(rec); if(p.realized<0) botDay().losses++; bot.cool[p.sym]=Date.now()+bot.cfg.cooldownMin*60e3;
   botLog("close",p.sym,`İşlem kapandı: ${p.realized>=0?"+":""}${fmtB(p.realized)} (${r>=0?"+":""}${fx(r,2)}R) · bakiye ${fmtB(bot.bal)} · ROI ${pct((bot.bal/bot.start-1)*100,1)}.`);
-  bot.positions=bot.positions.filter(x=>x!==p); bot.eq.push({t:Date.now(),v:bot.bal}); if(bot.eq.length>4000) bot.eq=bot.eq.slice(-2000); if(bot.bal>=bot.start*2&&!bot.goalHit){ bot.goalHit=Date.now(); botLog("sys","",`Hedef tamam: bakiye ikiye katlandı (${fmtB(bot.bal)}). Bot devam ediyor.`); } botSave(); botWsSync();
+  bot.positions=bot.positions.filter(x=>x!==p); bot.eq.push({t:Date.now(),v:bot.bal}); if(bot.eq.length>4000) bot.eq=bot.eq.slice(-2000); botAudit(rec); if(bot.bal>=bot.start*2&&!bot.goalHit){ bot.goalHit=Date.now(); botLog("sys","",`Hedef tamam: bakiye ikiye katlandı (${fmtB(bot.bal)}). Bot devam ediyor.`); } botSave(); botWsSync();
   if(bot.on) setTimeout(()=>botDecide("tick"),500);
 }
 function botStart(){ if(bot.on) return; bot.on=true; if(!bot.startT) bot.startT=Date.now(); const c=bot.cfg; botLog("sys","",c.mode==="komite"?`Bot başladı · KOMİTE modu · sanal ${fmtB(bot.bal)} · risk %${c.risk*100} · ${c.lev}x sabit · aynı anda ${c.maxPos} pozisyon · eşik ${fx(c.threshold,2)}, ${c.minYes}/${DESK.length} oy · zaman stopu ${c.holdH} sa · hedef %100 ROI.`:`Bot başladı · KAPI modu · sanal ${fmtB(bot.bal)} · risk %${c.risk*100} · en fazla ${c.maxLev}x · ${c.strict?"yüksek tutarlılık kuralları":"serbest kurallar"} · Kurulum 2 ${c.useBR?"açık":"kapalı"} · Kurulum 3 ${c.useRS!==false?"açık":"kapalı"}.`); botWsSync(); if(!scan.rows.length&&!scan.running) runScan(); else botDecide("scan"); botSave(); }
 function botStop(){ bot.on=false; botLog("sys","","Bot durduruldu (açık pozisyonlar ve emirler korunur; başlatınca devam eder)."); botSave(); }
 function botReset(){ if(bot.positions.length||bot.orders.length){ if(!confirm(`${bot.positions.length} açık pozisyon ve ${bot.orders.length} emir var. Hepsi silinip bakiye 100 $'a dönsün mü?`)) return; } Object.assign(bot,{on:false,startT:null,bal:100,start:100,positions:[],orders:[],trades:[],log:[],eq:[],day:{key:null,opens:0,losses:0},px:{},cool:{},lastVotes:[],goalHit:null}); botSave(); renderBot(); }
 function botCloseAll(){ for(const p of [...bot.positions]){ const px=bot.px[p.sym]; if(!px) continue; const isL=p.dir==="long"; const price=isL?px*(1-bot.cfg.slip):px*(1+bot.cfg.slip); const q=p.qty; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*bot.cfg.feeTaker; bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty=0; botLog("close",p.sym,`Elle kapatıldı ${fmtP(price)} · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); botClosePos(p); } bot.orders=[]; botSave(); botWsSync(); renderBot(); }
-function botCsv(){ const rows=[["acilis","kapanis","coin","yon","model","not","kaldirac","giris","pnl_usdt","komisyon","R","komite_puan"]].concat(bot.trades.map(t=>[new Date(t.openT).toISOString(),new Date(t.closeT).toISOString(),t.sym,t.dir,t.model,t.grade,t.lev,t.entry,t.pnl.toFixed(4),t.fees.toFixed(4),t.r.toFixed(2),t.score!=null?t.score:""])); const logRows=[[],["zaman","tur","coin","mesaj"]].concat(bot.log.map(l=>[new Date(l.t).toISOString(),l.type,l.sym,'"'+l.text.replace(/"/g,"'")+'"'])); const csv=rows.concat(logRows).map(r=>r.join(",")).join("\n"); const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv"})); a.download="sweep-bot-"+new Date().toISOString().slice(0,10)+".csv"; a.click(); }
+function botCsv(){ const rows=[["acilis","kapanis","coin","yon","model","not","kaldirac","giris","pnl_usdt","komisyon","R","komite_puan","en_iyi_R","cikis","denetci"]].concat(bot.trades.map(t=>[new Date(t.openT).toISOString(),new Date(t.closeT).toISOString(),t.sym,t.dir,t.model,t.grade,t.lev,t.entry,t.pnl.toFixed(4),t.fees.toFixed(4),t.r.toFixed(2),t.score!=null?t.score:"",isFinite(t.mfe)?t.mfe:"",(t.exits||[]).join(" "),(()=>{ try{ return audTagsOf(t,bot.trades,{thr:bot.cfg.threshold,minYes:bot.cfg.minYes}).join(" "); }catch(e){ return ""; } })()])); const logRows=[[],["zaman","tur","coin","mesaj"]].concat(bot.log.map(l=>[new Date(l.t).toISOString(),l.type,l.sym,'"'+l.text.replace(/"/g,"'")+'"'])); const csv=rows.concat(logRows).map(r=>r.join(",")).join("\n"); const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv"})); a.download="sweep-bot-"+new Date().toISOString().slice(0,10)+".csv"; a.click(); }
 function botNetTxt(){ const fresh=bot.lastTick&&Date.now()-bot.lastTick<15000; const has=bot.positions.length||bot.orders.length; const mk=has&&bot.markSrc==="rest"&&!(bot.lastMark&&Date.now()-bot.lastMark<10000)?' · mark REST (5 sn)':''; const a=has?(fresh?(bot.src==="rest"?'<span class="warn">● fiyat REST yedeğinden (3 sn)</span>':'<span class="up">● fiyat akışı canlı</span>'+mk):'<span class="down">● fiyat akışı yok</span>'):(live.ok?'<span class="up">● Binance bağlı</span>':'<span class="down">● Binance\'e ulaşılamıyor</span>'); const cool=typeof rest!=="undefined"&&Date.now()<rest.cool?` · <span class="warn">hız sınırı, ${Math.ceil((rest.cool-Date.now())/1000)} sn</span>`:""; const err=bot.pollErr&&Date.now()-bot.pollErrAt<60000?` · <span class="down">yedek: ${esc(bot.pollErr)}</span>`:""; return `<span id="botNet">${a}${has&&!fresh?mk:""} · tarama ${scan.rows.length} coin${cool}${err}</span>`; }
 /* --- araştırma ekibi paneli: lider geçmişi, faktörler, aday stratejiler, ileri test, notlar --- */
 function labOnProgress(){ if(ui.drawerOpen&&ui.drawerTab==="lab") renderLab(); }
@@ -2225,13 +2342,30 @@ function renderLeaders(){
   ${cons?`<div style="margin-bottom:8px;font-size:11.5px"><span class="muted">Coin uzlaşısı (açık ×2 + son 72 sa):</span> ${cons}</div>`:""}
   ${rows?`<table class="t"><thead><tr><th>Lider</th><th>ROI 90g</th><th>PnL</th><th>MDD</th><th>Kazanma</th><th>Tutuş</th><th>Ekleme / kısmi</th><th>Açık (tahmin)</th></tr></thead><tbody>${rows}</tbody></table>`:""}</details>`;
 }
+/* --- denetçi paneli: Murat'ın raporu --- */
+function renderAudit(){
+  const A=AUD; const S=A&&A.summary; const head=`<h4 style="margin:0 0 4px">Denetçi · Murat</h4>`;
+  if(!S) return `<div class="card" style="margin-bottom:10px">${head}<div class="empty">Kapanan her işlemi inceler: girişte kim ne dedi, fiyat lehimize ne kadar gitti, nasıl kapandı. Hataları etiketler; aynı hata en az ${AUD_MIN} işlemde tekrar edip zarar ettirirse masaya kural olarak geri verir.</div></div>`;
+  const rows=Object.keys(AUD_TAGS).map(k=>({k,...A.tags[k]})).filter(x=>x.n>0).sort((a,b)=>a.shr-b.shr).map(x=>{ const L=A.lessons.find(l=>l.k===x.k); return `<tr><td><b>${esc(AUD_TAGS[x.k].t)}</b><br><span class="muted" style="font-size:10.5px">${esc(AUD_TAGS[x.k].why)}</span></td><td class="num">${x.n}</td><td class="num ${x.avg>=0?"up":"down"}">${x.avg>=0?"+":""}${fx(x.avg,2)}R</td><td class="num muted">${x.nNot?(x.avgNot>=0?"+":"")+fx(x.avgNot,2)+"R":"—"}</td><td style="font-size:11.5px">${L?`<span class="warn">ders: ${esc(L.lever)}</span>`:x.n<AUD_MIN?`<span class="muted">izleniyor (${x.n}/${AUD_MIN})</span>`:'<span class="muted">zarar farkı yok</span>'}</td></tr>`; }).join("");
+  const mult=Object.entries(A.mult).map(([id,m])=>{ const d=DESK.find(x=>x.id===id); return `<span class="chip sm ${m.m>1.02?"up":m.m<0.98?"down":""}" title="oy ile sonuç arasındaki ilişki ${fx(m.corr,2)} · ${m.n} işlem">${esc(d?d.name:id)} ×${fx(m.m,2)}</span>`; }).join(" ");
+  const tl=t=>new Date(t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+  const fnd=A.findings.map(f=>`<tr><td class="num muted">${tl(f.closeT)}</td><td><b>${f.sym.replace("USDT","")}</b> ${chip(f.dir==="long"?"up sm":"down sm",f.dir==="long"?"L":"S")}</td><td class="num down">${fx(f.r,2)}R</td><td class="num">${isFinite(f.mfe)?"+"+fx(f.mfe,1)+"R":"—"}</td><td class="muted">${Math.round((f.closeT-f.openT)/60e3)} dk · ${esc((f.exits||[]).join(" → ")||"—")}</td><td style="font-size:11.5px">${f.tags.map(k=>esc(AUD_TAGS[k].t)).join(", ")||'<span class="muted">belirgin hata yok</span>'}</td></tr>`).join("");
+  const levers=[A.thrBump?`eşik ${fx(bot.cfg.threshold,2)} → ${fx(botThr(),2)}`:"",A.minYesBump?`asgari oy ${bot.cfg.minYes} → ${botMinYes()}`:"",A.maxSameDir?`aynı yönde en fazla ${A.maxSameDir} pozisyon`:"",A.pauseMin?`kayıptan sonra ${A.pauseMin} dk ara`:"",A.sdMin>0.015?`stop tabanı %${fx(A.sdMin*100,1)}`:"",A.lockEarly?"1R görüp geri gelirse yarısı alınır":""].filter(Boolean);
+  return `<div class="card" style="margin-bottom:10px">${head}
+  <div class="muted" style="font-size:12px;margin-bottom:6px">${S.n} kapanmış işlem · kazanma %${Math.round(S.wr*100)} · ortalama ${S.avg>=0?"+":""}${fx(S.avg,2)}R · toplam ${S.sum>=0?"+":""}${fx(S.sum,1)}R · komisyon+fonlama işlem başına ${fx(S.feeR,2)}R · ${S.snap} işlemde girişteki oylar kayıtlı${S.snap<S.n?" (öncekiler karar günlüğünden okunabildiği kadar)":""}.</div>
+  <div style="font-size:12px;margin-bottom:6px"><b>Masaya etkisi:</b> ${levers.length?levers.join(" · "):"henüz kural yok"}${Object.keys(A.vote).length?" · Murat şu kalıplara karşı oy verir: "+Object.keys(A.vote).map(k=>AUD_TAGS[k].t.toLowerCase()+(A.veto[k]?" (veto)":"")).join(", "):""}</div>
+  ${mult?`<div style="font-size:12px;margin-bottom:6px"><b>Ağırlıklar:</b> ${mult}</div>`:""}
+  ${rows?`<table class="t" style="margin-bottom:8px"><thead><tr><th>Hata</th><th>İşlem</th><th>Ort. R</th><th>Diğerleri</th><th>Durum</th></tr></thead><tbody>${rows}</tbody></table>`:""}
+  ${fnd?`<details><summary class="muted" style="cursor:pointer;font-size:12px">Son kayıpların teşhisi · ${A.findings.length}</summary><table class="t" style="margin-top:6px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>R</th><th>En iyi</th><th>Süre · çıkış</th><th>Hata</th></tr></thead><tbody>${fnd}</tbody></table></details>`:""}
+  <p class="muted" style="font-size:11px;margin:6px 0 0">Ortalama R küçültülerek okunur (toplam / (işlem + 4)); bir hata en az ${AUD_MIN} işlemde görülüp diğerlerinden 0,25R daha kötüyse ders olur, 10 işlemde −0,5R altındaysa veto olur. Az örnekte dersler yanılabilir; kâğıt bot bu yüzden var.</p></div>`;
+}
 function renderBot(){
   const el=$("dBot"); if(!el) return; const eq=botEquity(); const d=botDay(); const c=bot.cfg; const roi=(eq/bot.start-1)*100;
   const st=bot.trades.length?{n:bot.trades.length,win:bot.trades.filter(t=>t.pnl>0).length,sum:bot.trades.reduce((a,t)=>a+t.r,0)}:null;
   const inp=(id,label,val,step,min,max,w)=>`<label style="font-size:12px;color:var(--ink-2);display:inline-flex;gap:4px;align-items:center">${label} <input type="number" id="${id}" value="${val}" step="${step}" min="${min}" max="${max}" style="width:${w||64}px"></label>`;
   const head=`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
     <button type="button" class="${bot.on?"":"primary"}" id="botTgl">${bot.on?"Durdur":"Başlat"}</button><button type="button" class="ghost" id="botCsv">CSV indir</button><button type="button" class="ghost" id="botCloseAll" ${bot.positions.length?"":"disabled"}>Hepsini kapat</button><button type="button" class="ghost" id="botReset">Sıfırla</button>
-    <label style="font-size:12px;color:var(--ink-2)">Mod <select id="botMode"><option value="komite" ${c.mode==="komite"?"selected":""}>Masa (9 kişi tartışır, market giriş, çoklu pozisyon)</option><option value="kapi" ${c.mode!=="komite"?"selected":""}>Kapı (AMD/K2/K3 limit planları)</option></select></label>
+    <label style="font-size:12px;color:var(--ink-2)">Mod <select id="botMode"><option value="komite" ${c.mode==="komite"?"selected":""}>Masa (10 kişi tartışır, market giriş, çoklu pozisyon)</option><option value="kapi" ${c.mode!=="komite"?"selected":""}>Kapı (AMD/K2/K3 limit planları)</option></select></label>
     <span class="muted" style="font-size:11.5px">${botNetTxt()} · ${bot.on?'<span class="up">● çalışıyor</span>':"● durdu"}${bot.startT?" · başlangıç "+new Date(bot.startT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):""}</span></div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
     ${inp("botRisk","Risk %",(c.risk*100).toFixed(1),0.5,0.5,25)} ${inp("botLev","Kaldıraç",c.lev,1,1,50,56)} ${inp("botMaxPos","Aynı anda",c.maxPos,1,1,10,52)} ${inp("botThr","Eşik",c.threshold,0.05,0,1,60)} ${inp("botMinYes","Asgari oy",c.minYes,1,1,DESK.length,52)} ${inp("botHold","Zaman stopu (sa)",c.holdH,1,1,72,56)} ${inp("botMaxOpens","Gün/işlem",c.maxOpens,1,1,50,56)} ${inp("botMaxLosses","Gün/kayıp",c.maxLosses,1,1,50,56)}
@@ -2247,11 +2381,12 @@ function renderBot(){
   </div>`;
   const pos=bot.positions.map(p=>{ const px=botMk(p.sym); const pnl=px?botPnl(p,px):0; const roe=pnl/p.margin*100; const age=Math.round((Date.now()-p.openT)/60000); return `<tr data-pos="${p.sym}"><td><b>${p.sym.replace("USDT","")}</b> ${chip(p.dir==="long"?"up sm":"down sm",p.dir==="long"?"L":"S")} <span class="muted">${p.model} ${p.grade} ${p.lev}x</span></td><td class="num">${fmtB(p.notional)}<br><span class="muted" style="font-size:10.5px">teminat ${fmtB(p.margin)}</span></td><td class="num">${fmtP(p.entry)}</td><td class="num bpx">${px?fmtP(px):"—"}</td><td class="num warn">${fmtP(botLiqPx(p))}</td><td class="num down bstop">${fmtP(p.stop)}</td><td class="num up">${fmtP(p.t1)} / ${fmtP(p.t2)}</td><td class="num bpnl ${pnl>=0?"up":"down"}">${pnl>=0?"+":""}${fx(pnl,2)} $<br><span style="font-size:11px">${roe>=0?"+":""}${fx(roe,1)}%</span></td><td class="muted bst">${p.stage} · ${age} dk</td></tr>`; }).join("");
   const ord=bot.orders.map(o=>`<tr data-ord="${o.sym}"><td><b>${o.sym.replace("USDT","")}</b> ${chip(o.dir==="long"?"up sm":"down sm",o.dir==="long"?"L":"S")} <span class="muted">${o.model} ${o.grade} · bekleyen limit</span></td><td class="num">${fmtB(o.notional)}</td><td class="num">${fmtP(o.entry)}</td><td class="num bpx">${bot.px[o.sym]?fmtP(bot.px[o.sym]):"—"}</td><td></td><td class="num down">${fmtP(o.stop)}</td><td class="num up">${fmtP(o.t1)}</td><td></td><td class="muted">${Math.max(0,Math.round((o.expires-Date.now())/60000))} dk kaldı</td></tr>`).join("");
-  const votes=c.mode==="komite"&&bot.lastVotes.length?`<details style="margin-bottom:10px"${bot.positions.length?"":" open"}><summary class="muted" style="cursor:pointer;font-size:12px">Komite son oylaması · ${bot.lastVotes.length} aday</summary><table class="t" style="margin-top:6px"><thead><tr><th>Coin</th><th>Puan</th><th>Oy</th>${bot.lastVotes[0].agents.map(a=>`<th>${a.k}</th>`).join("")}<th>Karar</th></tr></thead><tbody>${bot.lastVotes.map(v=>`<tr class="${v.go?"pick":""}"><td><b>${v.sym.replace("USDT","")}</b> ${chip(v.dir==="long"?"up sm":"down sm",v.dir==="long"?"L":"S")}</td><td class="num ${v.score>=c.threshold?"up":""}">${fx(v.score,2)}</td><td class="num">${v.yes}/${DESK.length}</td>${v.agents.map(a=>`<td class="num ${a.v>0.15?"up":a.v<-0.15?"down":"muted"}" title="${esc(a.txt)}">${a.v>0?"+":""}${fx(a.v,1)}</td>`).join("")}<td class="muted">${v.veto?"veto: "+esc(v.veto):v.held?"açık":v.cool?"bekleme":v.go?'<span class="up">giriş</span>':"eşik altı"}</td></tr>`).join("")}</tbody></table><p class="muted" style="font-size:11px;margin:4px 0 0">Hücrenin üstüne gel: ajanın gerekçesi. Puan = ağırlıklı oy; Kerem 1,3, Onur ve Baran 0,8, diğerleri 1. Oylar tartışma sonrası değerler.</p></details>`:"";
+  const votes=c.mode==="komite"&&bot.lastVotes.length?`<details style="margin-bottom:10px"${bot.positions.length?"":" open"}><summary class="muted" style="cursor:pointer;font-size:12px">Komite son oylaması · ${bot.lastVotes.length} aday</summary><table class="t" style="margin-top:6px"><thead><tr><th>Coin</th><th>Puan</th><th>Oy</th>${bot.lastVotes[0].agents.map(a=>`<th>${a.k}</th>`).join("")}<th>Karar</th></tr></thead><tbody>${bot.lastVotes.map(v=>`<tr class="${v.go?"pick":""}"><td><b>${v.sym.replace("USDT","")}</b> ${chip(v.dir==="long"?"up sm":"down sm",v.dir==="long"?"L":"S")}</td><td class="num ${v.score>=c.threshold?"up":""}">${fx(v.score,2)}</td><td class="num">${v.yes}/${DESK.length}</td>${v.agents.map(a=>`<td class="num ${a.v>0.15?"up":a.v<-0.15?"down":"muted"}" title="${esc(a.txt)}">${a.v>0?"+":""}${fx(a.v,1)}</td>`).join("")}<td class="muted">${v.veto?"veto: "+esc(v.veto):v.held?"açık":v.cool?"bekleme":v.go?'<span class="up">giriş</span>':"eşik altı"}</td></tr>`).join("")}</tbody></table><p class="muted" style="font-size:11px;margin:4px 0 0">Hücrenin üstüne gel: ajanın gerekçesi. Puan = ağırlıklı oy; Kerem 1,3, Onur ve Baran 0,8, diğerleri 1; Murat'ın derslerine göre her ajanın ağırlığı 0,6–1,4 kat değişebilir, Murat de en az 5 oylu kapanmış işlem birikene kadar oya girmez. Oylar tartışma sonrası değerler.</p></details>`:"";
   const room=c.mode==="komite"?renderRoom():"";
+  const audit=renderAudit();
   const tr=bot.trades.slice(-12).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b> ${chip(t.dir==="long"?"up sm":"down sm",t.dir==="long"?"L":"S")} <span class="muted">${t.model} ${t.grade} ${t.lev}x</span></td><td class="num">${fmtP(t.entry)}</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="num ${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${fx(t.r,2)}R</td></tr>`).join("");
-  const lg=bot.log.slice(-40).reverse().map(l=>`<div class="tp ${{fill:"buy",tp1:"buy",tp2:"buy",stop:"sell",time:"",desk:"",add:"buy",cancel:"",skip:"",order:"",close:"",sys:"",move:"",fund:""}[l.type]||""}" style="grid-template-columns:110px 70px 1fr"><span class="when">${new Date(l.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><span class="k ${{fill:"up",tp1:"up",tp2:"up",close:"",stop:"down",time:"warn",desk:"cyan",add:"up",cancel:"warn",skip:"muted",order:"cyan",sys:"muted",move:"cyan",fund:"muted"}[l.type]||""}">${{fill:"DOLDU",tp1:"HEDEF 1",tp2:"HEDEF 2",stop:"STOP",time:"ZAMAN",desk:"MASA",add:"EKLEME",cancel:"İPTAL",skip:"BEKLE",order:"EMİR",close:"KAPANDI",sys:"SİSTEM",move:"STOP↑",fund:"FONLAMA"}[l.type]||l.type}</span><span>${l.sym?"<b>"+l.sym.replace("USDT","")+"</b> · ":""}${l.text}</span></div>`).join("");
-  el.innerHTML=head+(c.mode==="komite"?renderLeaders():"")+room+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`;
+  const lg=bot.log.slice(-40).reverse().map(l=>`<div class="tp ${{fill:"buy",tp1:"buy",tp2:"buy",stop:"sell",time:"",desk:"",audit:"",add:"buy",cancel:"",skip:"",order:"",close:"",sys:"",move:"",fund:""}[l.type]||""}" style="grid-template-columns:110px 70px 1fr"><span class="when">${new Date(l.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><span class="k ${{fill:"up",tp1:"up",tp2:"up",close:"",stop:"down",time:"warn",desk:"cyan",audit:"warn",add:"up",cancel:"warn",skip:"muted",order:"cyan",sys:"muted",move:"cyan",fund:"muted"}[l.type]||""}">${{fill:"DOLDU",tp1:"HEDEF 1",tp2:"HEDEF 2",stop:"STOP",time:"ZAMAN",desk:"MASA",audit:"DENETÇİ",add:"EKLEME",cancel:"İPTAL",skip:"BEKLE",order:"EMİR",close:"KAPANDI",sys:"SİSTEM",move:"STOP↑",fund:"FONLAMA"}[l.type]||l.type}</span><span>${l.sym?"<b>"+l.sym.replace("USDT","")+"</b> · ":""}${l.text}</span></div>`).join("");
+  el.innerHTML=head+(c.mode==="komite"?renderLeaders():"")+room+audit+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`;
   $("botTgl").addEventListener("click",()=>{ bot.on?botStop():botStart(); renderBot(); }); $("botCsv").addEventListener("click",botCsv); $("botReset").addEventListener("click",botReset); $("botCloseAll").addEventListener("click",botCloseAll);
   $("botMode").addEventListener("change",e=>{ bot.cfg.mode=e.target.value; botSave(); renderBot(); });
   const rs=$("botRoomSel"); if(rs) rs.addEventListener("change",e=>{ bot.roomSel=e.target.value; renderBot(); });
@@ -2275,7 +2410,7 @@ async function botPoll(){
   finally{ bot._polling=false; }
 }
 /* --- traderların pozisyon yönetimi: her 2 dakikada bir, her açık kâğıt pozisyon için masa yeniden toplanır; Can analistlere danışıp ekler, küçültür, erken kapatır --- */
-function botCloseAt(p,part,price,why,taker){ const cfg=bot.cfg; const isL=p.dir==="long"; const q=p.qty*part; if(!(q>0)) return 0; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*(taker?cfg.feeTaker:cfg.feeMaker); bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty-=q; p.notional=p.qty*p.entry; p.margin=p.notional/p.lev; botLog(why.k,p.sym,`${why.t} ${fmtP(price)} · %${Math.round(part*100)} kapandı · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); if(p.qty<=1e-12||part>=1){ p.qty=0; botClosePos(p); } return pnl-fee; }
+function botCloseAt(p,part,price,why,taker){ const cfg=bot.cfg; const isL=p.dir==="long"; const q=p.qty*part; if(!(q>0)) return 0; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*(taker?cfg.feeTaker:cfg.feeMaker); bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty-=q; (p.exits=p.exits||[]).push(why.k); p.notional=p.qty*p.entry; p.margin=p.notional/p.lev; botLog(why.k,p.sym,`${why.t} ${fmtP(price)} · %${Math.round(part*100)} kapandı · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); if(p.qty<=1e-12||part>=1){ p.qty=0; botClosePos(p); } return pnl-fee; }
 async function botManage(){
   if(!bot.on||bot.cfg.mode!=="komite"||!bot.positions.length||bot._managing) return; bot._managing=true;
   try{ for(const p of [...bot.positions]){ if(!bot.positions.includes(p)) continue; if(Date.now()-(p.lastMan||p.openT)<120e3) continue; p.lastMan=Date.now();
@@ -2289,7 +2424,7 @@ async function botManage(){
     if(rv.verdict==="çık"){ say("Can",`masa karşı yöne döndü (puan ${fx(rv.score,2)}, ters yön ${fx(rv.oppScore,2)}; karşı: ${against}). ${rNow>=0?"Kârla":"Zararla"} kapatıyorum, ${fx(rNow,2)}R.`); botCloseAt(p,1,taker,{k:"desk",t:"Masa kararı · çık"},true); continue; }
     if(rv.verdict==="azalt"&&!p.reduced){ p.reduced=true; say("Can",`analistler ikna değil (karşı: ${against}); yarısını kapatıyorum${rNow>0.5?", stop girişe":""}.`); botCloseAt(p,0.5,taker,{k:"desk",t:"Masa kararı · azalt"},true); if(bot.positions.includes(p)&&rNow>0.5&&(isL?p.entry>p.stop:p.entry<p.stop)) p.stop=p.entry; botSave(); continue; }
     if(held>Math.max(2,medHold*1.5)&&rNow>-0.3&&rNow<0.5&&rv.score<bot.cfg.threshold){ say("Onur",`${fx(held,1)} saattir ${rNow>=0?"+":""}${fx(rNow,2)}R'de sürünüyor; liderlerin medyan tutuşu ${fx(medHold,1)} saat. Zaman maliyeti var.`); say("Can",`Kabul, süreç uzadı ve masa ikna değil (${fx(rv.score,2)}); kapatıp sermayeyi boşa çıkarıyorum.`); botCloseAt(p,1,taker,{k:"desk",t:"Masa kararı · süre doldu"},true); continue; }
-    if(p.stage==="open"&&peakR>=1&&peakR-rNow>=0.5&&ag("mom").v<0&&!p.locked){ p.locked=true; say("Baran",`${fx(peakR,1)}R görüp ${fx(rNow,1)}R'ye geri geldi, momentum söndü.`); say("Can",`Yarısını alıyorum, stop girişe; kalan koşsun.`); botCloseAt(p,0.5,taker,{k:"desk",t:"Masa kararı · kârı kilitle"},true); if(bot.positions.includes(p)){ p.stop=p.entry; p.stage="tp1"; } botSave(); continue; }
+    if(p.stage==="open"&&peakR>=1&&peakR-rNow>=0.5&&(ag("mom").v<0||(AUD&&AUD.lockEarly))&&!p.locked){ p.locked=true; say("Baran",`${fx(peakR,1)}R görüp ${fx(rNow,1)}R'ye geri geldi, momentum söndü.`); say("Can",`Yarısını alıyorum, stop girişe; kalan koşsun.`); botCloseAt(p,0.5,taker,{k:"desk",t:"Masa kararı · kârı kilitle"},true); if(bot.positions.includes(p)){ p.stop=p.entry; p.stage="tp1"; } botSave(); continue; }
     if(p.stage==="tp1"&&!p.added&&rv.verdict==="tut"&&ag("mom").v>0.3&&rv.score>=bot.cfg.threshold+0.1){
       const addQty=p.qty0*0.5; const addNotional=addQty*px; const addMargin=addNotional/p.lev; if(addMargin+botMarginUsed()<=bot.bal*0.95){ p.added=true; const fill=isL?px*(1+bot.cfg.slip):px*(1-bot.cfg.slip); const fee=addNotional*bot.cfg.feeTaker; bot.bal-=fee; p.fees+=fee;
         const newQty=p.qty+addQty; p.entry=(p.entry*p.qty+fill*addQty)/newQty; p.qty=newQty; p.notional=p.qty*p.entry; p.margin=p.notional/p.lev; if(isL?p.stop<p.entry:p.stop>p.entry){ /* stop girişte kalır */ }

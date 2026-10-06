@@ -13,6 +13,7 @@ const DESK=[
   {id:"mom",name:"Baran",role:"Trader · agresif",w:0.8},
   {id:"copy",name:"Tolga",role:"Kopya trader araştırmacısı",w:1},
   {id:"lab",name:"Burak",role:"Strateji araştırmacısı",w:0.9},
+  {id:"audit",name:"Murat",role:"Denetçi · hatalardan ders",w:1},
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 const COM_DEF={threshold:0.3,minYes:4};
@@ -69,6 +70,7 @@ function committee(A, dir, c24, opts){
   const cap=liqDist(20)*0.6; const pump=isL?c24>15:c24<-15; const fundBad=isL?A.fund>0.001:A.fund<-0.001;
   let veto=null; if(sd>cap) veto=`oynaklık 20x stopuna sığmıyor (${fx(sd*100,1)}%)`; else if(pump) veto=`24 saatte ${pct(c24)}: kovalama`; else if(fundBad) veto=`fonlama aşırı (${fx(A.fund*100,3)}%)`;
   let rv=veto?-1:0.6; if(!veto){ if(isL&&A.distrib) rv-=0.4; if(!isL&&A.accum) rv-=0.4; if(isL?A.fund>0.0005:A.fund<-0.0005) rv-=0.2; if(isL&&A.climax) rv-=0.2; if(!isL&&A.capit) rv-=0.2; }
+  if(typeof AUD!=="undefined"&&AUD&&AUD.summary){ const S=AUD.summary; say("audit","açılış",`Kayıtta ${S.n} kapanmış işlem: kazanma %${Math.round(S.wr*100)}, ortalama ${S.avg>=0?"+":""}${fx(S.avg,2)}R.${AUD.lessons.length?" Çıkardığımız dersler: "+AUD.lessons.map(l=>l.t.toLowerCase()).join(", ")+".":" Henüz kesin bir ders yok."} Tartışmada kurulumu bunlarla karşılaştıracağım.`); }
   set("risk",rv,0.8,veto?"VETO: "+veto:`stop ${fx(sd*100,2)}% · 20x'e sığar · fonlama ${fx(A.fund*100,4)}%`);
   say("risk","açılış",veto?`Daha dinlemeden söyleyeyim: ${veto}. Bu masadan ${D} çıkmaz.`:`Stop ${fx(sd*100,2)}% ile 20x'e sığıyor, likidasyon uzak. Boyu risk yüzdesinden hesaplarım. Önce sizi dinleyeyim.`);
   /* ---- 2. tur: tartışma (oyları gerçekten değiştirir) ---- */
@@ -84,12 +86,17 @@ function committee(A, dir, c24, opts){
     if(best&&LM.f.sw==="var"&&ag.liq.v>0.5){ say("lab","tartışma","Kerem, liderlerin kazanan işlemleri de süpürmeden sonra geliyor; senin okumanı destekliyor."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
     if(best&&best.conds.some(c=>c[0]==="btc")&&ag.macro.v>0){ say("macro","tartışma","Burak'ın adayı BTC yönüne bağlı; BTC tarafı da bizimle, güvenimi artırıyorum."); ag.macro.c=Math.min(1,ag.macro.c+0.1); chg.push("macro"); }
     if(n>=3&&sum<0){ say("quant","tartışma",`Bu coinde K3 geçmişi ${fx(sum,1)}R, yani eksi. Herkesin güvenini %15 kısıyorum; kanıtsız yere kalite A demeyelim.`); for(const k in ag) if(k!=="risk") ag[k].c*=0.85; chg.push("all"); }
-    if(sd<0.015){ say("quant","tartışma",`Stop ${fx(sd*100,2)}% dar; testte %1,5 altı stoplar eksiydi. Stopu %1,5 tabanına çekelim, boy ona göre küçülür.`); sd=0.015; say("risk","tartışma","Tamam, stop %1,5; pozisyon boyu buna göre."); }
+    const sdMin=AUD&&AUD.sdMin>0.015?AUD.sdMin:0.015;
+    if(sd<sdMin){ if(sdMin>0.015) say("audit","tartışma",`Kayıplarımızın çoğu gürültü stopu: fiyat lehimize gitmeden 45 dakikada stop oluyoruz. Stop tabanı %${fx(sdMin*100,1)}, boy ona göre küçülsün.`); else say("quant","tartışma",`Stop ${fx(sd*100,2)}% dar; testte %1,5 altı stoplar eksiydi. Stopu %1,5 tabanına çekelim, boy ona göre küçülür.`); sd=sdMin; say("risk","tartışma",`Tamam, stop %${fx(sdMin*100,1)}; pozisyon boyu buna göre.`); }
   }
+  /* ---- denetçi: kurulumu kapanmış işlemlerden çıkan derslerle karşılaştırır ---- */
+  const au=audVoteFor(ag); ag.audit={id:"audit",v:au.v,c:au.c,txt:au.txt};
+  if(!veto&&au.w){ if(au.hits.length){ say("audit","tartışma",`Bu kurulum daha önce kaybettiğimiz kalıba benziyor: ${au.txt}. ${au.veto?"Bu ders kesinleşti, veto istiyorum.":"Oyum karşı."}`); if(au.veto){ veto=`denetçi: ${AUD_TAGS[au.veto].t.toLowerCase()} kalıbı ${AUD.tags[au.veto].n} işlemde ort. ${fx(AUD.tags[au.veto].avg,2)}R`; say("risk","tartışma","Murat'ın kaydı açık, aynı hatayı tekrar etmiyoruz."); } }
+    else say("audit","tartışma",`Kayıtlı hatalardan hiçbirine benzemiyor.${AUD.clean?` Temiz kurulumlarımız ${AUD.clean.n} işlemde ort. ${fx(AUD.clean.avg,2)}R.`:""}`); }
   /* ---- puan ---- */
   // Burak'ın elinde eşleşen aday ya da kaçınılacak kalıp yoksa çekimserdir: ağırlığı 0, puanı sulandırmaz
   const labIdle=!best&&!bad;
-  const agents=DESK.map(d=>{ const a=ag[d.id]; return {id:d.id,k:d.name+" · "+d.role.split(" ")[0],name:d.name,role:d.role,w:d.id==="lab"&&labIdle?0:d.w,v:+a.v.toFixed(2),c:+a.c.toFixed(2),txt:a.txt}; });
+    const agents=DESK.map(d=>{ const a=ag[d.id]; const m=AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1; return {id:d.id,k:d.name+" · "+d.role.split(" ")[0],name:d.name,role:d.role,w:d.id==="audit"?au.w:d.id==="lab"&&labIdle?0:+(d.w*m).toFixed(2),v:+a.v.toFixed(2),c:+a.c.toFixed(2),txt:a.txt}; });
   let num=0,den=0,yes=0,no=0; for(const a of agents){ num+=a.w*a.v*a.c; den+=a.w; if(a.v>0.15) yes++; if(a.v<-0.15) no++; }
   let score=den?num/den:0;
   if(!veto&&score>=opts.threshold-0.06&&score<opts.threshold&&yes>=opts.minYes&&ag.mom.v>0){ say("mom","tartışma",`Eşiğin dibindeyiz (${fx(score,2)}), ${yes} evet var. Ben küçük boyla girerim; fırsatı kaçırmayalım.`); const m=agents.find(a=>a.id==="mom"); m.v=+Math.min(1,m.v+0.15).toFixed(2); num=0; for(const a of agents) num+=a.w*a.v*a.c; score=num/den; }
