@@ -63,8 +63,8 @@ function entryStages(x, ctx){
   const thr=(ctx.thr!=null?ctx.thr:cfg.threshold)+gs.thrAdd, minYes=ctx.minYes||cfg.minYes; const ag=id=>(x.com&&x.com.agents||[]).find(a=>a.id===id);
   const liq=ag("liq"), flow=ag("flow"); const sweep=liq?liq.v>0.3:!!f.pool, of=flow?flow.v>0:(+f.of||0)>=1;
   const grade=x.score>=thr+0.15&&sweep&&of?"A":(sweep||of)?"B":"C";
-  let f2=null; if(x.veto) f2="veto: "+x.veto; else if(!(x.score>=thr)) f2=`puan ${fx(x.score,2)} < eşik ${fx(thr,2)}${gs.thrAdd?` (mod "${gs.mode}" eşiği +${fx(gs.thrAdd,2)})`:""}`; else if(x.yes<minYes) f2=`${x.yes} evet, ${minYes} gerekli`;
-  add("kalite","Kerem",f2?"fail":grade==="C"?"warn":"ok",f2||`not ${grade} · puan ${fx(x.score,2)} · ${x.yes} evet · ${sweep?"süpürme var":"süpürme yok"} · ${of?"akış teyitli":"akış teyitsiz"}`);
+  let f2=null; if(x.veto) f2="veto: "+x.veto; else if(!(x.score>=thr)) f2=`puan ${pts(x.score)} < eşik ${pts(thr)}${gs.thrAdd?` (mod "${gs.mode}" eşiği +${pts(gs.thrAdd)})`:""}`; else if(x.yes<minYes) f2=`${x.yes} evet, ${minYes} gerekli`;
+  add("kalite","Kerem",f2?"fail":grade==="C"?"warn":"ok",f2||`not ${grade} · puan ${pts(x.score)} · ${x.yes} evet · ${sweep?"süpürme var":"süpürme yok"} · ${of?"akış teyitli":"akış teyitsiz"}`);
   /* aşama 4 (sayaçlar önce): korelasyon ve bekleme */
   const pos=ctx.positions||[]; const same=pos.filter(p=>p.dir===x.dir); const cap=Math.min(cfg.maxSameDir||9,au&&au.maxSameDir?au.maxSameDir:9);
   const opens=pos.map(p=>({t:p.openT,dir:p.dir})).concat((ctx.trades||[]).map(t=>({t:t.openT,dir:t.dir}))); const lastSame=Math.max(0,...opens.filter(o=>o.dir===x.dir).map(o=>o.t||0));
@@ -93,8 +93,8 @@ function freePlan(x, es, ctx){
   const cfg=ctx.cfg, au=ctx.aud||{}; if(!cfg.freeMargin||(au.off&&au.off.free&&au.off.prune)) return null; if(es.grade==="C"||x.score<es.thr+cfg.freeEdge) return null;
   const now=ctx.now||Date.now(); const px=ctx.px||(()=>NaN); const opts=[];
   for(const p of ctx.positions||[]){ const r=posR(p,px(p.sym)); const rev=p.lastReview&&isFinite(p.lastReview.score)?p.lastReview.score:p.score; const held=(now-p.openT)/60e3;
-    if(r>=cfg.freeMinR&&!(au.off&&au.off.free)){ const part=p.stage==="open"?0.5:1; opts.push({p,part,kind:"free",r,why:`${fx(r,2)}R kârda; ${part<1?"yarısı":"kalanı"} alınıyor, ${x.sym.replace("USDT","")} için yer açılıyor (puan ${fx(x.score,2)} > ${fx(rev,2)})`,margin:p.margin*part,rank:2+r}); }
-    else if(r>-0.25&&held>=30&&isFinite(rev)&&rev<x.score-cfg.freeEdge&&rev<es.thr&&!(au.off&&au.off.prune)) opts.push({p,part:1,kind:"prune",r,why:`${fx(r,2)}R'de duruyor, masa artık ikna değil (${fx(rev,2)}); ${x.sym.replace("USDT","")} daha iyi (${fx(x.score,2)})`,margin:p.margin,rank:1-rev}); }
+    if(r>=cfg.freeMinR&&!(au.off&&au.off.free)){ const part=p.stage==="open"?0.5:1; opts.push({p,part,kind:"free",r,why:`${fx(r,2)}R kârda; ${part<1?"yarısı":"kalanı"} alınıyor, ${x.sym.replace("USDT","")} için yer açılıyor (puan ${pts(x.score)} > ${pts(rev)})`,margin:p.margin*part,rank:2+r}); }
+    else if(r>-0.25&&held>=30&&isFinite(rev)&&rev<x.score-cfg.freeEdge&&rev<es.thr&&!(au.off&&au.off.prune)) opts.push({p,part:1,kind:"prune",r,why:`${fx(r,2)}R'de duruyor, masa artık ikna değil (${pts(rev)}); ${x.sym.replace("USDT","")} daha iyi (${pts(x.score)})`,margin:p.margin,rank:1-rev}); }
   opts.sort((a,b)=>b.rank-a.rank); const out=[]; let got=0, slotFree=!es.slot;
   for(const o of opts){ if(got>=es.need&&slotFree) break; out.push(o); got+=o.margin; if(o.part>=1) slotFree=true; }
   return got>=es.need&&slotFree&&out.length?out:null;
@@ -112,8 +112,8 @@ function deskAdjust(p, ctx){
   // hedef 1'i karşıdaki dirence/desteğe göre çek: seviye girişten ≥0,8R ve hedef 1'den önce
   const L=ctx.lvl; if(p.stage==="open"&&!p.t1Pulled&&!off.t1pull&&L>0&&sg*(L-px)>0&&sg*(p.t1-L)>0){ const t=L*(1-sg*0.001); const rr=sg*(t-p.entry)/r0; if(rr>=0.8) out.push({k:"t1pull",who:"Kerem",t1:t,txt:`hedef 1'in önünde ${isL?"direnç":"destek"} var (${fmtP(L)}); hedef 1 ${fmtP(p.t1)} → ${fmtP(t)} (${fx(rr,2)}R), fiyat oradan dönebilir`}); }
   if(rv&&p.stage==="tp1"&&p.t2){ const t2R=sg*(p.t2-p.entry)/r0;
-    if(!p.t2Ext&&!off.t2ext&&rv.score>=thr+0.1&&mom>0.3&&t2R<4){ const t=lv(Math.min(4,t2R+1)); out.push({k:"t2ext",who:"Baran",t2:t,txt:`masa güçlü (puan ${fx(rv.score,2)}), momentum sürüyor; koşucu ${fx(t2R,1)}R → ${fx(Math.min(4,t2R+1),1)}R (${fmtP(t)})`}); }
-    else if(!p.t2Cut&&!off.t2cut&&rv.score<0&&t2R>2&&sg*(lv(2)-px)>0){ const t=lv(2); out.push({k:"t2cut",who:"Emre",t2:t,txt:`masa bu yönden çekildi (puan ${fx(rv.score,2)}); koşucu ${fx(t2R,1)}R → 2R (${fmtP(t)})`}); } }
+    if(!p.t2Ext&&!off.t2ext&&rv.score>=thr+0.1&&mom>0.3&&t2R<4){ const t=lv(Math.min(4,t2R+1)); out.push({k:"t2ext",who:"Baran",t2:t,txt:`masa güçlü (puan ${pts(rv.score)}), momentum sürüyor; koşucu ${fx(t2R,1)}R → ${fx(Math.min(4,t2R+1),1)}R (${fmtP(t)})`}); }
+    else if(!p.t2Cut&&!off.t2cut&&rv.score<0&&t2R>2&&sg*(lv(2)-px)>0){ const t=lv(2); out.push({k:"t2cut",who:"Emre",t2:t,txt:`masa bu yönden çekildi (puan ${pts(rv.score)}); koşucu ${fx(t2R,1)}R → 2R (${fmtP(t)})`}); } }
   // yapısal stop: masa "stop sık" diyorsa ve öneri mevcut stoptan iyi, fiyattan en az 0,6 ATR uzaksa
   if(rv&&rv.verdict==="tut, stop sık"&&!off.tight&&rNow>=0.5&&isFinite(rv.stopLv)&&better(rv.stopLv,p.stop)&&sg*(px-rv.stopLv)>0){ out.push({k:"tight",who:"Kerem",stop:rv.stopLv,txt:`masa stop sıkılsın diyor; stop ${fmtP(p.stop)} → ${fmtP(rv.stopLv)} (${rv.stopWhy})`}); }
   return out;

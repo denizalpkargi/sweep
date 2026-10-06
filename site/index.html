@@ -399,6 +399,12 @@ table.t tr.near td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
           <p><b>Giriş beş aşamadan geçer:</b> 1) rejim (Arda): BTC sert karşı yöne gidiyorsa girmez, yapı karşıysa uyarı; short uyarıyla (boy ×0,75). 2) kalite (Kerem): eşik, asgari oy, veto; not A = eşik +0,15 + süpürme + akış teyidi. 3) bütçe (Can): işlem riski moddan, uyarı başına boy ×0,75, açık risk sınırı (6 Ekim gecesi kaldırıldı: tam bütçe), teminat ve yer. 4) korelasyon (Murat): aynı yönde en çok 4 pozisyon (6 Ekim gecesine kadar 2), aynı yönde iki giriş arası 15 dk, kayıptan sonra 30 dk. 5) son oy (Can). Üçten fazla uyarı ya da tek "kaldı" girişi durdurur.</p>
           <p><b>Yer açma:</b> teminat ya da yer yetmiyorsa ve yeni kurulum eşiğin 0,08 üstündeyse ve not A/B ise: ≥0,3R kârdaki pozisyonun yarısı (hedef 1 alınmışsa kalanı) kapanır; 30 dk'dan uzun, −0,25R ile kâr arasında duran ve masanın artık ikna olmadığı pozisyon kapanır. Zarardaki pozisyon yer açmak için kesilmez. <b>Dinamik hedef/stop</b> (2 dk'da bir): hedef 1'deki kâr özkaynağı 200 $'a taşıyorsa orada tamamı alınır; hedef 1'in önünde direnç/destek varsa (≥0,8R) hedef 1 önüne çekilir; hedef 1 sonrası masa güçlü ve momentum varsa koşucu +1R (en çok 4R), masa ters dönerse 2R'ye kısalır; masa "stop sık" derse yapısal seviyeye; başabaş isteğe bağlı (varsayılan kapalı). Murat her kararı sonrasında kalan pozisyonun nasıl kapandığıyla puanlar; bir kol 5 kararda ortalama −0,25R altındaysa kapatır.</p>
           <p><b>Tekrar oynatma</b> (<code>node tests/replay-goal.js</code>, 24 coin, 4 Nis–6 Eki 2026, K3 sinyalleri, 100 $, 20x, komisyon dahil): risk %3'te bugünkü bot 116 işlemde −0,20R ile 39 $'a iniyor, 60 günlük kayan pencerelerin %83'ünde 40 $'ın altına düşüyor; yeni masa 530 işlemde −0,07R, hiçbir pencerede batmıyor, 60. gün medyanı 73 $. Teminat yüzünden kaçan giriş 27 → 2. Hiçbir ayarda %3 riskle 60 günde 200 $'a ulaşılmadı; K3 sinyallerinin 6 aylık kenarı yok (unconstrained −0,05R, longlar ≈0, shortlar iki yarıda −0,16R / −0,15R). Başabaşı 1R'ye ya da hedef 1'i 1R'ye çekmek kazanma oranını %42'den %44–48'e çıkarıyor ama ortalama R'yi değiştirmiyor; bu yüzden varsayılan değil. Short kuralı (uyarı) veriye bakılarak seçildi, kanıt değil. Masa puanı, OI/taker/lider verisi geçmişte olmadığı için K3 notundan türetildi; masanın yeniden oylamasıyla çalışan kurallar (hedef uzat/kısalt, yapısal stop, sönmüş pozisyon) oynatılamadı.</p></div>
+        <div class="card"><h4>Masa · 100 üzerinden puan ve faktör analisti Kaan (6 Ekim 2026)</h4>
+          <p><b>Puan:</b> masanın puanı artık 100 üzerinden yazılır (−100 … +100; eşik 35). İç hesap aynı kalır, yalnız gösterim ve ayar girişi değişti; 1000 üzerinden göstermek tek sabit (<code>SCORE_MAX</code>). Tahmin defterinde puan kovaları 10'ar puan.</p>
+          <p><b>Puan kovaları (geriye dönük test, 24 coin, 8 May–6 Eki 2026, saatte bir 169 bin toplantı, iki yarı):</b> puan yükseldikçe R düzenli olarak az eksi oluyor: 0–10 → −0,18 / −0,16R, 20–30 → −0,13 / −0,14R, 40–50 → −0,09 / −0,08R, 50–60 → −0,04 / −0,01R (2.518 / 3.382 toplantı), 60–70 → −0,09 / 0,00R (az örnek). İsabet (4 saatte önce ±1 ATR) 0–10'da %49, 50–60'ta %51. Hiçbir kova iki yarıda da artı değil; ince ölçek, artıya en yakın bölgeyi (50+) görünür kılıyor.</p>
+          <p><b>Faktör analisti Kaan:</b> araştırma ekibinin test listesindeki kurallar tek dosyada (<code>src/factors.js</code>) faktör olarak tanımlandı ve aynı veride ölçüldü (<code>node tests/research-factors.js</code>). İki yarıda da tutan yalnız ikisi oy veriyor: 10 günlük kapanış kırılımı (IC +0,021 / +0,007) ve BTC 200 günlük ortalaması (+0,063 / +0,022; dönemde tek yön değişimi olduğu için ağırlığı 1 ile sınırlı). Gece saati (22–00 UTC long), pazartesi Asya penceresi, Williams volatilite kırılımı, NR7 sıkışma, 4 saatlik aşırı uzama, BTC öncülüğü ve 24 saatlik aralıkta yer tutmadı; likidasyon dalgası ve aşırı fonlama için geçmiş veri yok. Bunlar oy vermez ama her görüşleri tahmin defterinde puanlanır; 200 canlı tahminde becerisi artı çıkan küçük ağırlıkla oya girer.</p>
+          <p><b>Masaya etkisi:</b> Kaan toplantıların %25'inde oy kullanıyor; kendi IC'si iki yarıda +0,02 / +0,005 (isabet), +0,021 / +0,025 (R). Eşik 35'te sinyal sayısı ve R neredeyse aynı (Kaan'sız −0,089 / −0,076R, Kaan'lı −0,088 / −0,075R, günde ≈60 sinyal). Faktörler masayı bozmuyor ama tek başlarına kenar da yaratmıyor.</p>
+        </div>
         <div class="card"><h4>Masa · oylama kalibrasyonu: eşik, katsayılar, ikna turu (6 Ekim 2026)</h4>
           <p><b>Neden:</b> süpürme düzeltmesinden sonra sinyaller altıda bire indi, masa haftalarca işlem açmadı. Eşik ve katsayılar tahminle konmuştu. Bu kez masa geçmişte oynatıldı: <code>node tests/backtest-masa.js sample</code> 24 coinde 8 Mayıs – 6 Ekim 2026 arasında saatte bir, her iki yön için <code>committee()</code> çalıştırır (173.520 toplantı, 4.492 veto). Geçmişte olmayan canlı veri nötr tutulur: OI yatay, fonlama 0, büyüklerin oranı 1, lider ve araştırma verisi yok; taker oranı 15 dk mumların taker alış hacminden. Her toplantı için iki sonuç: botun planı mum mum (<code>paperStep</code>: market giriş, 1,5R'de yarısı + stop girişe, 3R'de %60 + iz, 8 sa zaman stopu, komisyon ve kayma dahil) ve tahmin defteri ölçüsü (4 saatte önce +1 ATR mi −1 ATR mi).</p>
           <p><b>Taban (rastgele saat):</b> isabet %49,7, işlem başı −0,154R (bunun ~0,11R'si komisyon + kayma; %64 stop, %36 zaman stopu). <b>Üyelerin bilgi katsayısı</b> (oy × güven ile sonuç arasındaki korelasyon, iki yarı ayrı): Emre 0,02 / 0,04, Baran 0,02 / 0,03, Arda 0,01 / 0,02, Can 0,00 / 0,00, Kerem 0,00 / 0,00, Mert 0,00 / 0,00. 84 bin örnekte 0,02 istatistiksel olarak sıfırdan farklı ama ekonomik olarak küçük. Kerem'in "süpürme var" dediği toplantılar (13 bin) −0,15R ile tabandan farksız; Mert'in "akış bizimle" dedikleri −0,16R. Emre ve Baran'ın evet dedikleri −0,11R: tabandan 0,04R iyi, yine de eksi. Onur, Tolga, Burak ve Murat geçmişte ölçülemedi (verileri yok, çekimser).</p>
@@ -445,6 +451,10 @@ const fmtP = p => { p=+p; if(!isFinite(p)) return "—"; if(p>=1000) return p.to
 const fmtUsd = v => { v=+v; if(v>=1e9) return (v/1e9).toFixed(2).replace(".",",")+" mlr $"; if(v>=1e6) return (v/1e6).toFixed(2).replace(".",",")+" M$"; if(v>=1e3) return Math.round(v/1e3)+" bin $"; return Math.round(v)+" $"; };
 const pct = (v,d=1) => isFinite(v)?(v>0?"+":"")+(+v).toFixed(d).replace(".",",")+"%":"—";
 const fx = (v,d=2) => isFinite(v)?(+v).toFixed(d).replace(".",","):"—";
+// masa puanı 100 üzerinden gösterilir (iç hesap −1…+1 sürekli; 1000'e çıkarmak için yalnız SCORE_MAX değişir). Ayarlar içte kesir olarak saklanır.
+const SCORE_MAX = 100;
+const pts = v => isFinite(v)?String(Math.round(v*SCORE_MAX)).replace("-","−"):"—";
+const ptsT = v => pts(v)+"/"+SCORE_MAX;
 const sma = (a,n) => a.length<n?NaN:a.slice(-n).reduce((x,y)=>x+y,0)/n;
 const last = a => a[a.length-1];
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -483,8 +493,9 @@ async function fetchFast(s){
   ]);
   return {t24,prem,k5:K(k5),k15:K(k15),depth,trades,taker5:taker5||[{buySellRatio:"1"}],oi5:oi5||[{sumOpenInterestValue:"0"}],noTaker:!taker5,noOI:!oi5};
 }
-const btcCache={t:0,k:null};
-async function btcKlines(){ if(btcCache.k && Date.now()-btcCache.t<9e5) return btcCache.k; const raw=await opt(`/fapi/v1/klines?symbol=BTCUSDT&interval=15m&limit=1500`, null); if(raw){ btcCache.k=K(raw); btcCache.t=Date.now(); } return btcCache.k; }
+const btcCache={t:0,k:null,d:null,dt:0};
+async function btcKlines(){ if(!btcCache.d || Date.now()-btcCache.dt>36e5){ btcCache.dt=Date.now(); const rd=await opt(`/fapi/v1/klines?symbol=BTCUSDT&interval=1d&limit=260`, null); if(rd) btcCache.d=K(rd); } // günlük: faktör "BTC 200 günlük ortalama" (factors.js)
+  if(btcCache.k && Date.now()-btcCache.t<9e5) return btcCache.k; const raw=await opt(`/fapi/v1/klines?symbol=BTCUSDT&interval=15m&limit=1500`, null); if(raw){ btcCache.k=K(raw); btcCache.t=Date.now(); } return btcCache.k; }
 async function fetchSlow(s){
   const [k1h,k4h,k1d,k15L,oi15,taker15,toppos15,oi1h,taker1h,toppos,topacc,glob,fund,btc15]=await Promise.all([
     j(`/fapi/v1/klines?symbol=${s}&interval=1h&limit=200`),
@@ -1153,7 +1164,7 @@ function auditRun(trades, log, opts){
     out.tags[k]={n:has.length,sum:s,avg:has.length?s/has.length:0,shr:s/(has.length+4),nNot:not.length,avgNot:not.length?s2/not.length:0,lossShare:losses.length?has.filter(x=>x.t.r<0).length/losses.length:0}; }
   const T=out.tags; const bad=k=>T[k].n>=AUD_MIN&&T[k].shr<=-0.25&&T[k].avg<T[k].avgNot-0.25; const lesson=(k,lever)=>out.lessons.push({k,t:AUD_TAGS[k].t,why:AUD_TAGS[k].why,n:T[k].n,avg:T[k].avg,avgNot:T[k].avgNot,lever});
   for(const k in AUD_VOTE) if(bad(k)){ const strong=T[k].n>=10&&T[k].shr<=-0.5; out.vote[k]=clamp(T[k].shr*1.5,-1,-0.3); if(strong) out.veto[k]=true; lesson(k,strong?"Murat bu kalıba veto koyar":"Murat bu kalıba karşı oy verir"); }
-  if(bad("thin")){ out.thrBump=T.thin.shr<=-0.5?0.1:0.05; lesson("thin",`eşik +${fx(out.thrBump,2)}`); }
+  if(bad("thin")){ out.thrBump=T.thin.shr<=-0.5?0.1:0.05; lesson("thin",`eşik +${pts(out.thrBump)}`); }
   if(bad("lone")){ out.minYesBump=1; lesson("lone","asgari evet oyu +1"); }
   if(bad("cluster")){ out.maxSameDir=1; lesson("cluster","aynı yönde en fazla 1 pozisyon"); }
   if(bad("afterloss")){ out.pauseMin=60; lesson("afterloss","kayıptan sonra 60 dk yeni giriş yok"); }
@@ -1194,14 +1205,14 @@ function audVoteFor(ag){
   return {v,c,w:1,hits,veto,txt};
 }
 
-/* ---------- Masa: on iki kişilik, dört tur (Serkan · hacim: volume.js, Yusuf · strateji doğrulayıcı: tfcheck.js) ----------
+/* ---------- Masa: on üç kişilik, dört tur (Serkan · hacim: volume.js, Yusuf · strateji doğrulayıcı: tfcheck.js, Kaan · faktör analisti: factors.js) ----------
    Analistler: Emre (trend), Kerem (likidite / ICT), Mert (emir akışı). Araştırmacılar: Arda (makro · BTC rejimi, kalabalık), Onur (kantitatif · kanıt, maliyet).
    Araştırma ekibi (research.js): Tolga (liderlerin coin uzlaşısı), Burak (liderlerin geçmişinden çıkan aday stratejiler ve kaçınılacak kalıplar). Denetçi: Murat.
    Traderlar: Baran (agresif, momentum), Can (baş trader · risk ve boy; veto hakkı).
    1. tur açılış: herkes verisine bakıp oy (v −1..+1) ve güven (c 0..1) verir. 2. tur itirazlar: kurallı karşılıklı itirazlar oyları ve güvenleri değiştirir, plan kısalabilir.
    3. tur ikna (comTally): en güçlü destekçi tezini, en güçlü karşı çıkan karşı tezini söyler; her üye diğerlerinin güvenle ağırlıklı görüşünü dinler ve güveni düşükse oyunu
    ona doğru çeker (kim ikna ettiyse söylenir). Verisi olmayan üye çekimserdir: puana da paydaya da girmez. 4. tur karar: Can veto eder ya da boyu ve planı yazar.
-   Puan = Σ w·v·c / Σ w (yalnız oy kullananlar). Bot: puan ≥ eşik ve evet ≥ asgari ve veto yok → market giriş; boy = masanın güveni (goal.js deskConf: puan payı × not; taban risk → riskMax).
+   Puan = Σ w·v·c / Σ w (yalnız oy kullananlar); ekranda 100 üzerinden (pts, SCORE_MAX), iç hesap ve ayarlar −1…+1 kesir. Bot: puan ≥ eşik ve evet ≥ asgari ve veto yok → market giriş; boy = masanın güveni (goal.js deskConf: puan payı × not; taban risk → riskMax).
    Katsayılar (w) geriye dönük testten: tests/backtest-masa.js, 24 coin × 6 ay, saatte bir toplantı; üyenin oy×güven'inin sonuçla bilgi katsayısı (IC) → w = 1 + 40·IC.
    Emre 1,8 · Baran 2,0 · Arda 1,3 · Can 1,1 · Kerem 0,9 · Mert 0,9; Onur/Tolga/Burak/Murat geçmişte ölçülemedi (çoğunlukla çekimser), yerinde kaldı. */
 const DESK=[
@@ -1216,6 +1227,7 @@ const DESK=[
   {id:"audit",name:"Murat",role:"Denetçi · hatalardan ders",w:1},
   {id:"vol",name:"Serkan",role:"Hacim analisti",w:1.5},
   {id:"check",name:"Yusuf",role:"Strateji doğrulayıcı",w:1},
+  {id:"fac",name:"Kaan",role:"Faktör analisti",w:1},
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1.1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 // eşik, asgari evet ve katsayılar tests/backtest-masa.js ile seçildi (6 Ekim 2026, 24 coin × 6 ay, 169 bin toplantı); v: ayar sürümü (comMigrate)
@@ -1236,7 +1248,7 @@ function comTally(pre, opts){
   return {L,act,moves,yes,no,nAct:act.length,score:den?num/den:0};
 }
 // tartışma dökümü: tez (en güçlü destek), karşı tez (en güçlü itiraz), ikna olanlar, ikna olmayanlar
-const GEN={Emre:"Emre'nin",Kerem:"Kerem'in",Mert:"Mert'in",Arda:"Arda'nın",Onur:"Onur'un",Baran:"Baran'ın",Tolga:"Tolga'nın",Burak:"Burak'ın",Murat:"Murat'ın",Serkan:"Serkan'ın",Yusuf:"Yusuf'un",Can:"Can'ın"};
+const GEN={Emre:"Emre'nin",Kerem:"Kerem'in",Mert:"Mert'in",Arda:"Arda'nın",Onur:"Onur'un",Baran:"Baran'ın",Tolga:"Tolga'nın",Burak:"Burak'ın",Murat:"Murat'ın",Serkan:"Serkan'ın",Yusuf:"Yusuf'un",Kaan:"Kaan'ın",Can:"Can'ın"};
 function comTalkLines(T, D){
   const out=[]; const nm=id=>(T.L.find(a=>a.id===id)||{}).name||id; const gen=id=>GEN[nm(id)]||nm(id)+"'in"; const f2=v=>(v>0?"+":"")+fx(v,2); const cap=t=>t?t.charAt(0).toUpperCase()+t.slice(1):t;
   const pro=[...T.act].filter(a=>a.v0>0.15).sort((a,b)=>b.w*b.c*b.v0-a.w*a.c*a.v0)[0], con=[...T.act].filter(a=>a.v0<-0.15).sort((a,b)=>a.w*a.c*a.v0-b.w*b.c*b.v0)[0];
@@ -1332,6 +1344,8 @@ function committee(A, dir, c24, opts){
   /* ---- hacim analisti (volume.js) ve strateji doğrulayıcı (tfcheck.js): son stopla (tartışmadan sonra) ---- */
   const vm=volMember(A,dir), tm=tfMember(A,dir,{r,lv:ag.liq.v,q,sd,costR:(BOT_CFG_DEF.feeTaker*2+BOT_CFG_DEF.slip)/sd});
   set("vol",vm.v,vm.c,vm.txt); say("vol","açılış",vm.say); set("check",tm.v,tm.c,tm.txt); say("check","açılış",tm.say);
+  // faktör analisti Kaan (factors.js): araştırma ekibinin ölçülmüş kurallarından oy; izlemedeki faktörler yalnız kayda geçer
+  const fm=facMember(A,dir,{now:opts.now}); set("fac",fm.v,fm.c,fm.txt); say("fac","açılış",fm.say);
   if(!veto&&tm.issues.length>=3&&ag.liq.v>0.5){ say("check","tartışma","Kerem, kurulumun üç şartı tutmuyor; bu kitaptaki süpürme değil. Güvenini kıs."); ag.liq.c=Math.max(0,ag.liq.c-0.2); chg.push("liq"); }
   /* ---- denetçi: kurulumu kapanmış işlemlerden çıkan derslerle karşılaştırır ---- */
   const au=audVoteFor(ag); ag.audit={id:"audit",v:au.v,c:au.c,txt:au.txt};
@@ -1344,7 +1358,7 @@ function committee(A, dir, c24, opts){
   // Burak'ın elinde eşleşen aday ya da kaçınılacak kalıp yoksa çekimserdir: ağırlığı 0, puanı sulandırmaz
   const labIdle=!best&&!bad;
   // çekimserler: verisi olmayan üye puana girmez, ortalamayı sulandırmaz (Tolga: lider verisi yok; Burak: eşleşen kalıp yok; Onur: coinde K3 kanıtı yok; Arda: BTC verisi yok; Murat: kayıt yok)
-  const abst={copy:!cs||!(((cs[dir]||{}).w||0)+((cs[isL?"short":"long"]||{}).w||0)>0),lab:labIdle,quant:n<3,macro:!B,audit:!au.w,vol:!!vm.abst,check:!!tm.abst};
+  const abst={copy:!cs||!(((cs[dir]||{}).w||0)+((cs[isL?"short":"long"]||{}).w||0)>0),lab:labIdle,quant:n<3,macro:!B,audit:!au.w,vol:!!vm.abst,check:!!tm.abst,fac:!!fm.abst};
   const pre=DESK.map(d=>{ const a=ag[d.id]; const m=clamp((AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1)*(typeof fcMult==='function'?fcMult(d.id):1),0.5,1.5); return {id:d.id,name:d.name,role:d.role,v:a.v,c:a.c,txt:a.txt,abst:!!abst[d.id],base:d.id==="audit"?(au.w?d.w:0):d.w,m}; });
   /* ---- 3. tur: ikna turu (fon toplantısı): tez, karşı tez, sonra kararsızlar en ikna edici argümana göre oyunu günceller ---- */
   const T=comTally(pre,opts);
@@ -1352,7 +1366,7 @@ function committee(A, dir, c24, opts){
   const agents=T.L.map(a=>({id:a.id,k:a.name+" · "+a.role.split(" ")[0],name:a.name,role:a.role,w:a.w,v:+a.v.toFixed(2),v0:+a.v0.toFixed(2),c:+a.c.toFixed(2),abst:a.abst,txt:a.txt}));
   let num=0,den=0,yes=T.yes,no=T.no; for(const a of agents){ num+=a.w*a.v*a.c; den+=a.w; }
   let score=den?num/den:0;
-  if(!veto&&score>=opts.threshold-0.04&&score<opts.threshold&&yes>=opts.minYes&&ag.mom.v>0&&!abst.mom){ say("mom","ikna",`Eşiğin dibindeyiz (${fx(score,2)}), ${yes} evet var. Ben küçük boyla girerim; fırsatı kaçırmayalım.`); const m=agents.find(a=>a.id==="mom"); m.v=+Math.min(1,m.v+0.15).toFixed(2); num=0; for(const a of agents) num+=a.w*a.v*a.c; score=num/den; }
+  if(!veto&&score>=opts.threshold-0.04&&score<opts.threshold&&yes>=opts.minYes&&ag.mom.v>0&&!abst.mom){ say("mom","ikna",`Eşiğin dibindeyiz (${pts(score)}), ${yes} evet var. Ben küçük boyla girerim; fırsatı kaçırmayalım.`); const m=agents.find(a=>a.id==="mom"); m.v=+Math.min(1,m.v+0.15).toFixed(2); num=0; for(const a of agents) num+=a.w*a.v*a.c; score=num/den; }
   score=+score.toFixed(3);
   /* ---- 4. tur: karar ---- */
   const px=A.px; const holdH=best&&isFinite(best.hold)&&best.sw>0?clamp(Math.round(best.hold*1.5),2,12):null;
@@ -1361,12 +1375,13 @@ function committee(A, dir, c24, opts){
   const plan=veto?null:{holdH,conf,grade,entry:px,sd,stop:isL?px*(1-sd):px*(1+sd),t1:isL?px*(1+1.5*sd):px*(1-1.5*sd),t2:isL?px*(1+runR*sd):px*(1-runR*sd),rr1:1.5,rr2:runR};
   const go=!veto&&score>=opts.threshold&&yes>=opts.minYes;
   const decision=veto?"veto":go?"giriş":score>=opts.threshold?"oy eksik":"bekle";
-  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${fx(score,2)}, ${yes}/${T.nAct} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Burak: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy: masanın güveni %${Math.round(conf*100)} (puan eşiğin ${fx(score-opts.threshold,2)} üstünde, not ${grade}); risk tabandan tavana bu oranda, 20x.`:score>=opts.threshold?`Puan ${fx(score,2)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${fx(score,2)}, eşik ${fx(opts.threshold,2)}. Masa ikna olmadı, bekliyoruz.`);
+  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${ptsT(score)}, ${yes}/${T.nAct} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Burak: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy: masanın güveni %${Math.round(conf*100)} (puan eşiğin ${pts(score-opts.threshold)} üstünde, not ${grade}); risk tabandan tavana bu oranda, 20x.`:score>=opts.threshold?`Puan ${ptsT(score)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${ptsT(score)}, eşik ${pts(opts.threshold)}. Masa ikna olmadı, bekliyoruz.`);
   // ham girdiler: karar günlüğünde (headless JSONL) sonradan analiz için
   const r4=v=>isFinite(v)?+(+v).toFixed(4):null;
   const feat={px:A.px,c24:r4(c24),trend:A.trend,trendScore:A.trendScore,st:A.st,stage:r?r.stage:null,grade:r?r.grade:null,kz:r&&r.kz||null,pool:r&&r.pool?r.pool.name:null,poolW:r&&r.pool?r.pool.w:null,rsOk:!!(q&&q.rsOk),rsStage:q?q.stage:null,
     of,tk30:r4(A.tk30),oiCase:A.oiCase||null,oiBloat:!!A.oiBloat,noTaker:!!A.noTaker,btc:B?{ch4:r4(B.ch4),ch24:r4(B.ch24),bias:B.bias,agree:!!B.agree,ok:!!B.ok,dump:!!B.dump}:null,fund:r4(A.fund),crowd:crowd||null,
-    ldV:r4(cv),ldN:cs?((cs.long&&cs.long.n)||0)+((cs.short&&cs.short.n)||0):0,k3n:n,k3sum:r4(sum),atrRel:r4(atrRel),sd:r4(sd),costR:r4(costR),wind:A.score,volRel:r4(A.volRel),climax:!!A.climax,capit:!!A.capit,distrib:!!A.distrib,accum:!!A.accum,runR,lab:best?best.key:null,labAvoid:bad?bad.key:null};
+    ldV:r4(cv),ldN:cs?((cs.long&&cs.long.n)||0)+((cs.short&&cs.short.n)||0):0,k3n:n,k3sum:r4(sum),atrRel:r4(atrRel),sd:r4(sd),costR:r4(costR),wind:A.score,volRel:r4(A.volRel),climax:!!A.climax,capit:!!A.capit,distrib:!!A.distrib,accum:!!A.accum,runR,lab:best?best.key:null,labAvoid:bad?bad.key:null,
+    fac:Object.fromEntries(Object.entries(fm.f).map(([id,x])=>[id,r4(x.v*x.c)]))}; // her faktörün görüşü (oy × güven): tahmin defteri "f:<id>" olarak puanlar
   return {dir,score,yes,no,n:T.nAct,veto,agents,talk,plan,decision,changed:chg,feat,pre:opts.raw?pre:undefined};
 }
 /* ---------- Açık pozisyon yorumu: masa, elde tutulan pozisyonu kendi yönünde yeniden değerlendirir (tut / azalt / çık / stop sık) ---------- */
@@ -1462,7 +1477,7 @@ function askDesk(A, t, c24, opts){
   }
   // Can'ın özeti: masanın kararı + kullanıcının planına bakış
   const why=[]; if(t.open){ why.push(decision==="çık"?"masa ters yöne dönmüş":decision==="azalt"?"masa ikna değil":decision==="tut"?"masa hâlâ bu yönde":"masa kararsız, stop sıkılsın"); }
-  else { why.push(veto?`veto: ${veto}`:decision==="giriş"?`masa ${dir} için giriş diyor (puan ${fx(score,2)}, ${yes}/${DESK.length} evet)`:decision==="oy eksik"?`puan eşikte ama ${yes} evet var`:`puan ${fx(score,2)}, eşik ${fx(COM_DEF.threshold,2)}`); if(oppDecision==="giriş") why.push("masa ters yöne giriş diyor"); }
+  else { why.push(veto?`veto: ${veto}`:decision==="giriş"?`masa ${dir} için giriş diyor (puan ${ptsT(score)}, ${yes}/${DESK.length} evet)`:decision==="oy eksik"?`puan eşikte ama ${yes} evet var`:`puan ${ptsT(score)}, eşik ${pts(COM_DEF.threshold)}`); if(oppDecision==="giriş") why.push("masa ters yöne giriş diyor"); }
   if(red.length) why.push(red.length+" kırmızı risk notu");
   const canSay=`${verdict}. ${why.join(" · ")}.${isFinite(deskStop)?` Benim stopum ${fmtP(deskStop)} (${deskStopWhy})${slOk?`, seninki ${fmtP(sl)}`:""}.`:""}`;
   return {sym:t.sym,dir,open:!!t.open,verdict,kind,canSay,score,oppScore,oppDecision,decision,veto,yes,agents,talk,lines,red,warn,ok,
@@ -1573,13 +1588,103 @@ function tfMember(A, dir, ctx){
   return {v,c,abst:idle,issues,T,txt:txt+(idle?" · çekimser":""),say};
 }
 
+/* ---------- Faktör kütüphanesi ve faktör analisti Kaan (masanın on üçüncü üyesi, 6 Ekim 2026) ----------
+   Araştırma ekibinin (strateji taraması: /arastirma/strateji-taramasi/test-listesi.md) bulduğu kuralların puan faktörü hâli.
+   Her faktör TEK BİR YERDE tanımlanır: FACTORS listesine {id, ad, kaynak, veri, fn} eklemek yeterlidir. fn(x, dir) şunu döndürür:
+     {v: −1..+1 (bu yön için), c: 0..1 (güven), txt} ya da null (koşul yok / veri yok → çekimser, puana girmez).
+   x = facCtx(A): {k: 15 dk mumlar, d: günlük mumlar (bugünün açık mumu dahil), btcD: BTC günlük, btc: BTC 15 dk, now, px, fund, fundHist, oi5}.
+   Canlıda x committee() içinde A'dan kurulur; geriye dönük testte tests/research-factors.js aynı x'i geçmiş mumlardan kurar (bakış ileri yok).
+   Ölçüm: node tests/research-factors.js → her faktörün iki yarıda bilgi katsayısı (IC: v·c ile 4 saatte önce ±1 ATR sonucu), "evet"
+   dediğinde isabet ve botun planıyla R'si; sonuç tests/factor-fit.json ve FAC_FIT. Durum:
+     aktif     iki yarıda da IC > 0 ve evet isabeti tabanın üstünde → Kaan'ın oyuna girer, ağırlık 1 + 40·IC (0,5–2)
+     izlemede  ölçüldü ama tutmadı ya da geçmiş verisi yok (fonlama, OI) → oy vermez; tahmin defterine yine yazılır
+   Tahmin defteri (forecast.js) her faktörün görüşünü "f:<id>" adıyla kaydeder; ≥200 canlı tahminde beceri artıysa izlemedeki faktör de
+   küçük ağırlıkla (fcMult − 1) oya girer, aktif faktörün ağırlığı fcMult ile çarpılır. Yeni faktör: FACTORS'a ekle, research-factors.js'i
+   çalıştır, FAC_FIT'e sonucunu yaz; tests/factor-test.js her faktörün çekimser/oy sözleşmesini sınar. */
+const FAC_UTC_H=t=>new Date(t).getUTCHours();
+function facCtx(A, opts){
+  opts=opts||{}; const k=A&&A.src&&A.src.k15L||[]; const last=k[k.length-1];
+  const now=opts.now||(last?Math.min(Date.now(),last.t+9e5):Date.now());
+  const bc=(typeof btcCache!=="undefined"&&btcCache)?btcCache:null;
+  return {k,d:A&&A.src&&A.src.k1d||[],btcD:opts.btcD||(bc&&bc.d)||null,btc:A&&A.src&&A.src.btc15||null,now,px:A?A.px:NaN,fund:A?A.fund:NaN,fundHist:A&&A.fundHist||[],oi5:A&&A.oi5||null};
+}
+// yardımcılar: kapanmış günler (bugün hariç) ve bugünün mumu
+function facDays(x){ const day0=Math.floor(x.now/864e5-1e-9)*864e5; const d=x.d||[]; const closed=d.filter(c=>c.t<day0); const today=d.find(c=>c.t===day0)||null; return {closed,today,day0}; }
+const FACTORS=[
+  {id:"night",ad:"Gece saati",kaynak:"test listesi #7 (Quantpedia: BTC 22–00 UTC)",veri:"15 dk",
+    fn(x,dir){ const h=FAC_UTC_H(x.now); if(h!==22&&h!==23) return null; const v=dir==="long"?0.6:-0.6; return {v,c:0.6,txt:`saat ${h}:00 UTC, gece penceresi (long eğilimi)`}; }},
+  {id:"monday",ad:"Pazartesi Asya açılışı",kaynak:"test listesi #8 (Concretum)",veri:"15 dk",
+    fn(x,dir){ const t=x.now; const wd=new Date(t).getUTCDay(), h=FAC_UTC_H(t); const s=wd===1&&h<23?Math.floor(t/864e5)*864e5-3600e3:wd===0&&h>=23?Math.floor(t/864e5)*864e5+23*3600e3:null; if(s==null) return null;
+      const k=x.k; let i0=k.findIndex(c=>c.t>=s); if(i0<0||k.length-i0<4) return null; const atr=atrAt(k,k.length,14); if(!(atr>0)) return null; const m=(x.px-k[i0].o)/atr; if(Math.abs(m)<0.5) return null;
+      const v=(dir==="long"?1:-1)*Math.sign(m)*Math.min(1,Math.abs(m)/3)*0.8; return {v,c:0.5,txt:`pazartesi penceresi: açılıştan bu yana ${m>0?"+":""}${fx(m,1)} ATR (yön devam eder)`}; }},
+  {id:"hi10",ad:"10 günlük kapanış kırılımı",kaynak:"test listesi #9",veri:"günlük",
+    fn(x,dir){ const {closed}=facDays(x); if(closed.length<11) return null; const c=closed.slice(-10).map(z=>z.c); const hi=Math.max(...c), lo=Math.min(...c);
+      const s=x.px>hi?1:x.px<lo?-1:0; if(!s) return null; return {v:(dir==="long"?s:-s)*0.7,c:0.6,txt:s>0?`fiyat 10 günlük en yüksek kapanışın (${fmtP(hi)}) üstünde`:`fiyat 10 günlük en düşük kapanışın (${fmtP(lo)}) altında`}; }},
+  {id:"btc200",ad:"BTC 200 günlük ortalama",rejim:true,kaynak:"test listesi #3 (Tudor Jones)",veri:"BTC günlük",
+    fn(x,dir){ const b=x.btcD; if(!b||!x.btc||!x.btc.length) return null; const day0=Math.floor(x.now/864e5-1e-9)*864e5; const cl=b.filter(c=>c.t<day0).map(c=>c.c); if(cl.length<200) return null;
+      const m=sma(cl,200), bp=x.btc[x.btc.length-1].c; const s=bp>m?1:-1; return {v:(dir==="long"?s:-s)*0.5,c:0.5,txt:`BTC ${fmtP(bp)} 200 günlük ortalamanın (${fmtP(m)}) ${s>0?"üstünde":"altında"}`}; }},
+  {id:"wvb",ad:"Williams volatilite kırılımı",kaynak:"test listesi #4 (Larry Williams)",veri:"günlük",
+    fn(x,dir){ const {closed,today}=facDays(x); if(!today||closed.length<2) return null; const p=closed[closed.length-1]; const R=p.h-p.l; if(!(R>0)) return null;
+      const s=x.px>today.o+0.5*R?1:x.px<today.o-0.5*R?-1:0; if(!s) return null; return {v:(dir==="long"?s:-s)*0.7,c:0.6,txt:`gün açılışından ${s>0?"yukarı":"aşağı"} dünkü aralığın yarısından fazla gitti`}; }},
+  {id:"nr7",ad:"Sıkışma kırılımı (NR7)",kaynak:"test listesi #5 (Kovner)",veri:"günlük",
+    fn(x,dir){ const {closed}=facDays(x); if(closed.length<8) return null; const L=closed.slice(-7); const r=L.map(c=>c.h-c.l); const p=L[6]; if(r[6]>Math.min(...r)) return null;
+      const s=x.px>p.h?1:x.px<p.l?-1:0; if(!s) return null; return {v:(dir==="long"?s:-s)*0.7,c:0.6,txt:`dün 7 günün en dar günüydü, fiyat ${s>0?"tepesini":"dibini"} kırdı`}; }},
+  {id:"rev4",ad:"4 saatlik aşırı uzama",kaynak:"zaman-dilimi-hacim araştırması (artan hacimli hareketler 4 saatte geri veriyor)",veri:"15 dk",
+    fn(x,dir){ const k=x.k; const n=k.length; if(n<40) return null; const atr=atrAt(k,n,14); if(!(atr>0)) return null; const r=(x.px-k[n-17].c)/atr; if(Math.abs(r)<3) return null;
+      const s=-Math.sign(r); return {v:(dir==="long"?s:-s)*Math.min(1,(Math.abs(r)-2)/3)*0.7,c:0.5,txt:`son 4 saatte ${r>0?"+":""}${fx(r,1)} ATR: aşırı uzama, geri verme beklenir`}; }},
+  {id:"btclead",ad:"BTC öncülüğü",kaynak:"araştırma ekibi (BTC hareketi, coin geride)",veri:"15 dk + BTC 15 dk",
+    fn(x,dir){ const k=x.k, b=x.btc; if(!b||b.length<40||k.length<40) return null; const n=k.length, m=b.length; const ba=atrAt(b,m,14), ca=atrAt(k,n,14); if(!(ba>0&&ca>0)) return null;
+      const bR=(b[m-1].c-b[m-5].c)/ba, cR=(k[n-1].c-k[n-5].c)/ca; const s=bR>=1.5&&cR<0.5?1:bR<=-1.5&&cR>-0.5?-1:0; if(!s) return null;
+      return {v:(dir==="long"?s:-s)*0.6,c:0.5,txt:`BTC son 1 saatte ${bR>0?"+":""}${fx(bR,1)} ATR, coin ${cR>0?"+":""}${fx(cR,1)} ATR: coin geride, yetişmesi beklenir`}; }},
+  {id:"rng24",ad:"24 saatlik aralıkta yer",kaynak:"Burak'ın kaçınılacak kalıbı (aralığın ucunda kovalama)",veri:"15 dk",
+    fn(x,dir){ const k=x.k; const n=k.length; if(n<100) return null; const w=k.slice(n-96); const hi=Math.max(...w.map(c=>c.h)), lo=Math.min(...w.map(c=>c.l)); if(!(hi>lo)) return null;
+      const pos=(x.px-lo)/(hi-lo); if(Math.abs(pos-0.5)<0.35) return null; const s=pos>0.5?-1:1; return {v:(dir==="long"?s:-s)*0.5,c:0.5,txt:`fiyat 24 saatlik aralığın ${pos>0.5?"tepesinde":"dibinde"} (%${Math.round(pos*100)}): ucu kovalamak yerine ters yön`}; }},
+  {id:"liqwave",ad:"Likidasyon dalgası",kaynak:"test listesi #10",veri:"canlı OI (5 dk)",
+    fn(x,dir){ const o=(x.oi5||[]).map(z=>+(z&&z.sumOpenInterestValue!=null?z.sumOpenInterestValue:z)).filter(v=>v>0); if(o.length<7) return null; const now=o[o.length-1], mx=Math.max(...o.slice(-7));
+      const dd=now/mx-1; if(dd>-0.05) return null; return {v:-0.6,c:0.8,txt:`OI 30 dakikada ${pct(dd*100)}: likidasyon dalgası, 30 dk giriş yok`}; }},
+  {id:"fundz",ad:"Aşırı fonlama (±2σ)",kaynak:"test listesi #11",veri:"canlı fonlama geçmişi",
+    fn(x,dir){ const h=(x.fundHist||[]).filter(isFinite); if(h.length<6||!isFinite(x.fund)) return null; const m=h.reduce((a,b)=>a+b,0)/h.length; const sd=Math.sqrt(h.reduce((a,b)=>a+(b-m)**2,0)/h.length); if(!(sd>0)) return null;
+      const z=(x.fund-m)/sd; if(Math.abs(z)<2) return null; const s=-Math.sign(z); return {v:(dir==="long"?s:-s)*0.6,c:0.5,txt:`fonlama ${fx(x.fund*100,4)}% (son 9 dönemin ${z>0?"+":""}${fx(z,1)}σ): kalabalığın tersi`}; }}
+];
+/* tests/research-factors.js sonucu (6 Ekim 2026, 24 coin, 1 Nis–6 Eki 2026, saatte bir, iki yönde; ölçü: 4 saatte önce ±1 ATR).
+   ic1/ic2: iki yarının bilgi katsayısı; st: aktif | izlemede; w: oy ağırlığı. Yeniden ölçünce bu tablo güncellenir. */
+const FAC_FIT={
+  night:{st:"izlemede",w:0,ic1:-0.0177,ic2:0.0231,y1:0.466,y2:0.537,n:7248},
+  monday:{st:"izlemede",w:0,ic1:-0.0163,ic2:0.0071,y1:0.474,y2:0.506,n:9213},
+  hi10:{st:"aktif",w:1.55,ic1:0.0205,ic2:0.0071,y1:0.516,y2:0.503,n:22601},
+  btc200:{st:"aktif",w:1,ic1:0.0631,ic2:0.0224,y1:0.528,y2:0.508,n:86760},
+  wvb:{st:"izlemede",w:0,ic1:-0.0218,ic2:0.0144,y1:0.474,y2:0.512,n:18947},
+  nr7:{st:"izlemede",w:0,ic1:-0.0053,ic2:0.0013,y1:0.486,y2:0.5,n:5224},
+  rev4:{st:"izlemede",w:0,ic1:0.0135,ic2:0.0012,y1:0.512,y2:0.496,n:12643},
+  btclead:{st:"izlemede",w:0,ic1:-0.0075,ic2:-0.005,y1:0.477,y2:0.485,n:4470},
+  rng24:{st:"izlemede",w:0,ic1:0.004,ic2:-0.0054,y1:0.5,y2:0.49,n:20850},
+  liqwave:{st:"izlemede",w:0,ic1:0,ic2:0,y1:null,y2:null,n:0},
+  fundz:{st:"izlemede",w:0,ic1:0,ic2:0,y1:null,y2:null,n:0}};
+const FAC_ST=id=>(FAC_FIT[id]&&FAC_FIT[id].st)||"izlemede";
+// canlı ağırlık: ölçüm × tahmin defteri. İzlemedeki faktör ≥200 canlı tahminde beceri artıysa küçük ağırlıkla oya girer.
+function facWeight(id){ const f=FAC_FIT[id]; const L=(typeof FC!=="undefined"&&FC&&FC.learn)?FC.learn.agents["f:"+id]:null; const m=L?L.m:1;
+  if(f&&f.st==="aktif") return +(f.w*m).toFixed(3); if(L&&L.n>=200&&m>1) return +(m-1).toFixed(3); return 0; }
+// tüm faktörler: {id:{v,c,txt,w}} (yalnız oy verenler), oy ve güven; çekimserse null
+function facRead(x, dir){ const out={}; for(const F of FACTORS){ let r=null; try{ r=F.fn(x,dir); }catch(e){ r=null; } if(r&&isFinite(r.v)) out[F.id]={v:clamp(r.v,-1,1),c:clamp(r.c,0,1),txt:r.txt,w:facWeight(F.id)}; } return out; }
+function facMember(A, dir, opts){
+  const x=facCtx(A,opts); const R=facRead(x,dir); const ids=Object.keys(R); const nm=id=>(FACTORS.find(f=>f.id===id)||{}).ad||id;
+  let num=0,den=0,nAct=0; for(const id of ids){ const r=R[id]; if(!(r.w>0)) continue; num+=r.w*r.v*r.c; den+=r.w*r.c; nAct++; }
+  const watch=ids.filter(id=>!(R[id].w>0));
+  if(!nAct){ return {abst:true,v:0,c:0,f:R,txt:ids.length?`yalnız izlemedeki faktörler: ${ids.map(nm).join(", ")} · çekimser`:"faktörlerin hiçbiri koşulda değil · çekimser",
+    say:ids.length?`Faktörlerden ${ids.map(nm).join(", ")} koşulda ama hiçbiri geçmişte iki yarıda tutmadı; kayda geçiyorum, oy vermiyorum.`:`Kütüphanedeki ${FACTORS.length} faktörün hiçbiri şu an koşulda değil; çekimserim.`}; }
+  const v=clamp(num/den,-1,1), c=clamp(0.35+0.15*nAct,0,0.9); const act=ids.filter(id=>R[id].w>0);
+  const parts=act.map(id=>`${nm(id)} ${R[id].v>0?"lehte":"karşı"} (${R[id].txt})`);
+  return {abst:false,v,c,f:R,txt:act.map(id=>`${nm(id)} ${R[id].v>0?"+":"−"}`).join(" · ")+(watch.length?` · izlemede: ${watch.map(nm).join(", ")}`:""),
+    say:`Ölçülmüş faktörlerden ${parts.join("; ")}.${watch.length?` İzlemede olup oy vermeyen: ${watch.map(nm).join(", ")}.`:""} ${v>0.3?"Faktörler bizimle.":v<-0.3?"Faktörler karşı.":"Faktörler bölünmüş."}`};
+}
+
 /* ---------- Tahmin defteri: Masa'nın her görüşü bir tahmindir (6 Ekim 2026) ----------
    İşlem açılsın açılmasın, taranan her coinde masanın long ve short görüşü (puan, her üyenin oyu, kurulumun özellikleri) kaydedilir;
    coin başına yön başına saatte bir. 16 mum (4 saat) sonra aynı ölçüyle puanlanır: kayıt anındaki fiyattan önce +1 ATR (15 dk, 14) mi
    −1 ATR mi geldi (aynı mumda ikisi = yanlış; ikisi de yoksa süre doldu, yarım). Bu, tests/audit-sweeps.js'deki ölçünün aynısıdır;
    rastgele mumda isabet ≈ %48–50.
    Öğrenme: (1) üye ağırlığı: oy × sonuç (+1/0/−1) ortalaması, en az 60 tahminde, 150 tahminlik büzme ile 0,6–1,4 kat (Murat'ın işlem
-   ağırlığıyla çarpılır). (2) ders: masanın evet dediği (puan ≥ 0,15) tahminlerde bir özellik (havuz türü, kill zone, aşama, günlük trend)
+   ağırlığıyla çarpılır). (2) ders: masanın evet dediği (puan ≥ 15/100) tahminlerde bir özellik (havuz türü, kill zone, aşama, günlük trend)
    ≥30 tahminde tabandan 8 puan kötüyse ve iki yarıda da tabanın altındaysa Murat o kalıba karşı oy verir (−0,4).
    Durum localStorage["st-fc"]; ui.js ve headless aynı kodu kullanır (rowOf → fcObserve). Gerçek emir yok. */
 const FC_DEF={horizon:16,gapMin:60,maxPend:3000,maxDone:6000,minAgent:60,shrink:150,minLesson:30,lessonGap:0.08,leanYes:0.15};
@@ -1604,7 +1709,7 @@ function fcObserve(sym,A,com,now){
   try{ const F=fcLoad(); now=now||Date.now(); const k=A&&A.src&&A.src.k15L; if(!k||k.length<30||!com) return;
     const got=fcResolve(sym,k,now); let add=0; const li=k[k.length-1].t+9e5<=now?k.length-1:k.length-2; const atr=fcAtr(k,li); const px=A.px;
     if(isFinite(atr)&&atr>0&&px>0) for(const dir of ["long","short"]){ const c=com[dir]; if(!c) continue; const key=sym+"|"+dir; if(F.last[key]&&now-F.last[key]<FC_DEF.gapMin*6e4) continue;
-      const v={}; for(const a of c.agents||[]) v[a.id]=a.v; F.pend.push({sym,dir,t:now,px,atr,score:c.score,go:c.decision==="giriş",yes:c.yes,v,f:fcFeat(c)}); F.last[key]=now; add++; }
+      const v={}; for(const a of c.agents||[]) v[a.id]=a.v; const fa=c.feat&&c.feat.fac; if(fa) for(const id in fa) v["f:"+id]=fa[id]; /* faktörler (factors.js), yalnız koşuldayken */ F.pend.push({sym,dir,t:now,px,atr,score:c.score,go:c.decision==="giriş",yes:c.yes,v,f:fcFeat(c)}); F.last[key]=now; add++; }
     if(F.pend.length>FC_DEF.maxPend) F.pend.splice(0,F.pend.length-FC_DEF.maxPend);
     if(got) F.learn=fcLearn(F.done); if(got||add) fcSave(); }
   catch(e){}
@@ -1614,7 +1719,8 @@ function fcLearn(done){
   const D=done.filter(f=>f.y!=null); const out={n:D.length,at:Date.now(),base:fcHit(D),buckets:[],go:null,agents:{},lessons:[],dir:{}};
   if(!D.length) return out;
   for(const d of ["long","short"]){ const a=D.filter(f=>f.dir===d); out.dir[d]={n:a.length,hit:fcHit(a)}; }
-  const B=[[-9,-0.2,"< −0,20"],[-0.2,0,"−0,20 … 0"],[0,0.15,"0 … 0,15"],[0.15,0.3,"0,15 … 0,30"],[0.3,9,"≥ 0,30"]];
+  // puan kovaları 100 üzerinden 10'ar puan (eşik çevresinde ince): masanın puanı ile isabet arasındaki ilişki (kalibrasyon)
+  const B=[[-9,-0.2,"< −20"],[-0.2,-0.1,"−20 … −10"],[-0.1,0,"−10 … 0"],[0,0.1,"0 … 10"],[0.1,0.2,"10 … 20"],[0.2,0.3,"20 … 30"],[0.3,0.4,"30 … 40"],[0.4,0.5,"40 … 50"],[0.5,9,"≥ 50"]];
   for(const [lo,hi,t] of B){ const a=D.filter(f=>f.score>=lo&&f.score<hi); out.buckets.push({t,n:a.length,hit:fcHit(a)}); }
   const G=D.filter(f=>f.go); out.go={n:G.length,hit:fcHit(G)};
   const ids=new Set(); for(const f of D) for(const id in f.v) ids.add(id);
@@ -1700,8 +1806,8 @@ function entryStages(x, ctx){
   const thr=(ctx.thr!=null?ctx.thr:cfg.threshold)+gs.thrAdd, minYes=ctx.minYes||cfg.minYes; const ag=id=>(x.com&&x.com.agents||[]).find(a=>a.id===id);
   const liq=ag("liq"), flow=ag("flow"); const sweep=liq?liq.v>0.3:!!f.pool, of=flow?flow.v>0:(+f.of||0)>=1;
   const grade=x.score>=thr+0.15&&sweep&&of?"A":(sweep||of)?"B":"C";
-  let f2=null; if(x.veto) f2="veto: "+x.veto; else if(!(x.score>=thr)) f2=`puan ${fx(x.score,2)} < eşik ${fx(thr,2)}${gs.thrAdd?` (mod "${gs.mode}" eşiği +${fx(gs.thrAdd,2)})`:""}`; else if(x.yes<minYes) f2=`${x.yes} evet, ${minYes} gerekli`;
-  add("kalite","Kerem",f2?"fail":grade==="C"?"warn":"ok",f2||`not ${grade} · puan ${fx(x.score,2)} · ${x.yes} evet · ${sweep?"süpürme var":"süpürme yok"} · ${of?"akış teyitli":"akış teyitsiz"}`);
+  let f2=null; if(x.veto) f2="veto: "+x.veto; else if(!(x.score>=thr)) f2=`puan ${pts(x.score)} < eşik ${pts(thr)}${gs.thrAdd?` (mod "${gs.mode}" eşiği +${pts(gs.thrAdd)})`:""}`; else if(x.yes<minYes) f2=`${x.yes} evet, ${minYes} gerekli`;
+  add("kalite","Kerem",f2?"fail":grade==="C"?"warn":"ok",f2||`not ${grade} · puan ${pts(x.score)} · ${x.yes} evet · ${sweep?"süpürme var":"süpürme yok"} · ${of?"akış teyitli":"akış teyitsiz"}`);
   /* aşama 4 (sayaçlar önce): korelasyon ve bekleme */
   const pos=ctx.positions||[]; const same=pos.filter(p=>p.dir===x.dir); const cap=Math.min(cfg.maxSameDir||9,au&&au.maxSameDir?au.maxSameDir:9);
   const opens=pos.map(p=>({t:p.openT,dir:p.dir})).concat((ctx.trades||[]).map(t=>({t:t.openT,dir:t.dir}))); const lastSame=Math.max(0,...opens.filter(o=>o.dir===x.dir).map(o=>o.t||0));
@@ -1730,8 +1836,8 @@ function freePlan(x, es, ctx){
   const cfg=ctx.cfg, au=ctx.aud||{}; if(!cfg.freeMargin||(au.off&&au.off.free&&au.off.prune)) return null; if(es.grade==="C"||x.score<es.thr+cfg.freeEdge) return null;
   const now=ctx.now||Date.now(); const px=ctx.px||(()=>NaN); const opts=[];
   for(const p of ctx.positions||[]){ const r=posR(p,px(p.sym)); const rev=p.lastReview&&isFinite(p.lastReview.score)?p.lastReview.score:p.score; const held=(now-p.openT)/60e3;
-    if(r>=cfg.freeMinR&&!(au.off&&au.off.free)){ const part=p.stage==="open"?0.5:1; opts.push({p,part,kind:"free",r,why:`${fx(r,2)}R kârda; ${part<1?"yarısı":"kalanı"} alınıyor, ${x.sym.replace("USDT","")} için yer açılıyor (puan ${fx(x.score,2)} > ${fx(rev,2)})`,margin:p.margin*part,rank:2+r}); }
-    else if(r>-0.25&&held>=30&&isFinite(rev)&&rev<x.score-cfg.freeEdge&&rev<es.thr&&!(au.off&&au.off.prune)) opts.push({p,part:1,kind:"prune",r,why:`${fx(r,2)}R'de duruyor, masa artık ikna değil (${fx(rev,2)}); ${x.sym.replace("USDT","")} daha iyi (${fx(x.score,2)})`,margin:p.margin,rank:1-rev}); }
+    if(r>=cfg.freeMinR&&!(au.off&&au.off.free)){ const part=p.stage==="open"?0.5:1; opts.push({p,part,kind:"free",r,why:`${fx(r,2)}R kârda; ${part<1?"yarısı":"kalanı"} alınıyor, ${x.sym.replace("USDT","")} için yer açılıyor (puan ${pts(x.score)} > ${pts(rev)})`,margin:p.margin*part,rank:2+r}); }
+    else if(r>-0.25&&held>=30&&isFinite(rev)&&rev<x.score-cfg.freeEdge&&rev<es.thr&&!(au.off&&au.off.prune)) opts.push({p,part:1,kind:"prune",r,why:`${fx(r,2)}R'de duruyor, masa artık ikna değil (${pts(rev)}); ${x.sym.replace("USDT","")} daha iyi (${pts(x.score)})`,margin:p.margin,rank:1-rev}); }
   opts.sort((a,b)=>b.rank-a.rank); const out=[]; let got=0, slotFree=!es.slot;
   for(const o of opts){ if(got>=es.need&&slotFree) break; out.push(o); got+=o.margin; if(o.part>=1) slotFree=true; }
   return got>=es.need&&slotFree&&out.length?out:null;
@@ -1749,8 +1855,8 @@ function deskAdjust(p, ctx){
   // hedef 1'i karşıdaki dirence/desteğe göre çek: seviye girişten ≥0,8R ve hedef 1'den önce
   const L=ctx.lvl; if(p.stage==="open"&&!p.t1Pulled&&!off.t1pull&&L>0&&sg*(L-px)>0&&sg*(p.t1-L)>0){ const t=L*(1-sg*0.001); const rr=sg*(t-p.entry)/r0; if(rr>=0.8) out.push({k:"t1pull",who:"Kerem",t1:t,txt:`hedef 1'in önünde ${isL?"direnç":"destek"} var (${fmtP(L)}); hedef 1 ${fmtP(p.t1)} → ${fmtP(t)} (${fx(rr,2)}R), fiyat oradan dönebilir`}); }
   if(rv&&p.stage==="tp1"&&p.t2){ const t2R=sg*(p.t2-p.entry)/r0;
-    if(!p.t2Ext&&!off.t2ext&&rv.score>=thr+0.1&&mom>0.3&&t2R<4){ const t=lv(Math.min(4,t2R+1)); out.push({k:"t2ext",who:"Baran",t2:t,txt:`masa güçlü (puan ${fx(rv.score,2)}), momentum sürüyor; koşucu ${fx(t2R,1)}R → ${fx(Math.min(4,t2R+1),1)}R (${fmtP(t)})`}); }
-    else if(!p.t2Cut&&!off.t2cut&&rv.score<0&&t2R>2&&sg*(lv(2)-px)>0){ const t=lv(2); out.push({k:"t2cut",who:"Emre",t2:t,txt:`masa bu yönden çekildi (puan ${fx(rv.score,2)}); koşucu ${fx(t2R,1)}R → 2R (${fmtP(t)})`}); } }
+    if(!p.t2Ext&&!off.t2ext&&rv.score>=thr+0.1&&mom>0.3&&t2R<4){ const t=lv(Math.min(4,t2R+1)); out.push({k:"t2ext",who:"Baran",t2:t,txt:`masa güçlü (puan ${pts(rv.score)}), momentum sürüyor; koşucu ${fx(t2R,1)}R → ${fx(Math.min(4,t2R+1),1)}R (${fmtP(t)})`}); }
+    else if(!p.t2Cut&&!off.t2cut&&rv.score<0&&t2R>2&&sg*(lv(2)-px)>0){ const t=lv(2); out.push({k:"t2cut",who:"Emre",t2:t,txt:`masa bu yönden çekildi (puan ${pts(rv.score)}); koşucu ${fx(t2R,1)}R → 2R (${fmtP(t)})`}); } }
   // yapısal stop: masa "stop sık" diyorsa ve öneri mevcut stoptan iyi, fiyattan en az 0,6 ATR uzaksa
   if(rv&&rv.verdict==="tut, stop sık"&&!off.tight&&rNow>=0.5&&isFinite(rv.stopLv)&&better(rv.stopLv,p.stop)&&sg*(px-rv.stopLv)>0){ out.push({k:"tight",who:"Kerem",stop:rv.stopLv,txt:`masa stop sıkılsın diyor; stop ${fmtP(p.stop)} → ${fmtP(rv.stopLv)} (${rv.stopWhy})`}); }
   return out;
@@ -2880,7 +2986,7 @@ function botOpenMarket(x,es){
   const votes=x.com.agents.map(a=>`${a.name||a.k} ${a.v>0?"+":""}${fx(a.v,1)}`);
   bot.positions.push({sym:x.sym,dir:x.dir,model:"KOMİTE",grade:x.grade,agents:x.com.agents,talk:x.com.talk,entry:fill,stop,t1,t2,rr1:1.5,rr2:x.com.plan?x.com.plan.rr2:3,lev,notional,margin,risk,risk0:Math.abs(fill-stop),stop0:stop,qty,qty0:qty,fees:fee,openT:Date.now(),expiresAt:Date.now()+((x.com.plan&&x.com.plan.holdH)||cfg.holdH)*3600e3,stage:"open",hi:fill,lo:fill,realized:0,score:x.score,yes:x.yes,votes,
     entry0:fill,stages:es?es.stages:null,warn:es?es.warn:0,quality:es?es.grade:null,mode:es?es.gs.mode:null,freed:!!x.freed,decs:[],xs:[]});
-  botLog("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · Can'ın kararı · puan ${fx(x.score,2)} · ${x.yes}/${DESK.length} evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · 1,5R ${fmtP(t1)} · 3R ${fmtP(t2)} · ${lev}x · pozisyon ${fmtB(notional)} · teminat ${fmtB(margin)} · risk ${fmtB(risk)}${es?` · not ${es.grade}${x.freed?" · yer açılarak":""}`:""}. Oylar: ${votes.join(", ")}.${es?" Aşamalar: "+stagesTxt(es):""}`);
+  botLog("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · Can'ın kararı · puan ${ptsT(x.score)} · ${x.yes}/${DESK.length} evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · 1,5R ${fmtP(t1)} · 3R ${fmtP(t2)} · ${lev}x · pozisyon ${fmtB(notional)} · teminat ${fmtB(margin)} · risk ${fmtB(risk)}${es?` · not ${es.grade}${x.freed?" · yer açılarak":""}`:""}. Oylar: ${votes.join(", ")}.${es?" Aşamalar: "+stagesTxt(es):""}`);
   botSave(); botWsSync(); return true;
 }
 /* --- karar döngüsü: tarama bitince ve her dakika --- */
@@ -2894,14 +3000,14 @@ function botDecide(reason){
   if(cfg.mode==="komite"){
     const c=botCandidatesCommittee(); bot.lastVotes=c.slice(0,24).map(x=>({sym:x.sym,dir:x.dir,score:x.score,yes:x.yes,veto:x.veto,go:x.go,held:x.held,cool:x.cool,agents:x.com.agents,talk:x.com.talk,decision:x.com.decision}));
     botGoalWatch(); const go=c.filter(x=>x.go);
-    if(!go.length){ if(reason==="scan") botLog("skip","",`Komite ${scan.rows.length} coin × 2 yön puanladı; eşik ${fx(botThr(),2)} ve ${botMinYes()}/${DESK.length} oyu sağlayan yok. En iyi: ${c.slice(0,3).map(x=>x.sym.replace("USDT","")+" "+(x.dir==="long"?"L":"S")+" "+fx(x.score,2)+(x.veto?" (veto)":"")).join(", ")||"—"}.`); botSave(); return; }
+    if(!go.length){ if(reason==="scan") botLog("skip","",`Komite ${scan.rows.length} coin × 2 yön puanladı; eşik ${pts(botThr())} ve ${botMinYes()}/${DESK.length} oyu sağlayan yok. En iyi: ${c.slice(0,3).map(x=>x.sym.replace("USDT","")+" "+(x.dir==="long"?"L":"S")+" "+pts(x.score)+(x.veto?" (veto)":"")).join(", ")||"—"}.`); botSave(); return; }
     // aşamalı giriş: rejim → kalite → bütçe → korelasyon → son oy; yer yoksa açıktakilerden kâr alıp yer açma
     let opened=0, shown=0; const seen=new Set(); const fails={};
     for(const x of go){ if(botDay().opens>=cfg.maxOpens) break; if(seen.has(x.sym)||botHas(x.sym)) continue; seen.add(x.sym);
       let es=entryStages(x,botCtx()); const lv=bot.lastVotes.find(v=>v.sym===x.sym&&v.dir===x.dir); if(lv) lv.stages=es.stages;
       if(!es.ok){ const f=es.stages.find(z=>z.st==="fail")||es.stages[es.stages.length-1]; fails[f.k]=(fails[f.k]||0)+1; if(lv) lv.go=false; if(reason==="scan"&&shown++<3) botLog("skip",x.sym,`${x.dir} · ${f.who}: ${f.txt}.`); continue; }
       if(es.need>0||es.slot){ const fp=freePlan(x,es,botCtx());
-        if(!fp){ fails.teminat=(fails.teminat||0)+1; if(reason==="scan"&&shown++<3) botLog("skip",x.sym,`${x.dir} · Can: ${es.slot?`${bot.positions.length}/${cfg.maxPos} yer dolu`:`teminat ${fmtB(es.margin)} gerekli, boş ${fmtB(Math.max(0,es.free))}`}; yer açmaya değecek kârlı ya da sönmüş pozisyon yok (yeni kurulum puanı ${fx(x.score,2)}).`); continue; }
+        if(!fp){ fails.teminat=(fails.teminat||0)+1; if(reason==="scan"&&shown++<3) botLog("skip",x.sym,`${x.dir} · Can: ${es.slot?`${bot.positions.length}/${cfg.maxPos} yer dolu`:`teminat ${fmtB(es.margin)} gerekli, boş ${fmtB(Math.max(0,es.free))}`}; yer açmaya değecek kârlı ya da sönmüş pozisyon yok (yeni kurulum puanı ${pts(x.score)}).`); continue; }
         for(const o of fp){ const p=o.p; const xp=botMk(p.sym); if(!(xp>0)||!bot.positions.includes(p)) continue; deskNote(p,o.kind,xp,o.part,Date.now()); botLog("desk",p.sym,`Can: ${o.why}.`);
           botCloseAt(p,o.part,p.dir==="long"?xp*(1-cfg.slip):xp*(1+cfg.slip),{k:"desk",dec:o.kind,t:`Masa kararı · ${DEC_KIND[o.kind].toLowerCase()}`},true); }
         es=entryStages(x,botCtx()); if(!es.ok||es.need>0||es.slot){ botLog("skip",x.sym,"Yer açıldı ama yine de sığmadı (fiyat oynadı)."); continue; } x.freed=true; }
@@ -2981,7 +3087,7 @@ function stagesHtml(st,decs){
 /* --- masa şeması: yedi kişi, merkeze akan katkılar, çelişkiler, veto --- */
 function renderRoom(){
   const opts=[]; for(const p of bot.positions){ if(p.agents) opts.push({key:"pos:"+p.sym,label:`${p.sym.replace("USDT","")} ${p.dir==="long"?"L":"S"} · açık pozisyon (giriş anı)`,agents:p.agents,talk:p.talk,score:p.score,yes:null,veto:null,go:true,dir:p.dir,sym:p.sym,stages:p.stages,decs:p.decs}); }
-  for(const v of bot.lastVotes){ opts.push({key:v.sym+"|"+v.dir,label:`${v.sym.replace("USDT","")} ${v.dir==="long"?"L":"S"} · puan ${fx(v.score,2)}${v.go?" · giriş":v.veto?" · veto":v.stages?" · aşamada kaldı":""}`,agents:v.agents,talk:v.talk,score:v.score,yes:v.yes,veto:v.veto,go:v.go,dir:v.dir,sym:v.sym,stages:v.stages}); }
+  for(const v of bot.lastVotes){ opts.push({key:v.sym+"|"+v.dir,label:`${v.sym.replace("USDT","")} ${v.dir==="long"?"L":"S"} · puan ${pts(v.score)}${v.go?" · giriş":v.veto?" · veto":v.stages?" · aşamada kaldı":""}`,agents:v.agents,talk:v.talk,score:v.score,yes:v.yes,veto:v.veto,go:v.go,dir:v.dir,sym:v.sym,stages:v.stages}); }
   if(!opts.length) return `<div class="card" style="margin-bottom:10px"><h4 style="margin:0 0 4px">Masa</h4><div class="empty">İlk tarama bitince on kişilik masanın tartışması burada canlanır.</div></div>`;
   let sel=opts.find(o=>o.key===bot.roomSel)||opts.find(o=>o.go)||opts[0]; const ag=sel.agents; const thr=bot.cfg.threshold;
   const W=400,H=300,cx=200,cy=150,R=108; const n=ag.length; const posOf=i=>{ const a=-Math.PI/2+i*2*Math.PI/n; return [cx+R*Math.cos(a),cy+R*Math.sin(a)]; };
@@ -2993,10 +3099,10 @@ function renderRoom(){
     const r=16+10*a.c; nodes+=`<g class="agent" data-i="${i}"><title>${esc(a.name||a.k)} · ${esc(a.role||"")}: oy ${a.v>0?"+":""}${fx(a.v,2)} · güven ${fx(a.c,2)} · ağırlık ${w} · ${esc(a.txt)}</title><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${col(a.v)}" fill-opacity="${(0.15+0.55*Math.abs(a.v)).toFixed(2)}" stroke="${col(a.v)}" stroke-width="${(1+3*a.c).toFixed(1)}"/><text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">${a.v>0?"+":""}${fx(a.v,1)}</text><text x="${x.toFixed(1)}" y="${(y+r+13).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)">${esc(a.name||a.k)}</text><text x="${x.toFixed(1)}" y="${(y+r+24).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="var(--ink-2)">${esc((a.role||"").split(" · ")[0].replace(" analisti","").replace(" araştırmacısı","").replace("Baş trader","baş trader"))}</text></g>`; });
   for(let i=0;i<n;i++) for(let j=i+1;j<n;j++){ const a=ag[i],b=ag[j]; if((a.v>0.4&&b.v<-0.4)||(a.v<-0.4&&b.v>0.4)){ const [x1,y1]=posOf(i),[x2,y2]=posOf(j); conf+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="4 4" stroke-opacity=".8"><title>Çelişki: ${esc(a.name||a.k)} ${a.v>0?"+":""}${fx(a.v,1)} ↔ ${esc(b.name||b.k)} ${b.v>0?"+":""}${fx(b.v,1)}</title></line>`; } }
   const veto=sel.veto; const pctArc=clamp((score+1)/2,0,1); const circ=2*Math.PI*34; const decision=veto?"VETO":sel.go?"GİRİŞ":score>=thr?"EŞİKTE":"BEKLE"; const dcol=veto?"var(--short)":sel.go?"var(--long)":"var(--ink-2)";
-  const center=`<circle cx="${cx}" cy="${cy}" r="40" fill="var(--bg-2, #111822)" stroke="${dcol}" stroke-width="2"/><circle cx="${cx}" cy="${cy}" r="34" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="6"/><circle cx="${cx}" cy="${cy}" r="34" fill="none" stroke="${score>=thr?"var(--long)":"var(--ink-2)"}" stroke-width="6" stroke-dasharray="${(circ*pctArc).toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90 ${cx} ${cy})"/><text x="${cx}" y="${cy-2}" text-anchor="middle" font-size="15" font-weight="800" fill="var(--ink)">${score>=0?"+":""}${fx(score,2)}</text><text x="${cx}" y="${cy+14}" text-anchor="middle" font-size="10" font-weight="700" fill="${dcol}">${decision}</text>${veto?`<text x="${cx}" y="${cy+58}" text-anchor="middle" font-size="10.5" fill="var(--short)">${esc(veto)}</text>`:""}`;
+  const center=`<circle cx="${cx}" cy="${cy}" r="40" fill="var(--bg-2, #111822)" stroke="${dcol}" stroke-width="2"/><circle cx="${cx}" cy="${cy}" r="34" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="6"/><circle cx="${cx}" cy="${cy}" r="34" fill="none" stroke="${score>=thr?"var(--long)":"var(--ink-2)"}" stroke-width="6" stroke-dasharray="${(circ*pctArc).toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90 ${cx} ${cy})"/><text x="${cx}" y="${cy-2}" text-anchor="middle" font-size="15" font-weight="800" fill="var(--ink)">${score>=0?"+":""}${pts(score)}</text><text x="${cx}" y="${cy+14}" text-anchor="middle" font-size="10" font-weight="700" fill="${dcol}">${decision}</text>${veto?`<text x="${cx}" y="${cy+58}" text-anchor="middle" font-size="10.5" fill="var(--short)">${esc(veto)}</text>`:""}`;
   const act=ag.filter(a=>!a.abst&&a.w!==0), yes=act.filter(a=>a.v>0.15).length, no=act.filter(a=>a.v<-0.15).length;
   const list=ag.map(a=>`<div style="display:flex;gap:8px;align-items:baseline;font-size:11.5px;margin:2px 0"><span style="min-width:150px;font-weight:700;color:${col(a.v)}">${esc(a.name||a.k)} <span class="muted" style="font-weight:400">${esc(a.role||"")}</span></span><span class="num" style="min-width:36px">${a.abst?"—":(a.v>0?"+":"")+fx(a.v,1)}</span><span class="muted" style="min-width:52px">${a.abst?"çekimser":"güven "+fx(a.c,1)}</span><span class="muted" style="min-width:44px">${a.abst?"":"× "+fx(a.w,2)}</span><span class="muted">${a.v0!=null&&Math.abs(a.v0-a.v)>=0.05?`<b>ikna: ${a.v0>0?"+":""}${fx(a.v0,1)} → ${a.v>0?"+":""}${fx(a.v,1)}</b> · `:""}${esc(a.txt)}</span></div>`).join("");
-  return `<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:4px"><h4 style="margin:0">Masa</h4><select id="botRoomSel">${opts.map(o=>`<option value="${o.key}" ${o.key===sel.key?"selected":""}>${esc(o.label)}</option>`).join("")}</select><span class="muted" style="font-size:11.5px">${yes} evet · ${no} hayır · ${ag.length-act.length} çekimser · eşik ${fx(thr,2)} · en az ${botMinYes()} evet gerekli</span></div>
+  return `<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:4px"><h4 style="margin:0">Masa</h4><select id="botRoomSel">${opts.map(o=>`<option value="${o.key}" ${o.key===sel.key?"selected":""}>${esc(o.label)}</option>`).join("")}</select><span class="muted" style="font-size:11.5px">${yes} evet · ${no} hayır · ${ag.length-act.length} çekimser · eşik ${pts(thr)} · en az ${botMinYes()} evet gerekli</span></div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start"><svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:420px;height:auto" role="img" aria-label="Komite odası">${lines}${conf}${nodes}${center}</svg><div>${list}<p class="muted" style="font-size:11px;margin:6px 0 0">Daire boyu ve çerçeve = güven; renk ve dolgu = oy; çizgi kalınlığı = karara katkı (ağırlık × oy × güven); turuncu kesikli çizgi = çelişki. Merkez: ağırlıklı puan ve Can'ın kararı. Oylar ikna turu sonrası değerler; ağırlıklar (× katsayı) geriye dönük testten. Verisi olmayan üye çekimserdir, puana girmez.</p></div></div>${stagesHtml(sel.stages,sel.decs)}${talkHtml(sel.talk)}</div>`;
 }
 function botClosePos(p){
@@ -3010,7 +3116,7 @@ function botClosePos(p){
   bot.positions=bot.positions.filter(x=>x!==p); bot.eq.push({t:Date.now(),v:bot.bal}); if(bot.eq.length>4000) bot.eq=bot.eq.slice(-2000); botAudit(rec); if(bot.bal>=botGoal().goal&&!bot.goalHit){ bot.goalHit=Date.now(); botLog("goal","",`Hedef tamam: bakiye ${fmtB(bot.bal)}. Bot korumalı modda (risk yarıya) devam ediyor.`); } botSave(); botWsSync();
   if(bot.on) setTimeout(()=>botDecide("tick"),500);
 }
-function botStart(){ if(bot.on) return; bot.on=true; if(!bot.startT) bot.startT=Date.now(); const c=bot.cfg; botLog("sys","",c.mode==="komite"?`Bot başladı · KOMİTE modu · sanal ${fmtB(bot.bal)} · risk %${fx(c.risk*100,1)}–%${fx(Math.max(c.risk,c.riskMax||0)*100,1)} (masanın güvenine göre) · ${c.lev}x sabit · aynı anda ${c.maxPos} pozisyon · eşik ${fx(c.threshold,2)}, ${c.minYes}/${DESK.length} oy · zaman stopu ${c.holdH} sa · hedef %100 ROI.`:`Bot başladı · KAPI modu · sanal ${fmtB(bot.bal)} · risk %${c.risk*100} · en fazla ${c.maxLev}x · ${c.strict?"yüksek tutarlılık kuralları":"serbest kurallar"} · Kurulum 2 ${c.useBR?"açık":"kapalı"} · Kurulum 3 ${c.useRS!==false?"açık":"kapalı"}.`); botWsSync(); if(!scan.rows.length&&!scan.running) runScan(); else botDecide("scan"); botSave(); }
+function botStart(){ if(bot.on) return; bot.on=true; if(!bot.startT) bot.startT=Date.now(); const c=bot.cfg; botLog("sys","",c.mode==="komite"?`Bot başladı · KOMİTE modu · sanal ${fmtB(bot.bal)} · risk %${fx(c.risk*100,1)}–%${fx(Math.max(c.risk,c.riskMax||0)*100,1)} (masanın güvenine göre) · ${c.lev}x sabit · aynı anda ${c.maxPos} pozisyon · eşik ${pts(c.threshold)}, ${c.minYes}/${DESK.length} oy · zaman stopu ${c.holdH} sa · hedef %100 ROI.`:`Bot başladı · KAPI modu · sanal ${fmtB(bot.bal)} · risk %${c.risk*100} · en fazla ${c.maxLev}x · ${c.strict?"yüksek tutarlılık kuralları":"serbest kurallar"} · Kurulum 2 ${c.useBR?"açık":"kapalı"} · Kurulum 3 ${c.useRS!==false?"açık":"kapalı"}.`); botWsSync(); if(!scan.rows.length&&!scan.running) runScan(); else botDecide("scan"); botSave(); }
 function botStop(){ bot.on=false; botLog("sys","","Bot durduruldu (açık pozisyonlar ve emirler korunur; başlatınca devam eder)."); botSave(); }
 function botReset(){ if(bot.positions.length||bot.orders.length){ if(!confirm(`${bot.positions.length} açık pozisyon ve ${bot.orders.length} emir var. Hepsi silinip bakiye 100 $'a dönsün mü?`)) return; } Object.assign(bot,{on:false,startT:null,bal:100,start:100,positions:[],orders:[],trades:[],log:[],eq:[],day:{key:null,opens:0,losses:0},px:{},cool:{},lastVotes:[],goalHit:null,peak:100,goalMode:null}); botSave(); renderBot(); }
 function botCloseAll(){ for(const p of [...bot.positions]){ const px=bot.px[p.sym]; if(!px) continue; const isL=p.dir==="long"; const price=isL?px*(1-bot.cfg.slip):px*(1+bot.cfg.slip); const q=p.qty; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*bot.cfg.feeTaker; bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty=0; botLog("close",p.sym,`Elle kapatıldı ${fmtP(price)} · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); botClosePos(p); } bot.orders=[]; botSave(); botWsSync(); renderBot(); }
@@ -3068,12 +3174,18 @@ function renderForecast(){
   const pc=h=>h==null?"—":"%"+Math.round(h*100); const cls=h=>h==null?"":h>=0.55?"up":h<=0.45?"down":"";
   const bk=L.buckets.map(b=>`<tr><td>${b.t}</td><td class="num">${b.n}</td><td class="num ${cls(b.hit)}">${pc(b.hit)}</td></tr>`).join("");
   const ags=DESK.filter(d=>L.agents[d.id]).map(d=>{ const a=L.agents[d.id]; return `<tr><td><b>${esc(d.name)}</b> <span class="muted" style="font-size:10.5px">${esc(d.role)}</span></td><td class="num">${a.n}</td><td class="num ${a.skill>0.03?"up":a.skill<-0.03?"down":""}">${a.skill>=0?"+":""}${fx(a.skill,2)}</td><td class="num">${a.yesN?pc(a.yesHit)+" · "+a.yesN:"—"}</td><td class="num">${a.noN?pc(1-a.noHit)+" · "+a.noN:"—"}</td><td class="num">${a.m===1&&a.n<FC_DEF.minAgent?`<span class="muted">${a.n}/${FC_DEF.minAgent}</span>`:"×"+fx(a.m,2)}</td></tr>`; }).join("");
+  // faktör kütüphanesi (factors.js): geçmiş ölçümü (iki yarının IC'si) + canlı tahmin defteri; ağırlık = facWeight (Kaan'ın oyunda)
+  const fac=FACTORS.map(f=>{ const a=L.agents["f:"+f.id]; const ft=FAC_FIT[f.id]||{}; const w=facWeight(f.id); const ic=v=>v==null?"—":(v>=0?"+":"")+fx(v,3);
+    return `<tr><td><b>${esc(f.ad)}</b><br><span class="muted" style="font-size:10.5px">${esc(f.kaynak)}</span></td><td>${ft.st==="aktif"?'<span class="up">aktif</span>':'<span class="muted">izlemede</span>'}</td><td class="num">${ft.n?ic(ft.ic1)+" / "+ic(ft.ic2):'<span class="muted">canlı veri</span>'}</td><td class="num">${a?a.n:0}</td><td class="num">${a&&a.yesN?pc(a.yesHit)+" · "+a.yesN:"—"}</td><td class="num">${w>0?"×"+fx(w,2):"—"}</td></tr>`; }).join("");
   const les=L.lessons.map(l=>`<li>${l.dir==="long"?"Long":"Short"} · ${esc(l.k)} = <b>${esc(l.v)}</b>: ${l.n} tahminde isabet ${pc(l.hit)} (taban ${pc(l.base)}) → Murat karşı oy verir</li>`).join("");
   return `<div class="card" style="margin-bottom:10px">${head}${intro}
   <div style="font-size:12px;margin-bottom:6px"><b>${L.n}</b> sonuçlanmış tahmin (${F.pend.length} bekliyor) · genel isabet <b class="${cls(L.base)}">${pc(L.base)}</b> · long ${pc(L.dir.long&&L.dir.long.hit)} · short ${pc(L.dir.short&&L.dir.short.hit)} · masanın "giriş" dediği ${L.go.n} tahminde <b class="${cls(L.go.hit)}">${pc(L.go.hit)}</b></div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;align-items:start">
   <table class="t"><thead><tr><th>Masa puanı</th><th>Tahmin</th><th>İsabet</th></tr></thead><tbody>${bk}</tbody></table>
   <table class="t"><thead><tr><th>Üye</th><th>Tahmin</th><th>Beceri</th><th>Evet → doğru</th><th>Hayır → doğru</th><th>Ağırlık</th></tr></thead><tbody>${ags}</tbody></table></div>
+  <details style="margin-top:8px"><summary class="muted" style="cursor:pointer;font-size:12px">Faktörler (Kaan · ${FACTORS.length} faktör, ${FACTORS.filter(f=>facWeight(f.id)>0).length} oyda)</summary>
+  <table class="t" style="margin-top:6px"><thead><tr><th>Faktör</th><th>Durum</th><th>Geçmiş IC (1. / 2. yarı)</th><th>Canlı tahmin</th><th>Evet → doğru</th><th>Ağırlık</th></tr></thead><tbody>${fac}</tbody></table>
+  <div class="muted" style="font-size:11px;margin-top:4px">Aktif: 6 aylık veride iki yarıda da bilgi katsayısı artı ve "evet" isabeti tabanın üstünde. İzlemede: tutmadı ya da geçmiş verisi yok; oy vermez ama her görüşü burada puanlanır, 200 canlı tahminde becerisi artıysa küçük ağırlıkla oya girer.</div></details>
   <div style="font-size:12px;margin-top:6px"><b>Dersler:</b> ${les?`<ul style="margin:4px 0 0 18px;padding:0">${les}</ul>`:`henüz yok (bir kalıp en az ${FC_DEF.minLesson} tahminde tabandan ${Math.round(FC_DEF.lessonGap*100)} puan kötü ve iki yarıda da altında olmalı)`}</div>
   <div class="muted" style="font-size:11px;margin-top:4px">Beceri = oy × sonuç (+1 doğru, −1 yanlış, 0 süre doldu) ortalaması; 0 = yazı tura. Ağırlık en az ${FC_DEF.minAgent} tahminden sonra değişir.</div></div>`;
 }
@@ -3084,7 +3196,7 @@ function renderAudit(){
   const mult=Object.entries(A.mult).map(([id,m])=>{ const d=DESK.find(x=>x.id===id); return `<span class="chip sm ${m.m>1.02?"up":m.m<0.98?"down":""}" title="oy ile sonuç arasındaki ilişki ${fx(m.corr,2)} · ${m.n} işlem">${esc(d?d.name:id)} ×${fx(m.m,2)}</span>`; }).join(" ");
   const tl=t=>new Date(t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
   const fnd=A.findings.map(f=>`<tr><td class="num muted">${tl(f.closeT)}</td><td><b>${f.sym.replace("USDT","")}</b> ${chip(f.dir==="long"?"up sm":"down sm",f.dir==="long"?"L":"S")}</td><td class="num down">${fx(f.r,2)}R</td><td class="num">${isFinite(f.mfe)?"+"+fx(f.mfe,1)+"R":"—"}</td><td class="muted">${Math.round((f.closeT-f.openT)/60e3)} dk · ${esc((f.exits||[]).join(" → ")||"—")}</td><td style="font-size:11.5px">${f.tags.map(k=>esc(AUD_TAGS[k].t)).join(", ")||'<span class="muted">belirgin hata yok</span>'}</td></tr>`).join("");
-  const levers=[A.thrBump?`eşik ${fx(bot.cfg.threshold,2)} → ${fx(botThr(),2)}`:"",A.minYesBump?`asgari oy ${bot.cfg.minYes} → ${botMinYes()}`:"",A.maxSameDir?`aynı yönde en fazla ${A.maxSameDir} pozisyon`:"",A.pauseMin?`kayıptan sonra ${A.pauseMin} dk ara`:"",A.sdMin>0.015?`stop tabanı %${fx(A.sdMin*100,1)}`:"",A.lockEarly?"1R görüp geri gelirse yarısı alınır":"",A.warnBlock?"uyarılı kurulumla girilmez":"",...Object.keys(A.off||{}).map(k=>`"${(DEC_KIND[k]||k).toLowerCase()}" kapalı`)].filter(Boolean);
+  const levers=[A.thrBump?`eşik ${pts(bot.cfg.threshold)} → ${pts(botThr())}`:"",A.minYesBump?`asgari oy ${bot.cfg.minYes} → ${botMinYes()}`:"",A.maxSameDir?`aynı yönde en fazla ${A.maxSameDir} pozisyon`:"",A.pauseMin?`kayıptan sonra ${A.pauseMin} dk ara`:"",A.sdMin>0.015?`stop tabanı %${fx(A.sdMin*100,1)}`:"",A.lockEarly?"1R görüp geri gelirse yarısı alınır":"",A.warnBlock?"uyarılı kurulumla girilmez":"",...Object.keys(A.off||{}).map(k=>`"${(DEC_KIND[k]||k).toLowerCase()}" kapalı`)].filter(Boolean);
   return `<div class="card" style="margin-bottom:10px">${head}
   <div class="muted" style="font-size:12px;margin-bottom:6px">${S.n} kapanmış işlem · kazanma %${Math.round(S.wr*100)} · ortalama ${S.avg>=0?"+":""}${fx(S.avg,2)}R · toplam ${S.sum>=0?"+":""}${fx(S.sum,1)}R · komisyon+fonlama işlem başına ${fx(S.feeR,2)}R · ${S.snap} işlemde girişteki oylar kayıtlı${S.snap<S.n?" (öncekiler karar günlüğünden okunabildiği kadar)":""}.</div>
   <div style="font-size:12px;margin-bottom:6px"><b>Masaya etkisi:</b> ${levers.length?levers.join(" · "):"henüz kural yok"}${Object.keys(A.vote).length?" · Murat şu kalıplara karşı oy verir: "+Object.keys(A.vote).map(k=>AUD_TAGS[k].t.toLowerCase()+(A.veto[k]?" (veto)":"")).join(", "):""}</div>
@@ -3103,7 +3215,7 @@ function renderBot(){
     <label style="font-size:12px;color:var(--ink-2)">Mod <select id="botMode"><option value="komite" ${c.mode==="komite"?"selected":""}>Masa (10 kişi tartışır, market giriş, çoklu pozisyon)</option><option value="kapi" ${c.mode!=="komite"?"selected":""}>Kapı (AMD/K2/K3 limit planları)</option></select></label>
     <span class="muted" style="font-size:11.5px">${botNetTxt()} · ${bot.on?'<span class="up">● çalışıyor</span>':"● durdu"}${bot.startT?" · başlangıç "+new Date(bot.startT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):""}</span></div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-    ${inp("botRisk","Taban risk %",(c.risk*100).toFixed(1),0.5,0.5,25)} ${inp("botRiskMax","Güvenle risk en çok %",((c.riskMax!=null?c.riskMax:c.risk)*100).toFixed(1),0.5,0.5,25)}${inp("botLev","Kaldıraç",c.lev,1,1,50,56)} ${inp("botMaxPos","Aynı anda",c.maxPos,1,1,10,52)} ${inp("botThr","Eşik",c.threshold,0.05,0,1,60)} ${inp("botMinYes","Asgari oy",c.minYes,1,1,DESK.length,52)} ${inp("botHold","Zaman stopu (sa)",c.holdH,1,1,72,56)} ${inp("botMaxOpens","Gün/işlem",c.maxOpens,1,1,50,56)} ${inp("botMaxLosses","Gün/kayıp",c.maxLosses,1,1,50,56)}
+    ${inp("botRisk","Taban risk %",(c.risk*100).toFixed(1),0.5,0.5,25)} ${inp("botRiskMax","Güvenle risk en çok %",((c.riskMax!=null?c.riskMax:c.risk)*100).toFixed(1),0.5,0.5,25)}${inp("botLev","Kaldıraç",c.lev,1,1,50,56)} ${inp("botMaxPos","Aynı anda",c.maxPos,1,1,10,52)} ${inp("botThr","Eşik /"+SCORE_MAX,Math.round(c.threshold*SCORE_MAX),1,0,SCORE_MAX,60)} ${inp("botMinYes","Asgari oy",c.minYes,1,1,DESK.length,52)} ${inp("botHold","Zaman stopu (sa)",c.holdH,1,1,72,56)} ${inp("botMaxOpens","Gün/işlem",c.maxOpens,1,1,50,56)} ${inp("botMaxLosses","Gün/kayıp",c.maxLosses,1,1,50,56)}
     ${c.mode==="komite"?`${inp("botGoal","Hedef $",c.goal,10,110,100000,70)} ${inp("botSameDir","Aynı yönde",c.maxSameDir,1,1,10,48)} ${inp("botBeR","Başabaş R (0 kapalı)",c.beR,0.1,0,3,52)} <label style="font-size:12px;color:var(--ink-2)">Short <select id="botShort"><option value="warn" ${c.shortRule==="warn"?"selected":""}>uyarıyla (boy ×0,75)</option><option value="off" ${c.shortRule==="off"?"selected":""}>serbest</option><option value="fail" ${c.shortRule==="fail"?"selected":""}>kapalı</option></select></label> <label style="font-size:12px;color:var(--ink-2)"><input type="checkbox" id="botFree" ${c.freeMargin?"checked":""} style="width:auto"> Yer açmak için kâr al</label> <label style="font-size:12px;color:var(--ink-2)"><input type="checkbox" id="botDyn" ${c.dyn?"checked":""} style="width:auto"> Dinamik hedef/stop</label>`:""}
     ${c.mode!=="komite"?`<label style="font-size:12px;color:var(--ink-2)"><input type="checkbox" id="botStrict" ${c.strict?"checked":""} style="width:auto"> 10 kapı kuralı</label><label style="font-size:12px;color:var(--ink-2)"><input type="checkbox" id="botBR" ${c.useBR?"checked":""} style="width:auto"> Kurulum 2</label><label style="font-size:12px;color:var(--ink-2)"><input type="checkbox" id="botRS" ${c.useRS!==false?"checked":""} style="width:auto"> Kurulum 3</label>`:""}
   </div>
@@ -3118,7 +3230,7 @@ function renderBot(){
   </div>`;
   const pos=bot.positions.map(p=>{ const px=botMk(p.sym); const pnl=px?botPnl(p,px):0; const roe=pnl/p.margin*100; const age=Math.round((Date.now()-p.openT)/60000); return `<tr data-pos="${p.sym}"><td><b>${p.sym.replace("USDT","")}</b> ${chip(p.dir==="long"?"up sm":"down sm",p.dir==="long"?"L":"S")} <span class="muted">${p.model} ${p.grade} ${p.lev}x</span></td><td class="num">${fmtB(p.notional)}<br><span class="muted" style="font-size:10.5px">teminat ${fmtB(p.margin)}</span></td><td class="num">${fmtP(p.entry)}</td><td class="num bpx">${px?fmtP(px):"—"}</td><td class="num warn">${fmtP(botLiqPx(p))}</td><td class="num down bstop">${fmtP(p.stop)}</td><td class="num up">${fmtP(p.t1)} / ${fmtP(p.t2)}</td><td class="num bpnl ${pnl>=0?"up":"down"}">${pnl>=0?"+":""}${fx(pnl,2)} $<br><span style="font-size:11px">${roe>=0?"+":""}${fx(roe,1)}%</span></td><td class="muted bst">${p.stage} · ${age} dk</td></tr>`; }).join("");
   const ord=bot.orders.map(o=>`<tr data-ord="${o.sym}"><td><b>${o.sym.replace("USDT","")}</b> ${chip(o.dir==="long"?"up sm":"down sm",o.dir==="long"?"L":"S")} <span class="muted">${o.model} ${o.grade} · bekleyen limit</span></td><td class="num">${fmtB(o.notional)}</td><td class="num">${fmtP(o.entry)}</td><td class="num bpx">${bot.px[o.sym]?fmtP(bot.px[o.sym]):"—"}</td><td></td><td class="num down">${fmtP(o.stop)}</td><td class="num up">${fmtP(o.t1)}</td><td></td><td class="muted">${Math.max(0,Math.round((o.expires-Date.now())/60000))} dk kaldı</td></tr>`).join("");
-  const votes=c.mode==="komite"&&bot.lastVotes.length?`<details style="margin-bottom:10px"${bot.positions.length?"":" open"}><summary class="muted" style="cursor:pointer;font-size:12px">Komite son oylaması · ${bot.lastVotes.length} aday</summary><table class="t" style="margin-top:6px"><thead><tr><th>Coin</th><th>Puan</th><th>Oy</th>${bot.lastVotes[0].agents.map(a=>`<th>${a.k}</th>`).join("")}<th>Karar</th></tr></thead><tbody>${bot.lastVotes.map(v=>`<tr class="${v.go?"pick":""}"><td><b>${v.sym.replace("USDT","")}</b> ${chip(v.dir==="long"?"up sm":"down sm",v.dir==="long"?"L":"S")}</td><td class="num ${v.score>=c.threshold?"up":""}">${fx(v.score,2)}</td><td class="num">${v.yes}/${DESK.length}</td>${v.agents.map(a=>`<td class="num ${a.v>0.15?"up":a.v<-0.15?"down":"muted"}" title="${esc(a.txt)}">${a.v>0?"+":""}${fx(a.v,1)}</td>`).join("")}<td class="muted">${v.veto?"veto: "+esc(v.veto):v.held?"açık":v.cool?"bekleme":v.go?'<span class="up">giriş</span>':"eşik altı"}</td></tr>`).join("")}</tbody></table><p class="muted" style="font-size:11px;margin:4px 0 0">Hücrenin üstüne gel: ajanın gerekçesi. Puan = ağırlıklı oy; Kerem 1,3, Onur ve Baran 0,8, diğerleri 1; Murat'ın derslerine göre her ajanın ağırlığı 0,6–1,4 kat değişebilir, Murat de en az 5 oylu kapanmış işlem birikene kadar oya girmez. Oylar tartışma sonrası değerler.</p></details>`:"";
+  const votes=c.mode==="komite"&&bot.lastVotes.length?`<details style="margin-bottom:10px"${bot.positions.length?"":" open"}><summary class="muted" style="cursor:pointer;font-size:12px">Komite son oylaması · ${bot.lastVotes.length} aday</summary><table class="t" style="margin-top:6px"><thead><tr><th>Coin</th><th>Puan</th><th>Oy</th>${bot.lastVotes[0].agents.map(a=>`<th>${a.k}</th>`).join("")}<th>Karar</th></tr></thead><tbody>${bot.lastVotes.map(v=>`<tr class="${v.go?"pick":""}"><td><b>${v.sym.replace("USDT","")}</b> ${chip(v.dir==="long"?"up sm":"down sm",v.dir==="long"?"L":"S")}</td><td class="num ${v.score>=c.threshold?"up":""}">${pts(v.score)}</td><td class="num">${v.yes}/${DESK.length}</td>${v.agents.map(a=>`<td class="num ${a.v>0.15?"up":a.v<-0.15?"down":"muted"}" title="${esc(a.txt)}">${a.v>0?"+":""}${fx(a.v,1)}</td>`).join("")}<td class="muted">${v.veto?"veto: "+esc(v.veto):v.held?"açık":v.cool?"bekleme":v.go?'<span class="up">giriş</span>':"eşik altı"}</td></tr>`).join("")}</tbody></table><p class="muted" style="font-size:11px;margin:4px 0 0">Hücrenin üstüne gel: ajanın gerekçesi. Puan = ağırlıklı oy; Kerem 1,3, Onur ve Baran 0,8, diğerleri 1; Murat'ın derslerine göre her ajanın ağırlığı 0,6–1,4 kat değişebilir, Murat de en az 5 oylu kapanmış işlem birikene kadar oya girmez. Oylar tartışma sonrası değerler.</p></details>`:"";
   const room=c.mode==="komite"?renderRoom():"";
   const audit=renderAudit();
   const tr=bot.trades.slice(-12).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b> ${chip(t.dir==="long"?"up sm":"down sm",t.dir==="long"?"L":"S")} <span class="muted">${t.model} ${t.grade} ${t.lev}x</span></td><td class="num">${fmtP(t.entry)}</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="num ${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${fx(t.r,2)}R</td></tr>`).join("");
@@ -3130,7 +3242,7 @@ function renderBot(){
   trendBind(); dipBind();
   const lr=$("ldRefresh"); if(lr) lr.addEventListener("click",()=>{ ldRefresh(true); });
   const num=(id,key,f)=>{ const n=$(id); if(n) n.addEventListener("change",e=>{ const v=+e.target.value; if(isFinite(v)){ bot.cfg[key]=f?f(v):v; botSave(); } }); };
-  num("botRisk","risk",v=>clamp(v,0.5,25)/100); num("botRiskMax","riskMax",v=>clamp(v,0.5,25)/100);num("botLev","lev",v=>clamp(Math.round(v),1,50)); num("botMaxPos","maxPos",v=>clamp(Math.round(v),1,10)); num("botThr","threshold",v=>clamp(v,0,1)); num("botMinYes","minYes",v=>clamp(Math.round(v),1,DESK.length)); num("botHold","holdH",v=>clamp(Math.round(v),1,72)); num("botMaxOpens","maxOpens",v=>clamp(Math.round(v),1,50)); num("botMaxLosses","maxLosses",v=>clamp(Math.round(v),1,50)); num("botGoal","goal",v=>clamp(v,110,100000)); num("botSameDir","maxSameDir",v=>clamp(Math.round(v),1,10)); num("botBeR","beR",v=>clamp(v,0,3));
+  num("botRisk","risk",v=>clamp(v,0.5,25)/100); num("botRiskMax","riskMax",v=>clamp(v,0.5,25)/100);num("botLev","lev",v=>clamp(Math.round(v),1,50)); num("botMaxPos","maxPos",v=>clamp(Math.round(v),1,10)); num("botThr","threshold",v=>clamp(v,0,SCORE_MAX)/SCORE_MAX); num("botMinYes","minYes",v=>clamp(Math.round(v),1,DESK.length)); num("botHold","holdH",v=>clamp(Math.round(v),1,72)); num("botMaxOpens","maxOpens",v=>clamp(Math.round(v),1,50)); num("botMaxLosses","maxLosses",v=>clamp(Math.round(v),1,50)); num("botGoal","goal",v=>clamp(v,110,100000)); num("botSameDir","maxSameDir",v=>clamp(Math.round(v),1,10)); num("botBeR","beR",v=>clamp(v,0,3));
   const bs=$("botShort"); if(bs) bs.addEventListener("change",e=>{ bot.cfg.shortRule=e.target.value; botSave(); }); const bf=$("botFree"); if(bf) bf.addEventListener("change",e=>{ bot.cfg.freeMargin=e.target.checked; botSave(); }); const bd=$("botDyn"); if(bd) bd.addEventListener("change",e=>{ bot.cfg.dyn=e.target.checked; botSave(); });
   const s=$("botStrict"); if(s) s.addEventListener("change",e=>{ bot.cfg.strict=e.target.checked; botSave(); }); const b=$("botBR"); if(b) b.addEventListener("change",e=>{ bot.cfg.useBR=e.target.checked; botSave(); }); const q=$("botRS"); if(q) q.addEventListener("change",e=>{ bot.cfg.useRS=e.target.checked; botSave(); });
 }
@@ -3162,16 +3274,16 @@ async function botManage(){
     const taker=isL?px*(1-bot.cfg.slip):px*(1+bot.cfg.slip);
     // dinamik hedef/stop (goal.js): başabaş, dirence göre hedef 1, koşucuyu uzat/kısalt, yapısal stop, 200 $'a taşıyan hedef 1'de tamamı
     const adj=deskAdjust(p,{cfg:bot.cfg,px,rv,lvl:isL?(A.R&&A.R[0]):(A.S&&A.S[0]),thr:botThr(),gs:botGoal(),aud:AUD}); for(const a of adj){ deskApply(p,a,px,Date.now()); say(a.who,a.txt); } if(adj.length) botSave();
-    if(rv.verdict==="çık"){ say("Can",`masa karşı yöne döndü (puan ${fx(rv.score,2)}, ters yön ${fx(rv.oppScore,2)}; karşı: ${against}). ${rNow>=0?"Kârla":"Zararla"} kapatıyorum, ${fx(rNow,2)}R.`); botCloseAt(p,1,taker,{k:"desk",t:"Masa kararı · çık"},true); continue; }
+    if(rv.verdict==="çık"){ say("Can",`masa karşı yöne döndü (puan ${pts(rv.score)}, ters yön ${pts(rv.oppScore)}; karşı: ${against}). ${rNow>=0?"Kârla":"Zararla"} kapatıyorum, ${fx(rNow,2)}R.`); botCloseAt(p,1,taker,{k:"desk",t:"Masa kararı · çık"},true); continue; }
     if(rv.verdict==="azalt"&&!p.reduced){ p.reduced=true; say("Can",`analistler ikna değil (karşı: ${against}); yarısını kapatıyorum${rNow>0.5?", stop girişe":""}.`); botCloseAt(p,0.5,taker,{k:"desk",t:"Masa kararı · azalt"},true); if(bot.positions.includes(p)&&rNow>0.5&&(isL?p.entry>p.stop:p.entry<p.stop)) p.stop=p.entry; botSave(); continue; }
-    if(held>Math.max(2,medHold*1.5)&&rNow>-0.3&&rNow<0.5&&rv.score<bot.cfg.threshold){ say("Onur",`${fx(held,1)} saattir ${rNow>=0?"+":""}${fx(rNow,2)}R'de sürünüyor; liderlerin medyan tutuşu ${fx(medHold,1)} saat. Zaman maliyeti var.`); say("Can",`Kabul, süreç uzadı ve masa ikna değil (${fx(rv.score,2)}); kapatıp sermayeyi boşa çıkarıyorum.`); botCloseAt(p,1,taker,{k:"desk",t:"Masa kararı · süre doldu"},true); continue; }
+    if(held>Math.max(2,medHold*1.5)&&rNow>-0.3&&rNow<0.5&&rv.score<bot.cfg.threshold){ say("Onur",`${fx(held,1)} saattir ${rNow>=0?"+":""}${fx(rNow,2)}R'de sürünüyor; liderlerin medyan tutuşu ${fx(medHold,1)} saat. Zaman maliyeti var.`); say("Can",`Kabul, süreç uzadı ve masa ikna değil (${pts(rv.score)}); kapatıp sermayeyi boşa çıkarıyorum.`); botCloseAt(p,1,taker,{k:"desk",t:"Masa kararı · süre doldu"},true); continue; }
     if(p.stage==="open"&&peakR>=1&&peakR-rNow>=0.5&&(ag("mom").v<0||(AUD&&AUD.lockEarly))&&!p.locked){ p.locked=true; say("Baran",`${fx(peakR,1)}R görüp ${fx(rNow,1)}R'ye geri geldi, momentum söndü.`); say("Can",`Yarısını alıyorum, stop girişe; kalan koşsun.`); botCloseAt(p,0.5,taker,{k:"desk",t:"Masa kararı · kârı kilitle"},true); if(bot.positions.includes(p)){ p.stop=p.entry; p.stage="tp1"; } botSave(); continue; }
     if(p.stage==="tp1"&&!p.added&&rv.verdict==="tut"&&ag("mom").v>0.3&&rv.score>=bot.cfg.threshold+0.1){
       const addQty=p.qty0*0.5; const addNotional=addQty*px; const addMargin=addNotional/p.lev; if(addMargin+botMarginUsed()<=bot.bal*0.95){ p.added=true; const fill=isL?px*(1+bot.cfg.slip):px*(1-bot.cfg.slip); const fee=addNotional*bot.cfg.feeTaker; bot.bal-=fee; p.fees+=fee;
         const newQty=p.qty+addQty; p.entry=(p.entry*p.qty+fill*addQty)/newQty; p.qty=newQty; p.notional=p.qty*p.entry; p.margin=p.notional/p.lev; if(isL?p.stop<p.entry:p.stop>p.entry){ /* stop girişte kalır */ }
-        const lp=(typeof ld!=="undefined"&&ld.profile)?` Tolga: liderlerin %${Math.round((ld.profile.addRate||0)*100)}'i kazanan pozisyona ekliyor.`:""; say("Baran",`hedef 1 alındı, masa hâlâ tut diyor (puan ${fx(rv.score,2)}); yarım boy ekliyorum.`+lp); say("Can",`Onay: ekleme bir kez, yarım boy. Ortalama giriş ${fmtP(p.entry)}, stop ${fmtP(p.stop)}.`); botLog("add",p.sym,`Ekleme ${fmtP(fill)} · ${fmtB(addNotional)} · toplam ${fmtB(p.notional)} · teminat ${fmtB(p.margin)}.`); botSave(); continue; }
+        const lp=(typeof ld!=="undefined"&&ld.profile)?` Tolga: liderlerin %${Math.round((ld.profile.addRate||0)*100)}'i kazanan pozisyona ekliyor.`:""; say("Baran",`hedef 1 alındı, masa hâlâ tut diyor (puan ${pts(rv.score)}); yarım boy ekliyorum.`+lp); say("Can",`Onay: ekleme bir kez, yarım boy. Ortalama giriş ${fmtP(p.entry)}, stop ${fmtP(p.stop)}.`); botLog("add",p.sym,`Ekleme ${fmtP(fill)} · ${fmtB(addNotional)} · toplam ${fmtB(p.notional)} · teminat ${fmtB(p.margin)}.`); botSave(); continue; }
     }
-    if(rv.verdict==="tut"&&!p.heldNoted){ p.heldNoted=true; say("Can",`masa tut diyor (puan ${fx(rv.score,2)}, ${rv.agents.filter(a=>a.v>0.15).length}/${rv.agents.length} evet). Plan aynen: stop ${fmtP(p.stop)}, hedef ${fmtP(p.t1)} / ${fmtP(p.t2)}.`); }
+    if(rv.verdict==="tut"&&!p.heldNoted){ p.heldNoted=true; say("Can",`masa tut diyor (puan ${pts(rv.score)}, ${rv.agents.filter(a=>a.v>0.15).length}/${rv.agents.length} evet). Plan aynen: stop ${fmtP(p.stop)}, hedef ${fmtP(p.t1)} / ${fmtP(p.t2)}.`); }
   } } finally{ bot._managing=false; }
 }
 /* --- Trend sepeti (src/trend.js): Masa'dan ayrı sanal bakiye, günde bir dengeleme, 5 dk'da bir işaretleme --- */
@@ -3266,7 +3378,7 @@ function renderAsk(){
   $("askGo").disabled=ask.busy; $("askGo").textContent=ask.busy?"Masa toplanıyor…":"Masaya sor";
   $("askStatus").innerHTML=ask.err?`<span class="down">${esc(ask.err)}</span>`:ask.res?`Son soru ${tl(ask.res.t)} · fiyat ${fmtP(ask.res.px)}`:"";
   $("askOut").innerHTML=ask.res?askHtml(ask.res):"";
-  $("askHist").innerHTML=ask.hist.length?`<div class="card"><h4 style="margin:0 0 4px">Son sorular</h4>${ask.hist.map((h,i)=>`<div style="display:flex;gap:6px 8px;flex-wrap:wrap;align-items:center;font-size:11.5px;margin:5px 0"><span class="muted" style="min-width:90px">${new Date(h.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><b>${esc(h.sym.replace("USDT",""))}</b> ${chip(h.dir==="long"?"up sm":"down sm",h.dir==="long"?"L":"S")} <span class="muted">${h.open?"açık":"plan"} · ${h.lev}x · giriş ${fmtP(h.entry)}</span> ${chip(h.kind+" sm",h.verdict)} <span class="muted">puan ${fx(h.score,2)}</span><button type="button" class="ghost" data-ask-h="${i}" style="padding:1px 8px;font-size:11px">Forma al</button></div>`).join("")}</div>`:"";
+  $("askHist").innerHTML=ask.hist.length?`<div class="card"><h4 style="margin:0 0 4px">Son sorular</h4>${ask.hist.map((h,i)=>`<div style="display:flex;gap:6px 8px;flex-wrap:wrap;align-items:center;font-size:11.5px;margin:5px 0"><span class="muted" style="min-width:90px">${new Date(h.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><b>${esc(h.sym.replace("USDT",""))}</b> ${chip(h.dir==="long"?"up sm":"down sm",h.dir==="long"?"L":"S")} <span class="muted">${h.open?"açık":"plan"} · ${h.lev}x · giriş ${fmtP(h.entry)}</span> ${chip(h.kind+" sm",h.verdict)} <span class="muted">puan ${pts(h.score)}</span><button type="button" class="ghost" data-ask-h="${i}" style="padding:1px 8px;font-size:11px">Forma al</button></div>`).join("")}</div>`:"";
   $("askHist").querySelectorAll("[data-ask-h]").forEach(b=>b.addEventListener("click",()=>{ const h=ask.hist[+b.dataset.askH]; if(!h||!h.f) return; for(const k of ASK_F){ const e=$("ask_"+k); if(e&&h.f[k]!=null) e.value=h.f[k]; } }));
 }
 async function askRun(){
@@ -3298,7 +3410,7 @@ function askHtml(r){
   const chips=r.agents.map(a=>`<span class="chip ${a.v>0.15?"up":a.v<-0.15?"down":"neutral"} sm" title="${esc(a.txt)}">${esc(a.name)} ${a.v>0?"+":""}${fx(a.v,1)}</span>`).join(" ");
   const yes=r.agents.filter(a=>a.v>0.15).length, no=r.agents.filter(a=>a.v<-0.15).length;
   const desk=r.talk?talkHtml(r.talk):`<div style="margin-top:8px">${r.lines.map(l=>`<div style="display:flex;gap:6px;font-size:12px;line-height:1.45;margin:3px 0"><b style="min-width:56px;color:${DESK_COL[l.id]||"var(--ink)"}">${esc(l.who)}</b><span>${esc(l.text)}</span></div>`).join("")}</div>`;
-  return `<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><b style="font-size:15px">${esc(r.sym.replace("USDT",""))} ${D}</b> <span class="muted">${r.open?"açık işlem":"plan"} · giriş ${fmtP(r.entry)}</span> <span class="chip ${r.kind}" id="askVerdict" style="font-size:13px;font-weight:800">${esc(r.verdict)}</span> <span class="muted" style="font-size:11.5px">puan ${sgn(r.score)} · ${yes} evet · ${no} hayır${r.oppDecision==="giriş"?" · ters yön giriş "+sgn(r.oppScore):""}</span></div>
+  return `<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><b style="font-size:15px">${esc(r.sym.replace("USDT",""))} ${D}</b> <span class="muted">${r.open?"açık işlem":"plan"} · giriş ${fmtP(r.entry)}</span> <span class="chip ${r.kind}" id="askVerdict" style="font-size:13px;font-weight:800">${esc(r.verdict)}</span> <span class="muted" style="font-size:11.5px">puan ${(r.score>=0?"+":"")+ptsT(r.score)} · ${yes} evet · ${no} hayır${r.oppDecision==="giriş"?" · ters yön giriş "+(r.oppScore>=0?"+":"")+pts(r.oppScore):""}</span></div>
     <div style="font-size:12.5px;line-height:1.5;margin-bottom:8px"><b style="color:${DESK_COL.risk}">Can</b> <span class="muted">Baş trader</span> · ${esc(r.canSay)}</div>
     <div class="plan" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:8px">${tiles.join("")}</div>
     ${notes.length?`<div style="display:grid;gap:3px;margin-bottom:8px">${notes.map(([c,i,t])=>`<div style="display:flex;gap:6px;font-size:12px;line-height:1.4"><span class="${c}" style="flex:0 0 12px">${i}</span><span>${esc(t)}</span></div>`).join("")}</div>`:""}
@@ -3324,10 +3436,10 @@ function renderAccount(){
     <div class="pv"><b>Açık PnL</b><span class="${upnl>=0?"up":"down"}">${upnl>=0?"+":""}${fx(upnl,2)} $</span><small>${marg>0?pct(upnl/marg*100,1)+" teminata göre":"pozisyon yok"}</small></div>
     <div class="pv"><b>Pozisyon</b><span>${acct.positions.length}</span><small>teminatta ${fx(marg,2)} $ · ${acct.orders.length} açık emir</small></div></div>`;
   const row=p=>{ const r=scan.rows.find(x=>x.s===p.sym); const c=r&&r.com?r.com[p.dir]:null; const opp=r&&r.com?r.com[p.dir==="long"?"short":"long"]:null;
-    const masa=c?`${c.decision==="giriş"?'<span class="up">masa aynı yönde: giriş</span>':c.veto?'<span class="down">masa veto: '+esc(c.veto)+'</span>':'<span class="muted">masa '+esc(c.decision)+' · puan '+fx(c.score,2)+'</span>'}${opp&&opp.decision==="giriş"?' · <span class="down">ters yöne giriş diyor</span>':""}`:'<span class="muted">tarama bu coini içermiyor</span>';
+    const masa=c?`${c.decision==="giriş"?'<span class="up">masa aynı yönde: giriş</span>':c.veto?'<span class="down">masa veto: '+esc(c.veto)+'</span>':'<span class="muted">masa '+esc(c.decision)+' · puan '+ptsT(c.score)+'</span>'}${opp&&opp.decision==="giriş"?' · <span class="down">ters yöne giriş diyor</span>':""}`:'<span class="muted">tarama bu coini içermiyor</span>';
     const ld=isFinite(p.liqDist)?pct(p.liqDist*100,1):"—";
     const rv=acct.reviews[p.sym]; const VC={"tut":"up","tut, stop sık":"warn","azalt":"warn","çık":"down"};
-    const review=rv?(rv.err?`<tr><td colspan="7" class="muted" style="font-size:11.5px">Masa yorumu alınamadı: ${esc(rv.err)}</td></tr>`:`<tr><td colspan="7" style="padding:6px 8px 10px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:4px">${chip(VC[rv.verdict]||"neutral","Masa: "+rv.verdict.toUpperCase())} <span class="muted" style="font-size:11.5px">puan ${fx(rv.score,2)}${rv.oppDecision==="giriş"?" · ters yön giriş "+fx(rv.oppScore,2):""} · ${tl(rv.t)}</span> ${rv.agents.map(a=>`<span class="chip ${a.v>0.15?"up":a.v<-0.15?"down":"neutral"} sm" title="${esc(a.txt)}">${esc(a.name)} ${a.v>0?"+":""}${fx(a.v,1)}</span>`).join(" ")}</div>${rv.lines.map(l=>`<div style="display:flex;gap:6px;font-size:11.5px;line-height:1.4;margin:2px 0"><b style="min-width:52px;color:${DESK_COL[l.id]||"var(--ink)"}">${esc(l.who)}</b><span>${esc(l.text)}</span></div>`).join("")}</td></tr>`):`<tr><td colspan="7" class="muted" style="font-size:11.5px">Masa yorumu hazırlanıyor…</td></tr>`;
+    const review=rv?(rv.err?`<tr><td colspan="7" class="muted" style="font-size:11.5px">Masa yorumu alınamadı: ${esc(rv.err)}</td></tr>`:`<tr><td colspan="7" style="padding:6px 8px 10px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:4px">${chip(VC[rv.verdict]||"neutral","Masa: "+rv.verdict.toUpperCase())} <span class="muted" style="font-size:11.5px">puan ${ptsT(rv.score)}${rv.oppDecision==="giriş"?" · ters yön giriş "+pts(rv.oppScore):""} · ${tl(rv.t)}</span> ${rv.agents.map(a=>`<span class="chip ${a.v>0.15?"up":a.v<-0.15?"down":"neutral"} sm" title="${esc(a.txt)}">${esc(a.name)} ${a.v>0?"+":""}${fx(a.v,1)}</span>`).join(" ")}</div>${rv.lines.map(l=>`<div style="display:flex;gap:6px;font-size:11.5px;line-height:1.4;margin:2px 0"><b style="min-width:52px;color:${DESK_COL[l.id]||"var(--ink)"}">${esc(l.who)}</b><span>${esc(l.text)}</span></div>`).join("")}</td></tr>`):`<tr><td colspan="7" class="muted" style="font-size:11.5px">Masa yorumu hazırlanıyor…</td></tr>`;
     return `<tr><td><b>${p.sym.replace("USDT","")}</b> ${chip(p.dir==="long"?"up sm":"down sm",p.dir==="long"?"L":"S")} <span class="muted">${p.lev}x ${p.iso?"izole":"cross"}</span></td><td class="num">${fmtB(p.notional)}<br><span class="muted" style="font-size:10.5px">${p.amt} adet · teminat ${fmtB(p.margin)}</span></td><td class="num">${fmtP(p.entry)}</td><td class="num">${fmtP(p.mark)}</td><td class="num warn">${p.liq?fmtP(p.liq):"—"}<br><span class="muted" style="font-size:10.5px">${ld} uzakta</span></td><td class="num ${p.upnl>=0?"up":"down"}">${p.upnl>=0?"+":""}${fx(p.upnl,2)} $<br><span style="font-size:11px">${p.roe>=0?"+":""}${fx(p.roe,1)}%</span></td><td style="font-size:11.5px">${masa}</td></tr>${review}`; };
   const pos=acct.positions.length?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likidasyon</th><th>PnL (ROE)</th><th>Masanın görüşü</th></tr></thead><tbody>${acct.positions.map(row).join("")}</tbody></table>`:'<div class="empty" style="margin-bottom:10px">Açık pozisyon yok.</div>';
   const ord=acct.orders.length?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Açık emir</th><th>Tür</th><th>Fiyat / tetik</th><th>Miktar</th><th>Not</th></tr></thead><tbody>${acct.orders.map(o=>`<tr><td><b>${o.sym.replace("USDT","")}</b> ${chip(o.side==="BUY"?"up sm":"down sm",o.side==="BUY"?"Alış":"Satış")}</td><td>${esc(o.type)}</td><td class="num">${o.px?fmtP(o.px):"—"}${o.stop?" / "+fmtP(o.stop):""}</td><td class="num">${o.qty}${o.filled?" ("+o.filled+" doldu)":""}</td><td class="muted">${o.cp?"pozisyonu kapatır":o.ro?"yalnızca azaltır":""}</td></tr>`).join("")}</tbody></table>`:"";

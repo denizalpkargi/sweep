@@ -61,7 +61,7 @@ if(require.main===module&&mode==='sample'){
 if(require.main===module&&mode==='merge'){ const n=+(process.argv[3]||4); let S=[]; for(let i=0;i<n;i++){ const f=OUT.replace('.json','-'+i+'.json'); S=S.concat(JSON.parse(fs.readFileSync(f,'utf8'))); fs.unlinkSync(f); } fs.writeFileSync(OUT,JSON.stringify(S)); console.log('birleşti',S.length); }
 module.exports={inputsAt,simBot,fcY};
 if(require.main===module&&mode==='fit'){
-  const S=JSON.parse(fs.readFileSync(OUT,'utf8')).filter(x=>!x.veto); const MEAS=["trend","liq","flow","macro","quant","mom","risk","vol","check"]; const DESKB=Object.fromEntries(E.DESK.map(d=>[d.id,d.w]));
+  const S=JSON.parse(fs.readFileSync(OUT,'utf8')).filter(x=>!x.veto); const MEAS=["trend","liq","flow","macro","quant","mom","risk","vol","check","fac"]; const DESKB=Object.fromEntries(E.DESK.map(d=>[d.id,d.w]));
   const T=S.map(x=>x.t).sort((a,b)=>a-b), MID=T[T.length>>1], H1=S.filter(x=>x.t<MID), H2=S.filter(x=>x.t>=MID); const days=a=>{ if(!a.length) return 1; let lo=Infinity,hi=-Infinity; for(const x of a){ if(x.t<lo) lo=x.t; if(x.t>hi) hi=x.t; } return Math.max(1,(hi-lo)/864e5); };
   const xOf=(x,id)=>{ const a=x.a[id]; return !a||a[2]?0:a[0]*a[1]; };
   const corr=(a,b)=>{ const n=a.length; const ma=a.reduce((s,v)=>s+v,0)/n, mb=b.reduce((s,v)=>s+v,0)/n; let sab=0,saa=0,sbb=0; for(let i=0;i<n;i++){ sab+=(a[i]-ma)*(b[i]-mb); saa+=(a[i]-ma)**2; sbb+=(b[i]-mb)**2; } return saa&&sbb?sab/Math.sqrt(saa*sbb):0; };

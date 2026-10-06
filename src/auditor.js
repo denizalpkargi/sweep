@@ -71,7 +71,7 @@ function auditRun(trades, log, opts){
     out.tags[k]={n:has.length,sum:s,avg:has.length?s/has.length:0,shr:s/(has.length+4),nNot:not.length,avgNot:not.length?s2/not.length:0,lossShare:losses.length?has.filter(x=>x.t.r<0).length/losses.length:0}; }
   const T=out.tags; const bad=k=>T[k].n>=AUD_MIN&&T[k].shr<=-0.25&&T[k].avg<T[k].avgNot-0.25; const lesson=(k,lever)=>out.lessons.push({k,t:AUD_TAGS[k].t,why:AUD_TAGS[k].why,n:T[k].n,avg:T[k].avg,avgNot:T[k].avgNot,lever});
   for(const k in AUD_VOTE) if(bad(k)){ const strong=T[k].n>=10&&T[k].shr<=-0.5; out.vote[k]=clamp(T[k].shr*1.5,-1,-0.3); if(strong) out.veto[k]=true; lesson(k,strong?"Murat bu kalıba veto koyar":"Murat bu kalıba karşı oy verir"); }
-  if(bad("thin")){ out.thrBump=T.thin.shr<=-0.5?0.1:0.05; lesson("thin",`eşik +${fx(out.thrBump,2)}`); }
+  if(bad("thin")){ out.thrBump=T.thin.shr<=-0.5?0.1:0.05; lesson("thin",`eşik +${pts(out.thrBump)}`); }
   if(bad("lone")){ out.minYesBump=1; lesson("lone","asgari evet oyu +1"); }
   if(bad("cluster")){ out.maxSameDir=1; lesson("cluster","aynı yönde en fazla 1 pozisyon"); }
   if(bad("afterloss")){ out.pauseMin=60; lesson("afterloss","kayıptan sonra 60 dk yeni giriş yok"); }

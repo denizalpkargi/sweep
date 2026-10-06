@@ -4,7 +4,7 @@
    −1 ATR mi geldi (aynı mumda ikisi = yanlış; ikisi de yoksa süre doldu, yarım). Bu, tests/audit-sweeps.js'deki ölçünün aynısıdır;
    rastgele mumda isabet ≈ %48–50.
    Öğrenme: (1) üye ağırlığı: oy × sonuç (+1/0/−1) ortalaması, en az 60 tahminde, 150 tahminlik büzme ile 0,6–1,4 kat (Murat'ın işlem
-   ağırlığıyla çarpılır). (2) ders: masanın evet dediği (puan ≥ 0,15) tahminlerde bir özellik (havuz türü, kill zone, aşama, günlük trend)
+   ağırlığıyla çarpılır). (2) ders: masanın evet dediği (puan ≥ 15/100) tahminlerde bir özellik (havuz türü, kill zone, aşama, günlük trend)
    ≥30 tahminde tabandan 8 puan kötüyse ve iki yarıda da tabanın altındaysa Murat o kalıba karşı oy verir (−0,4).
    Durum localStorage["st-fc"]; ui.js ve headless aynı kodu kullanır (rowOf → fcObserve). Gerçek emir yok. */
 const FC_DEF={horizon:16,gapMin:60,maxPend:3000,maxDone:6000,minAgent:60,shrink:150,minLesson:30,lessonGap:0.08,leanYes:0.15};
@@ -29,7 +29,7 @@ function fcObserve(sym,A,com,now){
   try{ const F=fcLoad(); now=now||Date.now(); const k=A&&A.src&&A.src.k15L; if(!k||k.length<30||!com) return;
     const got=fcResolve(sym,k,now); let add=0; const li=k[k.length-1].t+9e5<=now?k.length-1:k.length-2; const atr=fcAtr(k,li); const px=A.px;
     if(isFinite(atr)&&atr>0&&px>0) for(const dir of ["long","short"]){ const c=com[dir]; if(!c) continue; const key=sym+"|"+dir; if(F.last[key]&&now-F.last[key]<FC_DEF.gapMin*6e4) continue;
-      const v={}; for(const a of c.agents||[]) v[a.id]=a.v; F.pend.push({sym,dir,t:now,px,atr,score:c.score,go:c.decision==="giriş",yes:c.yes,v,f:fcFeat(c)}); F.last[key]=now; add++; }
+      const v={}; for(const a of c.agents||[]) v[a.id]=a.v; const fa=c.feat&&c.feat.fac; if(fa) for(const id in fa) v["f:"+id]=fa[id]; /* faktörler (factors.js), yalnız koşuldayken */ F.pend.push({sym,dir,t:now,px,atr,score:c.score,go:c.decision==="giriş",yes:c.yes,v,f:fcFeat(c)}); F.last[key]=now; add++; }
     if(F.pend.length>FC_DEF.maxPend) F.pend.splice(0,F.pend.length-FC_DEF.maxPend);
     if(got) F.learn=fcLearn(F.done); if(got||add) fcSave(); }
   catch(e){}
@@ -39,7 +39,8 @@ function fcLearn(done){
   const D=done.filter(f=>f.y!=null); const out={n:D.length,at:Date.now(),base:fcHit(D),buckets:[],go:null,agents:{},lessons:[],dir:{}};
   if(!D.length) return out;
   for(const d of ["long","short"]){ const a=D.filter(f=>f.dir===d); out.dir[d]={n:a.length,hit:fcHit(a)}; }
-  const B=[[-9,-0.2,"< −0,20"],[-0.2,0,"−0,20 … 0"],[0,0.15,"0 … 0,15"],[0.15,0.3,"0,15 … 0,30"],[0.3,9,"≥ 0,30"]];
+  // puan kovaları 100 üzerinden 10'ar puan (eşik çevresinde ince): masanın puanı ile isabet arasındaki ilişki (kalibrasyon)
+  const B=[[-9,-0.2,"< −20"],[-0.2,-0.1,"−20 … −10"],[-0.1,0,"−10 … 0"],[0,0.1,"0 … 10"],[0.1,0.2,"10 … 20"],[0.2,0.3,"20 … 30"],[0.3,0.4,"30 … 40"],[0.4,0.5,"40 … 50"],[0.5,9,"≥ 50"]];
   for(const [lo,hi,t] of B){ const a=D.filter(f=>f.score>=lo&&f.score<hi); out.buckets.push({t,n:a.length,hit:fcHit(a)}); }
   const G=D.filter(f=>f.go); out.go={n:G.length,hit:fcHit(G)};
   const ids=new Set(); for(const f of D) for(const id in f.v) ids.add(id);
