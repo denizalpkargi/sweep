@@ -5,7 +5,7 @@
    Hedef oynaklık 0,8: yıllık %91, Sharpe 1,63, en büyük düşüş −%43, iki yarı +%103 / +%79, yalnız 2022 eksi (−%32).
    Short eklemek ve 15 dk girişler iyileştirmedi. 4 büyük coin hayatta kalan seçimidir; ileriye dönük beklenti daha düşük olmalı.
    Masa'dan ayrı sanal bakiye; ui.js (Bot sekmesi "Trend sepeti") ve headless/run.js aynı fonksiyonları kullanır. Gerçek emir yok. */
-const TREND_DEF={on:true,bal0:100,syms:["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT"],smas:[10,20,50,100],btcSma:50,volN:30,tv:0.8,cap:4,band:0.2,minUsd:5,
+const TREND_DEF={on:true,bal0:100,syms:["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT"],smas:[10,20,50,100],btcSma:50,volN:30,tv:1.2,cap:6,exLev:20,band:0.2,minUsd:5,brakeDD:0,brakeMult:0.5,
   fee:0.0005,slip:0.0003,fundDef:0.0001};
 const TREND_KEY="st-trend";
 function trendLoad(){ let s=null; try{ s=JSON.parse(localStorage.getItem(TREND_KEY)||"null"); }catch(e){} if(!s) s=trendNew(); s.cfg=Object.assign({},TREND_DEF,s.cfg||{}); return s; }
@@ -39,8 +39,8 @@ function trendTrade(s,sym,tgtQty,px,now,why){
 }
 // günlük dengeleme: hedef ağırlık × özkaynak; |fark| < band × hedef ve < minUsd ise işlem yok
 function trendRebalance(s,tg,px,now){
-  const cfg=s.cfg; const eq=trendEq(s,px); const evs=[];
-  for(const sym of cfg.syms){ const x=px[sym]; if(!(x>0)) continue; const w=tg.w[sym]?tg.w[sym].w:0; const tgtUsd=w*eq; const cur=(s.pos[sym]?s.pos[sym].qty:0)*x; const diff=tgtUsd-cur;
+  const cfg=s.cfg; const eq=trendEq(s,px); const evs=[]; const dd=s.peak>0?1-eq/s.peak:0; const bk=cfg.brakeDD&&dd>=cfg.brakeDD?cfg.brakeMult:1;
+  for(const sym of cfg.syms){ const x=px[sym]; if(!(x>0)) continue; const w=(tg.w[sym]?tg.w[sym].w:0)*bk; const tgtUsd=w*eq; const cur=(s.pos[sym]?s.pos[sym].qty:0)*x; const diff=tgtUsd-cur;
     if(Math.abs(diff)<cfg.minUsd) continue; if(tgtUsd>0&&cur>0&&Math.abs(diff)<cfg.band*tgtUsd) continue;
     const ev=trendTrade(s,sym,tgtUsd/x,x,now,tg.w[sym]?tg.w[sym].why:""); if(ev) evs.push(ev); }
   s.lastSig={t:now,btcOk:tg.btcOk,btc:tg.btc,w:Object.fromEntries(Object.entries(tg.w).map(([k,v])=>[k,{w:+v.w.toFixed(4),score:v.score,vol:v.vol&&+v.vol.toFixed(3),why:v.why}]))};
@@ -79,4 +79,5 @@ async function trendTick(s,now,opts){
   return {eq,evs,px};
 }
 function trendSummary(s,px){ const eq=trendEq(s,px); const gross=Object.entries(s.pos).reduce((a,[k,p])=>a+Math.abs(p.qty*((px&&px[k])||p.px)),0);
-  return {eq,roi:(eq/s.start-1)*100,dd:s.peak>0?1-eq/s.peak:0,gross,lev:eq>0?gross/eq:0,fees:s.fees,funding:s.funding,trades:s.trades,day:s.day,btcOk:s.lastSig?s.lastSig.btcOk:null}; }
+  const ex=s.cfg.exLev||20; // borsa kaldıracı (cross): teminat = nominal ÷ ex; sepetin tamamı eq/gross kadar düşerse özkaynak biter
+  return {eq,roi:(eq/s.start-1)*100,dd:s.peak>0?1-eq/s.peak:0,gross,lev:eq>0?gross/eq:0,exLev:ex,margin:gross/ex,liqMove:gross>0?eq/gross:null,fees:s.fees,funding:s.funding,trades:s.trades,day:s.day,btcOk:s.lastSig?s.lastSig.btcOk:null}; }

@@ -385,7 +385,7 @@ table.t tr.near td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
           <p><b>Yer açma:</b> teminat ya da yer yetmiyorsa ve yeni kurulum eşiğin 0,08 üstündeyse ve not A/B ise: ≥0,3R kârdaki pozisyonun yarısı (hedef 1 alınmışsa kalanı) kapanır; 30 dk'dan uzun, −0,25R ile kâr arasında duran ve masanın artık ikna olmadığı pozisyon kapanır. Zarardaki pozisyon yer açmak için kesilmez. <b>Dinamik hedef/stop</b> (2 dk'da bir): hedef 1'deki kâr özkaynağı 200 $'a taşıyorsa orada tamamı alınır; hedef 1'in önünde direnç/destek varsa (≥0,8R) hedef 1 önüne çekilir; hedef 1 sonrası masa güçlü ve momentum varsa koşucu +1R (en çok 4R), masa ters dönerse 2R'ye kısalır; masa "stop sık" derse yapısal seviyeye; başabaş isteğe bağlı (varsayılan kapalı). Murat her kararı sonrasında kalan pozisyonun nasıl kapandığıyla puanlar; bir kol 5 kararda ortalama −0,25R altındaysa kapatır.</p>
           <p><b>Tekrar oynatma</b> (<code>node tests/replay-goal.js</code>, 24 coin, 4 Nis–6 Eki 2026, K3 sinyalleri, 100 $, 20x, komisyon dahil): risk %3'te bugünkü bot 116 işlemde −0,20R ile 39 $'a iniyor, 60 günlük kayan pencerelerin %83'ünde 40 $'ın altına düşüyor; yeni masa 530 işlemde −0,07R, hiçbir pencerede batmıyor, 60. gün medyanı 73 $. Teminat yüzünden kaçan giriş 27 → 2. Hiçbir ayarda %3 riskle 60 günde 200 $'a ulaşılmadı; K3 sinyallerinin 6 aylık kenarı yok (unconstrained −0,05R, longlar ≈0, shortlar iki yarıda −0,16R / −0,15R). Başabaşı 1R'ye ya da hedef 1'i 1R'ye çekmek kazanma oranını %42'den %44–48'e çıkarıyor ama ortalama R'yi değiştirmiyor; bu yüzden varsayılan değil. Short kuralı (uyarı) veriye bakılarak seçildi, kanıt değil. Masa puanı, OI/taker/lider verisi geçmişte olmadığı için K3 notundan türetildi; masanın yeniden oylamasıyla çalışan kurallar (hedef uzat/kısalt, yapısal stop, sönmüş pozisyon) oynatılamadı.</p></div>
         <div class="card"><h4>Trend sepeti · günlük trend takibi (6 Ekim 2026)</h4>
-          <p><b>Kural:</b> BTC, ETH, SOL, BNB. Her coin günlük kapanışı 10/20/50/100 günlük ortalamaların kaçının üstündeyse o oranda long (0, ¼, ½, ¾, 1). BTC 50 günlük ortalamanın altındaysa hepsi nakit. Ağırlık = puan × min(hedef oynaklık ÷ 30 günlük oynaklık, üst sınır) ÷ 4; hedef oynaklık 0,8, üst sınır 4. Günde bir, UTC 00:00'dan sonra dengelenir; fark hedefin %20'sinden azsa işlem yok. Stop ve hedef yok, trend dönünce satar. Masa'dan ayrı 100 $ sanal bakiye; Bot sekmesinde kart, ekransız botta <code>logs/trend-*.jsonl</code>.</p>
+          <p><b>Kural:</b> BTC, ETH, SOL, BNB. Her coin günlük kapanışı 10/20/50/100 günlük ortalamaların kaçının üstündeyse o oranda long (0, ¼, ½, ¾, 1). BTC 50 günlük ortalamanın altındaysa hepsi nakit. Ağırlık = puan × min(hedef oynaklık ÷ 30 günlük oynaklık, üst sınır) ÷ 4; hedef oynaklık 1,2 (varsayılan, 6 Ekim'de 0,8'den yükseltildi), üst sınır 6; borsa kaldıracı 20x cross yalnız teminatı küçültür, etkin kaldıraç ortalama 1,6x, en çok 3,9x. Günde bir, UTC 00:00'dan sonra dengelenir; fark hedefin %20'sinden azsa işlem yok. Stop ve hedef yok, trend dönünce satar. Masa'dan ayrı 100 $ sanal bakiye; Bot sekmesinde kart, ekransız botta <code>logs/trend-*.jsonl</code>.</p>
           <p><b>Neden:</b> 15 dakikalık süpürme kurulumlarının komisyon sonrası kenarı yok (6 ay, 24 coin: K3 −0,04R, K1 −0,12R, K2 −0,18R). Liderlerin yüksek kazanma oranı stopsuz ortalama düşürmeden geliyor; aynı kural 2020–2026 günlük veride 3x'te bile eksi (−%1 ROI/işlem, 40 tasfiye), 20x'te −%12. Akademik çalışmalar (Liu–Tsyvinski, Zarattini vd.) kriptoda günlük–haftalık trendin kalıcı olduğunu bulmuş; tutuş günler–haftalar olunca komisyon önemsizleşir.</p>
           <p><b>Test</b> (<code>node tests/replay-trend.js</code>, canlı kodla, Nis 2020–Eyl 2026, komisyon %0,05 + kayma %0,03 + fonlama %0,01/8 sa): hedef oynaklık 0,8'de yıllık %102, en büyük düşüş −%43, iki yarı yıllık %125 / %82, yıllar 2020 +%195 · 2021 +%434 · 2022 −%32 · 2023 +%157 · 2024 +%126 · 2025 +%19 · 2026 +%29. 0,4'te yıllık %46, düşüş −%24; 1,2'de yıllık %161, düşüş −%58. Her ay başlayan 67 bir yıllık hesabın %51'i 100 $'ı 200 $ yaptı (medyan 151 gün), hiçbiri yarıya düşmedi, en kötüsü 69 $. Short eklemek (SMA50 long/short) iyileştirmedi. Günlük Donchian 20/10 long +0,76R/işlem (t 2,9, iki yarı +1,15 / +0,42), short −0,07R.</p>
           <p><b>Sınırlar:</b> 4 büyük coin hayatta kalanlardır (2020'de seçilseydi bazıları batmış olurdu); 2021 boğası ortalamayı şişiriyor, son iki yıl çok daha zayıf; parametreler (ortalamalar, BTC filtresi, 0,8) bu veride seçildi. İleriye dönük kâğıt sonuç kanıttır.</p></div>
@@ -394,6 +394,8 @@ table.t tr.near td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
           <p><b>Test</b> (<code>node tests/research-highwr.js</code> 288 ayar, <code>node tests/replay-dip.js</code> canlı kodla, Nis 2020–Eyl 2026, maliyet dahil): 978 işlem, kazanma %83, işlem başı +%1,14 (t 5,3); iki yarı +%1,57 / +%0,67; 1x hesapta yıllık %47, en büyük düşüş −%37; 2x'te yıllık %98, −%64. Yıllar (işlem başı): 2020 +%1,61 · 2021 +%2,55 · 2022 −%1,16 · 2023 +%1,80 · 2024 +%0,37 · 2025 +%0,16 · 2026 +%0,03. Ayar 288 denemeden seçildi (%37'si kazanma ≥%80 ve iki yarıda artı).</p>
           <p><b>Fitil avı:</b> aynı −%10 stop gün içi uygulanınca 166 stopun 115'i fitildi (kapanış stopun üstünde kaldı); işlem başı +%0,81'den +%0,30'a, kazanma %82'den %76'ya düştü. Kapanış stopu + uzak felaket stopu + düşük kaldıraç bu yüzden.</p>
           <p><b>Sınırlar:</b> kâr %3 / stop %10'da başabaş kazanma oranı %77; kenar ince ve son üç yılda sıfıra yakın. 2022 gibi bir yıl (kazanma %70) bütün yılı siler. İleriye dönük kâğıt sonuç kanıttır.</p></div>
+        <div class="card"><h4>Kaldıraç · 10–20x nasıl kullanılır (6 Ekim 2026)</h4>
+          <p><code>node tests/research-leverage.js</code> (canlı kod, Nis 2020–Eyl 2026). <b>Pozisyon başına izole 10–20x</b> (coin başına özkaynağın ¼'ü teminat): geri çekilme sepeti 10x'te 112, 20x'te 53 likidasyonla hesabı bitirdi; likidasyon −%10 kapanış stopundan önce geliyor, yani fitil avına açık. <b>Cross 20x + etkin kaldıraç</b> (nominal ÷ özkaynak): trend sepeti 0,8 → yıllık %102 / düşüş −%43; 1,2 → %161 / −%58, son 24 ay yıllık %47, bir yıllık kayan hesapların %64'ü 2×, %6'sı −%50 gördü; 1,6 → %218 / −%70; 2,0 → %268 / −%79; 2,4 → hesap bitti. Geri çekilme etkin 2x → %98 / −%64, son 24 ay ≈ 0; düşüş freniyle (zirveden −%20'de boy yarıya) %85 / −%50. Fren trend sepetinde getiriyi düşürüyor (trend zaten nakde geçiyor), geri çekilmede düşüşü azaltıyor. 1000 $ ya da 100 $ fark etmez; kurallar yüzdeyle çalışır.</p></div>
         <div class="card"><h4>On kapı · izin kuralı</h4><p>1 Günlük yön net · 2 Havuz süpürmesi · 3 Emir akışı ≥2 teyit · 4 MSS + yer değiştirme · 5 Fiyat OTE'de (canlı) · 6 Süpürme kill zone'da · 7 Oran ≥1,5 ve stop kaldıraca sığıyor (tutarlılık modunda ≤20x) · 8 Coin tutarlılığı kanıtlı/umut var · 9 Fonlama ve büyük tüccarlar karşı değil, climax/kapitülasyon yok · 10 Günlük disiplin (≤2 işlem, ≤2 kayıp, tek açık pozisyon). İzin yalnızca 10/10. Çıkış: hedef 1'de yarısı + stop girişe; hedef 2'de %30; kalan %20 iz süren stop. Ekleme yalnızca hedef 1'den sonra, bir kez, yarım boy.</p></div>
       </div></div>
       <div id="dStats" hidden><div class="stats" id="stats"></div><div id="amdStatsBox" style="margin-top:10px;font-size:12px;color:var(--ink-2)"></div></div>
@@ -1486,7 +1488,7 @@ const stagesTxt=es=>es.stages.map(s=>`${s.st==="ok"?"✓":s.st==="warn"?"!":"✗
    Hedef oynaklık 0,8: yıllık %91, Sharpe 1,63, en büyük düşüş −%43, iki yarı +%103 / +%79, yalnız 2022 eksi (−%32).
    Short eklemek ve 15 dk girişler iyileştirmedi. 4 büyük coin hayatta kalan seçimidir; ileriye dönük beklenti daha düşük olmalı.
    Masa'dan ayrı sanal bakiye; ui.js (Bot sekmesi "Trend sepeti") ve headless/run.js aynı fonksiyonları kullanır. Gerçek emir yok. */
-const TREND_DEF={on:true,bal0:100,syms:["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT"],smas:[10,20,50,100],btcSma:50,volN:30,tv:0.8,cap:4,band:0.2,minUsd:5,
+const TREND_DEF={on:true,bal0:100,syms:["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT"],smas:[10,20,50,100],btcSma:50,volN:30,tv:1.2,cap:6,exLev:20,band:0.2,minUsd:5,brakeDD:0,brakeMult:0.5,
   fee:0.0005,slip:0.0003,fundDef:0.0001};
 const TREND_KEY="st-trend";
 function trendLoad(){ let s=null; try{ s=JSON.parse(localStorage.getItem(TREND_KEY)||"null"); }catch(e){} if(!s) s=trendNew(); s.cfg=Object.assign({},TREND_DEF,s.cfg||{}); return s; }
@@ -1520,8 +1522,8 @@ function trendTrade(s,sym,tgtQty,px,now,why){
 }
 // günlük dengeleme: hedef ağırlık × özkaynak; |fark| < band × hedef ve < minUsd ise işlem yok
 function trendRebalance(s,tg,px,now){
-  const cfg=s.cfg; const eq=trendEq(s,px); const evs=[];
-  for(const sym of cfg.syms){ const x=px[sym]; if(!(x>0)) continue; const w=tg.w[sym]?tg.w[sym].w:0; const tgtUsd=w*eq; const cur=(s.pos[sym]?s.pos[sym].qty:0)*x; const diff=tgtUsd-cur;
+  const cfg=s.cfg; const eq=trendEq(s,px); const evs=[]; const dd=s.peak>0?1-eq/s.peak:0; const bk=cfg.brakeDD&&dd>=cfg.brakeDD?cfg.brakeMult:1;
+  for(const sym of cfg.syms){ const x=px[sym]; if(!(x>0)) continue; const w=(tg.w[sym]?tg.w[sym].w:0)*bk; const tgtUsd=w*eq; const cur=(s.pos[sym]?s.pos[sym].qty:0)*x; const diff=tgtUsd-cur;
     if(Math.abs(diff)<cfg.minUsd) continue; if(tgtUsd>0&&cur>0&&Math.abs(diff)<cfg.band*tgtUsd) continue;
     const ev=trendTrade(s,sym,tgtUsd/x,x,now,tg.w[sym]?tg.w[sym].why:""); if(ev) evs.push(ev); }
   s.lastSig={t:now,btcOk:tg.btcOk,btc:tg.btc,w:Object.fromEntries(Object.entries(tg.w).map(([k,v])=>[k,{w:+v.w.toFixed(4),score:v.score,vol:v.vol&&+v.vol.toFixed(3),why:v.why}]))};
@@ -1560,7 +1562,8 @@ async function trendTick(s,now,opts){
   return {eq,evs,px};
 }
 function trendSummary(s,px){ const eq=trendEq(s,px); const gross=Object.entries(s.pos).reduce((a,[k,p])=>a+Math.abs(p.qty*((px&&px[k])||p.px)),0);
-  return {eq,roi:(eq/s.start-1)*100,dd:s.peak>0?1-eq/s.peak:0,gross,lev:eq>0?gross/eq:0,fees:s.fees,funding:s.funding,trades:s.trades,day:s.day,btcOk:s.lastSig?s.lastSig.btcOk:null}; }
+  const ex=s.cfg.exLev||20; // borsa kaldıracı (cross): teminat = nominal ÷ ex; sepetin tamamı eq/gross kadar düşerse özkaynak biter
+  return {eq,roi:(eq/s.start-1)*100,dd:s.peak>0?1-eq/s.peak:0,gross,lev:eq>0?gross/eq:0,exLev:ex,margin:gross/ex,liqMove:gross>0?eq/gross:null,fees:s.fees,funding:s.funding,trades:s.trades,day:s.day,btcOk:s.lastSig?s.lastSig.btcOk:null}; }
 
 /* ---------- Geri çekilme sepeti: trend içinde düşüşte al, küçük kâr, kapanış stopu (6 Ekim 2026) ----------
    Araştırma (tests/research-highwr.js, BTC·ETH·SOL·BNB günlük, 2020-01 → 2026-09, maliyet dahil): BTC > SMA50 ve coin puanı ≥ 0,5 iken
@@ -1569,7 +1572,7 @@ function trendSummary(s,px){ const eq=trendEq(s,px); const gross=Object.entries(
    2022 −%1,15, 2024 +%0,37, 2025 +%0,17, 2026 +%0,03 (kenar son yıllarda inceldi). Aynı stop gün içi uygulanınca 166 stopun 115'i fitildi
    ve ortalama +%0,30'a düştü. 4 yuva, yuva başına özkaynağın ¼'ü × kaldıraç (1x varsayılan: yıllık %23, en büyük düşüş −%34).
    Trend sepetiyle aynı günlük veriyi kullanır (trendData); ayrı sanal bakiye. Gerçek emir yok. */
-const DIP_DEF={on:true,bal0:100,syms:["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT"],minScore:0.5,pull:0.02,tp:0.03,stop:0.10,cat:0.25,hold:20,lev:1,slots:4,
+const DIP_DEF={on:true,bal0:100,syms:["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT"],minScore:0.5,pull:0.02,tp:0.03,stop:0.10,cat:0.25,hold:20,lev:1,exLev:20,slots:4,brakeDD:0,brakeMult:0.5,
   maker:0.0002,taker:0.0005,slip:0.0003,fundDef:0.0001};
 const DIP_KEY="st-dip";
 function dipNew(cfg){ cfg=Object.assign({},DIP_DEF,cfg||{}); return {cfg,bal:cfg.bal0,start:cfg.bal0,peak:cfg.bal0,pos:{},ord:{},trades:[],log:[],day:null,fundT:0,fees:0,funding:0}; }
@@ -1593,14 +1596,14 @@ function dipIntraday(s,sym,bar,now){
     else if(p.age>0&&bar.h>=p.e*(1+c.tp)) evs.push(dipExit(s,sym,Math.max(bar.o,p.e*(1+c.tp)),"kâr",now,false));
     return evs; }
   const o=s.ord[sym];
-  if(o&&o.day===bar.t&&bar.l<=o.px){ const e=Math.min(bar.o,o.px); const eq=dipEq(s,null); const qty=eq/c.slots*c.lev/e; const fee=qty*e*c.maker;
+  if(o&&o.day===bar.t&&bar.l<=o.px){ const e=Math.min(bar.o,o.px); const eq=dipEq(s,null); const dd=s.peak>0?1-eq/s.peak:0; const k=c.brakeDD&&dd>=c.brakeDD?c.brakeMult:1; const qty=eq/c.slots*c.lev*k/e; const fee=qty*e*c.maker;
     s.bal-=fee; s.fees+=fee; s.pos[sym]={e,qty,t:now,day:bar.t,age:0,px:bar.c,fee,fund:0}; delete s.ord[sym];
     evs.push(dipLog(s,{t:now,type:"fill",sym,px:e,usd:qty*e,fee,tp:e*(1+c.tp),stop:e*(1-c.stop)})); }
   return evs;
 }
 // gün kapanışı: kapanış stopu, zaman stopu, yaşlandırma; sonra yarın için limit emir (data = kapanmış mumlar, bar dahil)
 function dipClose(s,sym,bar,data,now){
-  const c=s.cfg; const evs=[]; const p=s.pos[sym]; delete s.ord[sym];
+  const c=s.cfg; const evs=[]; const p=s.pos[sym]; delete s.ord[sym]; s.peak=Math.max(s.peak||s.start,dipEq(s,null));
   if(p){ p.age=Math.round((bar.t-p.day)/DAY_MS); // bugün açılan pozisyon (yaş 0) kapanış stopuna bugün girmez
     if(p.age>0){
       if(bar.c<=p.e*(1-c.stop)) evs.push(dipExit(s,sym,bar.c,"kapanış stopu",now,true));
@@ -1625,8 +1628,8 @@ async function dipTick(s,now){
   const eq=dipEq(s,C.px); s.peak=Math.max(s.peak||s.start,eq);
   return {eq,evs,px:C.px};
 }
-function dipSummary(s,px){ const eq=dipEq(s,px); const tr=s.trades; const w=tr.filter(t=>t.r>0).length;
-  return {eq,roi:(eq/s.start-1)*100,dd:s.peak>0?Math.max(0,1-eq/s.peak):0,n:tr.length,wr:tr.length?w/tr.length:null,avg:tr.length?tr.reduce((a,t)=>a+t.r,0)/tr.length:null,open:Object.keys(s.pos).length,orders:Object.keys(s.ord).length,fees:s.fees,funding:s.funding}; }
+function dipSummary(s,px){ const eq=dipEq(s,px); const tr=s.trades; const w=tr.filter(t=>t.r>0).length; const gross=Object.entries(s.pos).reduce((a,[k,p])=>a+p.qty*((px&&px[k])||p.px),0);
+  return {eq,roi:(eq/s.start-1)*100,dd:s.peak>0?Math.max(0,1-eq/s.peak):0,n:tr.length,wr:tr.length?w/tr.length:null,avg:tr.length?tr.reduce((a,t)=>a+t.r,0)/tr.length:null,open:Object.keys(s.pos).length,gross,margin:gross/(s.cfg.exLev||20),orders:Object.keys(s.ord).length,fees:s.fees,funding:s.funding}; }
 
 /* ---------- Hesap: Binance USDⓈ-M vadeli hesabını salt okunur izler ----------
    Anahtar ve gizli anahtar yalnızca bu cihazda tutulur (isteğe bağlı localStorage), imza tarayıcıda WebCrypto ile atılır, istekler doğrudan Binance'e gider.
@@ -2846,14 +2849,14 @@ function renderTrend(){
     return `<tr><td><b>${k.replace("USDT","")}</b></td><td class="num">${w?Math.round(w.score*c.smas.length)+"/"+c.smas.length:"—"}</td><td class="num">${w&&w.vol?"%"+fx(w.vol*100,0):"—"}</td><td class="num">${w?"%"+fx(w.w*100,0):"—"}</td><td class="num">${p?fmtB(Math.abs(p.qty*px)):"nakit"}</td><td class="num">${p?fmtP(p.avg):"—"}</td><td class="num ${pnl>=0?"up":"down"}">${p?(pnl>=0?"+":"")+fx(pnl,2)+" $":"—"}</td><td class="muted">${w?esc(w.why):""}</td></tr>`; }).join("");
   const lg=s.log.filter(l=>l.type==="trade").slice(-8).reverse().map(l=>`<div class="tp ${l.side==="AL"?"buy":"sell"}" style="grid-template-columns:110px 50px 1fr"><span class="when">${new Date(l.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><span class="k ${l.side==="AL"?"up":"down"}">${l.side}</span><span><b>${l.sym.replace("USDT","")}</b> · ${fmtB(l.usd)} @ ${fmtP(l.px)} · komisyon ${fx(l.fee,2)} $${l.pnl?` · gerçekleşen ${l.pnl>=0?"+":""}${fx(l.pnl,2)} $`:""} · ${esc(l.why||"")}</span></div>`).join("");
   return `<details class="card" style="margin-bottom:10px;padding:10px" ${s.trades||c.on?"open":""}><summary style="cursor:pointer"><b>Trend sepeti</b> <span class="muted" style="font-size:12px">· günlük trend, ${c.syms.map(k=>k.replace("USDT","")).join(" ")} · ayrı sanal bakiye · ${c.on?'<span class="up">● açık</span>':"● kapalı"}</span></summary>
-  <p class="muted" style="font-size:12px;margin:6px 0">Her coin kapanışı 10/20/50/100 günlük ortalamaların kaçının üstündeyse o oranda long; BTC 50 günlük ortalamanın altındaysa hepsi nakit. Boy 30 günlük oynaklığa göre (oynak coin daha küçük). Günde bir, UTC 00:00'dan sonra dengelenir; stop yok, trend dönünce satar. 2020–2026 testinde yıllık %100 civarı, en büyük düşüş −%43; 2025 +%19, 2026 +%29. Masa'dan bağımsızdır.</p>
+  <p class="muted" style="font-size:12px;margin:6px 0">Her coin kapanışı 10/20/50/100 günlük ortalamaların kaçının üstündeyse o oranda long; BTC 50 günlük ortalamanın altındaysa hepsi nakit. Boy 30 günlük oynaklığa göre (oynak coin daha küçük). Günde bir, UTC 00:00'dan sonra dengelenir; stop yok, trend dönünce satar. Borsa kaldıracı 20x cross (teminat az bağlanır), etkin kaldıraç oynaklıktan gelir. 2020–2026 testinde varsayılan (1,2): yıllık %161, en büyük düşüş −%58, son 24 ay yıllık %47; 0,8: %102 / −%43. Pozisyon başına izole 10–20x aynı testte hesabı bitirdi. Masa'dan bağımsızdır.</p>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><button type="button" class="${c.on?"":"primary"}" id="trendTgl">${c.on?"Durdur":"Başlat"}</button><button type="button" class="ghost" id="trendNow">Şimdi dengele</button><button type="button" class="ghost" id="trendReset">Sıfırla</button>
-    <label style="font-size:12px;color:var(--ink-2)">Hedef oynaklık <select id="trendTv">${[[0.4,"0,4 · sakin (düşüş ≈ −%24)"],[0.8,"0,8 · varsayılan (≈ −%43)"],[1.2,"1,2 · agresif (≈ −%58)"]].map(([v,t])=>`<option value="${v}" ${c.tv===v?"selected":""}>${t}</option>`).join("")}</select></label>
+    <label style="font-size:12px;color:var(--ink-2)">Hedef oynaklık <select id="trendTv">${[[0.4,"0,4 · sakin (etkin ≈0,6x, düşüş ≈ −%24)"],[0.8,"0,8 · orta (≈1,1x, −%43)"],[1.2,"1,2 · agresif, varsayılan (≈1,6x, −%58)"],[1.6,"1,6 · çok agresif (≈2,2x, −%70)"]].map(([v,t])=>`<option value="${v}" ${c.tv===v?"selected":""}>${t}</option>`).join("")}</select></label>
     <span class="muted" style="font-size:11.5px">${trend.err?'<span class="down">'+esc(trend.err)+"</span> · ":""}${s.day?"son dengeleme "+s.day:"henüz dengelenmedi"}</span></div>
   <div class="plan" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:8px">
     <div class="pv"><b>Özkaynak</b><span id="trendEq" class="${sm.eq>=s.start?"up":"down"}">${fx(sm.eq,2)} $</span><small>${pct(sm.roi,1)} · başlangıç ${fmtB(s.start)}</small></div>
     <div class="pv"><b>Zirveden</b><span class="${sm.dd>0.2?"down":""}">−%${fx(sm.dd*100,1)}</span><small>zirve ${fmtB(s.peak)}</small></div>
-    <div class="pv"><b>Toplam boy</b><span>${fx(sm.lev,2)}x</span><small>${fmtB(sm.gross)} nominal</small></div>
+    <div class="pv"><b>Kaldıraç</b><span>${sm.exLev}x cross · etkin ${fx(sm.lev,2)}x</span><small>${fmtB(sm.gross)} nominal · teminat ${fmtB(sm.margin)}${sm.liqMove?` · sepet %${fx(sm.liqMove*100,0)} düşerse likidasyon`:""}</small></div>
     <div class="pv"><b>BTC rejimi</b><span class="${sm.btcOk?"up":sm.btcOk===false?"down":""}">${sm.btcOk?"yukarı":sm.btcOk===false?"aşağı · nakit":"—"}</span><small>${sig&&sig.btc&&sig.btc.sma?`BTC ${fmtP(sig.btc.c)} · SMA${c.btcSma} ${fmtP(sig.btc.sma)}`:""}</small></div>
     <div class="pv"><b>Maliyet</b><span>${fx(sm.fees+sm.funding,2)} $</span><small>komisyon ${fx(sm.fees,2)} · fonlama ${fx(sm.funding,2)} · ${sm.trades} işlem</small></div>
   </div>
@@ -2864,7 +2867,7 @@ function trendBind(){
   const t=$("trendTgl"); if(t) t.addEventListener("click",()=>{ trend.s.cfg.on=!trend.s.cfg.on; trendSave(trend.s); if(trend.s.cfg.on) trendRun({}); renderBot(); });
   const n=$("trendNow"); if(n) n.addEventListener("click",()=>{ trendRun({force:true,refresh:true}); });
   const r=$("trendReset"); if(r) r.addEventListener("click",()=>{ if(Object.keys(trend.s.pos).length&&!confirm("Trend sepetindeki pozisyonlar silinip bakiye 100 $'a dönsün mü?")) return; const on=trend.s.cfg.on, tv=trend.s.cfg.tv; trend.s=trendNew({on,tv,cap:tv*5}); trendSave(trend.s); renderBot(); });
-  const v=$("trendTv"); if(v) v.addEventListener("change",e=>{ const tv=+e.target.value; trend.s.cfg.tv=tv; trend.s.cfg.cap=tv*5; trendSave(trend.s); });
+  const v=$("trendTv"); if(v) v.addEventListener("change",e=>{ const tv=+e.target.value; trend.s.cfg.tv=tv; trend.s.cfg.cap=tv*5; renderBot(); trendSave(trend.s); });
 }
 /* --- Geri çekilme sepeti (src/dip.js): trend içinde düşüşte al, +%3 kâr, kapanış stopu; ayrı sanal bakiye --- */
 const dip={s:dipLoad(),busy:false,err:null,px:{}};
@@ -2877,15 +2880,15 @@ function renderDip(){
     return `<tr><td><b>${k.replace("USDT","")}</b></td><td>${p?'<span class="up">açık</span>':o?"limit bekliyor":'<span class="muted">bekle</span>'}</td><td class="num">${p?fmtP(p.e):o?fmtP(o.px):"—"}</td><td class="num up">${p?fmtP(p.e*(1+c.tp)):"—"}</td><td class="num down">${p?fmtP(p.e*(1-c.stop))+" kapanış":"—"}</td><td class="num ${pnl>=0?"up":"down"}">${p?(pnl>=0?"+":"")+fx(pnl,2)+" $":"—"}</td><td class="muted">${p?p.age+". gün / "+c.hold:""}</td></tr>`; }).join("");
   const tr=s.trades.slice(-8).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b></td><td class="num">${fmtP(t.e)} → ${fmtP(t.x)}</td><td class="num ${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${fx(t.r*100,2)}%</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="muted">${esc(t.why)} · ${t.days} gün</td></tr>`).join("");
   return `<details class="card" style="margin-bottom:10px;padding:10px" ${s.trades.length||c.on?"open":""}><summary style="cursor:pointer"><b>Geri çekilme sepeti</b> <span class="muted" style="font-size:12px">· trend içinde düşüşte al, +%${fx(c.tp*100,0)} kâr · ayrı sanal bakiye · ${c.on?'<span class="up">● açık</span>':"● kapalı"}</span></summary>
-  <p class="muted" style="font-size:12px;margin:6px 0">BTC 50 günlük ortalamanın üstünde ve coin ortalamaların en az yarısının üstündeyken önceki kapanışın %${fx(c.pull*100,0)} altına bir günlük limit. Kâr +%${fx(c.tp*100,0)}; stop gün sonu kapanışı girişin %${fx(c.stop*100,0)} altındaysa (gün içi fitil saymaz, stop avına yakalanmaz); gün içi −%${fx(c.cat*100,0)} felaket stopu; ${c.hold} günde kapanmazsa çıkar. Coin başına özkaynağın ¼'ü × ${c.lev}x. 2020–2026 testi: 978 işlem, kazanma %83, işlem başı +%1,14, yıllık %47, en büyük düşüş −%37; son yıllar ince (2024 +%0,37, 2025 +%0,16, 2026 +%0,03 işlem başı).</p>
+  <p class="muted" style="font-size:12px;margin:6px 0">BTC 50 günlük ortalamanın üstünde ve coin ortalamaların en az yarısının üstündeyken önceki kapanışın %${fx(c.pull*100,0)} altına bir günlük limit. Kâr +%${fx(c.tp*100,0)}; stop gün sonu kapanışı girişin %${fx(c.stop*100,0)} altındaysa (gün içi fitil saymaz, stop avına yakalanmaz); gün içi −%${fx(c.cat*100,0)} felaket stopu; ${c.hold} günde kapanmazsa çıkar. Coin başına özkaynağın ¼'ü × etkin ${c.lev}x; borsa kaldıracı ${c.exLev}x cross yalnız teminatı küçültür (izole 10–20x'te −%10 stop likidasyondan önce gelmez, testte hesap bitti). 2020–2026 testi: 978 işlem, kazanma %83, işlem başı +%1,14, yıllık %47, en büyük düşüş −%37; son yıllar ince (2024 +%0,37, 2025 +%0,16, 2026 +%0,03 işlem başı).</p>
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><button type="button" class="${c.on?"":"primary"}" id="dipTgl">${c.on?"Durdur":"Başlat"}</button><button type="button" class="ghost" id="dipReset">Sıfırla</button>
-    <label style="font-size:12px;color:var(--ink-2)">Kaldıraç <select id="dipLev">${[[1,"1x (düşüş ≈ −%37)"],[2,"2x (≈ −%64)"]].map(([v,t])=>`<option value="${v}" ${c.lev===v?"selected":""}>${t}</option>`).join("")}</select></label>
+    <label style="font-size:12px;color:var(--ink-2)">Kaldıraç <select id="dipLev">${[[1,"etkin 1x (düşüş ≈ −%37)"],[2,"etkin 2x + düşüş freni (≈ −%50)"]].map(([v,t])=>`<option value="${v}" ${c.lev===v?"selected":""}>${t}</option>`).join("")}</select></label>
     <span class="muted" style="font-size:11.5px">${dip.err?'<span class="down">'+esc(dip.err)+"</span> · ":""}${s.day?"son gün kapanışı "+s.day:"henüz çalışmadı"}</span></div>
   <div class="plan" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:8px">
     <div class="pv"><b>Özkaynak</b><span class="${sm.eq>=s.start?"up":"down"}">${fx(sm.eq,2)} $</span><small>${pct(sm.roi,1)} · başlangıç ${fmtB(s.start)}</small></div>
     <div class="pv"><b>Kazanma</b><span>${sm.n?"%"+Math.round(sm.wr*100):"—"}</span><small>${sm.n} işlem${sm.n?` · ort. ${sm.avg>=0?"+":""}${fx(sm.avg*100,2)}%`:""}</small></div>
     <div class="pv"><b>Zirveden</b><span class="${sm.dd>0.2?"down":""}">−%${fx(sm.dd*100,1)}</span><small>zirve ${fmtB(s.peak)}</small></div>
-    <div class="pv"><b>Açık / emir</b><span>${sm.open} / ${sm.orders}</span><small>maliyet ${fx(sm.fees+sm.funding,2)} $</small></div>
+    <div class="pv"><b>Açık / emir</b><span>${sm.open} / ${sm.orders}</span><small>${c.exLev}x cross · teminat ${fmtB(sm.margin)} · maliyet ${fx(sm.fees+sm.funding,2)} $</small></div>
   </div>
   <table class="t" style="margin-bottom:8px"><thead><tr><th>Coin</th><th>Durum</th><th>Giriş / limit</th><th>Kâr</th><th>Stop</th><th>PnL</th><th>Süre</th></tr></thead><tbody>${rows}</tbody></table>
   ${tr?`<table class="t"><thead><tr><th>Kapanış</th><th>Coin</th><th>Fiyat</th><th>Getiri</th><th>PnL</th><th>Neden</th></tr></thead><tbody>${tr}</tbody></table>`:""}</details>`;
@@ -2893,7 +2896,7 @@ function renderDip(){
 function dipBind(){
   const t=$("dipTgl"); if(t) t.addEventListener("click",()=>{ dip.s.cfg.on=!dip.s.cfg.on; dipSave(dip.s); if(dip.s.cfg.on) dipRun(); renderBot(); });
   const r=$("dipReset"); if(r) r.addEventListener("click",()=>{ if(Object.keys(dip.s.pos).length&&!confirm("Geri çekilme sepetindeki pozisyonlar silinip bakiye 100 $'a dönsün mü?")) return; const on=dip.s.cfg.on, lev=dip.s.cfg.lev; dip.s=dipNew({on,lev}); dipSave(dip.s); renderBot(); });
-  const v=$("dipLev"); if(v) v.addEventListener("change",e=>{ dip.s.cfg.lev=+e.target.value; dipSave(dip.s); });
+  const v=$("dipLev"); if(v) v.addEventListener("change",e=>{ dip.s.cfg.lev=+e.target.value; dip.s.cfg.brakeDD=dip.s.cfg.lev>1?0.2:0; dipSave(dip.s); renderBot(); });
 }
 setTimeout(()=>{ if(dip.s.cfg.on) dipRun(); },12000); setInterval(()=>{ if(dip.s.cfg.on) dipRun(); },5*60e3);
 setTimeout(()=>{ if(trend.s.cfg.on) trendRun({}); },8000); setInterval(()=>{ if(trend.s.cfg.on) trendRun({}); },5*60e3);

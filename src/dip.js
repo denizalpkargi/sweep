@@ -5,7 +5,7 @@
    2022 −%1,15, 2024 +%0,37, 2025 +%0,17, 2026 +%0,03 (kenar son yıllarda inceldi). Aynı stop gün içi uygulanınca 166 stopun 115'i fitildi
    ve ortalama +%0,30'a düştü. 4 yuva, yuva başına özkaynağın ¼'ü × kaldıraç (1x varsayılan: yıllık %23, en büyük düşüş −%34).
    Trend sepetiyle aynı günlük veriyi kullanır (trendData); ayrı sanal bakiye. Gerçek emir yok. */
-const DIP_DEF={on:true,bal0:100,syms:["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT"],minScore:0.5,pull:0.02,tp:0.03,stop:0.10,cat:0.25,hold:20,lev:1,slots:4,
+const DIP_DEF={on:true,bal0:100,syms:["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT"],minScore:0.5,pull:0.02,tp:0.03,stop:0.10,cat:0.25,hold:20,lev:1,exLev:20,slots:4,brakeDD:0,brakeMult:0.5,
   maker:0.0002,taker:0.0005,slip:0.0003,fundDef:0.0001};
 const DIP_KEY="st-dip";
 function dipNew(cfg){ cfg=Object.assign({},DIP_DEF,cfg||{}); return {cfg,bal:cfg.bal0,start:cfg.bal0,peak:cfg.bal0,pos:{},ord:{},trades:[],log:[],day:null,fundT:0,fees:0,funding:0}; }
@@ -29,14 +29,14 @@ function dipIntraday(s,sym,bar,now){
     else if(p.age>0&&bar.h>=p.e*(1+c.tp)) evs.push(dipExit(s,sym,Math.max(bar.o,p.e*(1+c.tp)),"kâr",now,false));
     return evs; }
   const o=s.ord[sym];
-  if(o&&o.day===bar.t&&bar.l<=o.px){ const e=Math.min(bar.o,o.px); const eq=dipEq(s,null); const qty=eq/c.slots*c.lev/e; const fee=qty*e*c.maker;
+  if(o&&o.day===bar.t&&bar.l<=o.px){ const e=Math.min(bar.o,o.px); const eq=dipEq(s,null); const dd=s.peak>0?1-eq/s.peak:0; const k=c.brakeDD&&dd>=c.brakeDD?c.brakeMult:1; const qty=eq/c.slots*c.lev*k/e; const fee=qty*e*c.maker;
     s.bal-=fee; s.fees+=fee; s.pos[sym]={e,qty,t:now,day:bar.t,age:0,px:bar.c,fee,fund:0}; delete s.ord[sym];
     evs.push(dipLog(s,{t:now,type:"fill",sym,px:e,usd:qty*e,fee,tp:e*(1+c.tp),stop:e*(1-c.stop)})); }
   return evs;
 }
 // gün kapanışı: kapanış stopu, zaman stopu, yaşlandırma; sonra yarın için limit emir (data = kapanmış mumlar, bar dahil)
 function dipClose(s,sym,bar,data,now){
-  const c=s.cfg; const evs=[]; const p=s.pos[sym]; delete s.ord[sym];
+  const c=s.cfg; const evs=[]; const p=s.pos[sym]; delete s.ord[sym]; s.peak=Math.max(s.peak||s.start,dipEq(s,null));
   if(p){ p.age=Math.round((bar.t-p.day)/DAY_MS); // bugün açılan pozisyon (yaş 0) kapanış stopuna bugün girmez
     if(p.age>0){
       if(bar.c<=p.e*(1-c.stop)) evs.push(dipExit(s,sym,bar.c,"kapanış stopu",now,true));
@@ -61,5 +61,5 @@ async function dipTick(s,now){
   const eq=dipEq(s,C.px); s.peak=Math.max(s.peak||s.start,eq);
   return {eq,evs,px:C.px};
 }
-function dipSummary(s,px){ const eq=dipEq(s,px); const tr=s.trades; const w=tr.filter(t=>t.r>0).length;
-  return {eq,roi:(eq/s.start-1)*100,dd:s.peak>0?Math.max(0,1-eq/s.peak):0,n:tr.length,wr:tr.length?w/tr.length:null,avg:tr.length?tr.reduce((a,t)=>a+t.r,0)/tr.length:null,open:Object.keys(s.pos).length,orders:Object.keys(s.ord).length,fees:s.fees,funding:s.funding}; }
+function dipSummary(s,px){ const eq=dipEq(s,px); const tr=s.trades; const w=tr.filter(t=>t.r>0).length; const gross=Object.entries(s.pos).reduce((a,[k,p])=>a+p.qty*((px&&px[k])||p.px),0);
+  return {eq,roi:(eq/s.start-1)*100,dd:s.peak>0?Math.max(0,1-eq/s.peak):0,n:tr.length,wr:tr.length?w/tr.length:null,avg:tr.length?tr.reduce((a,t)=>a+t.r,0)/tr.length:null,open:Object.keys(s.pos).length,gross,margin:gross/(s.cfg.exLev||20),orders:Object.keys(s.ord).length,fees:s.fees,funding:s.funding}; }
