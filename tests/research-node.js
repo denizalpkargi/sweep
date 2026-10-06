@@ -95,9 +95,11 @@ const E=loadEngine(); const fails=[]; const ok=(c,msg)=>{ if(!c) fails.push(msg)
     // varsayılan: yerel Ollama (ücretsiz)
     E.llmSetCfg({...E.LLM_DEF}); ok(E.llmReady()&&E.llm.cfg.provider==='ollama','varsayılan sağlayıcı yerel Ollama');
     const runL=await E.selTick(true); const bL=calls[0]?JSON.parse(calls[0].o.body):{};
-    ok(runL&&calls.length===1&&bL.model==='qwen3:8b'&&bL.format&&bL.format.type==='object'&&bL.options.num_ctx===32768,'Ollama çağrısı: model, JSON şeması format ile, geniş bağlam');
+    ok(runL&&calls.length===1&&bL.model==='qwen3:8b'&&bL.format&&bL.format.type==='object'&&bL.options.num_ctx===8192&&bL.think===false,'Ollama çağrısı: model, JSON şeması format ile, 8192 bağlam, düşünme kapalı');
     ok(runL&&runL.hyps===3&&runL.usage.cost===0&&runL.provider==='ollama','yerel yanıt (düşünme bloğu + kod çiti) ayrıştırıldı, maliyet 0');
     ok((bL.messages[1].content.match(/\n/g)||[]).length<400,'yerel modelde veri paketi küçük (bağlam sınırı)');
+    ok((bL.messages[0].content.length+bL.messages[1].content.length)/3+bL.options.num_predict<=8192,'istem + çıktı 8192 bağlama sığıyor (≈3 karakter/belirteç)');
+    { const st={}; const E2=loadEngine({localStorage:{getItem:k=>k==='st-llm'?JSON.stringify({provider:'ollama',url:'http://localhost:11434',model:'qwen3:8b',ctx:32768}):(st[k]??null),setItem:(k,v)=>{st[k]=v;},removeItem:k=>{delete st[k];}}}); ok(E2.llm.cfg.ctx===8192,'eski varsayılan 32768 bağlam 8192\'ye taşındı'); }
     // Claude API (isteğe bağlı)
     E.llmSetCfg({provider:'claude'}); E.llmSetKey('sk-test-123',false); E.sel.at=0; calls.length=0;
     const run=await E.selTick(true); const body=calls[0]?JSON.parse(calls[0].o.body):{};
