@@ -970,6 +970,11 @@ setInterval(botPoll,3000);
 setInterval(()=>{ if(bot.on){ botDecide("tick"); if(ui.drawerTab==="bot") renderBot(); } },60000);
 /* --- durum özeti (6 Ekim 2026, gece nöbeti): Electron bunu %APPDATA%/SWEEP/logs/bot-YYYY-MM-DD.jsonl dosyasına yazar; uzaktan izlemek için. Anahtar/hesap bilgisi yok. --- */
 const botDig={lastN:null,lastT:0};
+// "gir" tahminlerinin kırılımı: puan aralığı, evet diyen üye, bu açılıştan önce/sonra (eski veriyle oylanan toplantıları ayırmak için)
+function botDigGo(F){ const G=F.done.filter(f=>f.go&&f.y!=null); const h=a=>a.length?a.length+"/"+Math.round(fcHit(a)*100):"0"; const by={score:{},yes:{},boot:{once:h(G.filter(f=>f.t<BOOT_T)),sonra:h(G.filter(f=>f.t>=BOOT_T))},dir:{long:h(G.filter(f=>f.dir==="long")),short:h(G.filter(f=>f.dir==="short"))}};
+  const sb={}; for(const f of G){ const k=Math.floor(f.score*10)*10; (sb[k]=sb[k]||[]).push(f); } for(const k in sb) by.score[k]=h(sb[k]);
+  const yb={}; for(const f of G) for(const id in f.v){ if(f.v[id]>0.3) (yb[id]=yb[id]||[]).push(f); } for(const id in yb) by.yes[id]=h(yb[id]);
+  return by; }
 function botDigest(){ try{ const now=Date.now(); if(botDig.lastN==null) botDig.lastN=bot.trades.length;
     const r2=v=>isFinite(v)?Math.round(v*100)/100:null; const d24=bot.trades.filter(t=>now-t.closeT<864e5);
     const pos=bot.positions.map(p=>{ const px=botMk(p.sym); const r=px&&p.risk0?((p.dir==="long"?px-p.entry0:p.entry0-px)/p.risk0):NaN; return {sym:p.sym,dir:p.dir,entry:p.entry,px:px||null,r:r2(r),stop:p.stop,risk:r2(p.risk),score:r2(p.score),yes:p.yes,ageMin:Math.round((now-p.openT)/6e4),stage:p.stage,realized:r2(p.realized)}; });
@@ -982,7 +987,7 @@ function botDigest(){ try{ const now=Date.now(); if(botDig.lastN==null) botDig.l
       pos,orders:bot.orders.length,trades:bot.trades.length,all:{n:bot.trades.length,win:bot.trades.filter(t=>t.pnl>0).length,R:r2(bot.trades.reduce((a,t)=>a+t.r,0))},d24:{n:d24.length,win:d24.filter(t=>t.pnl>0).length,R:r2(d24.reduce((a,t)=>a+t.r,0)),pnl:r2(d24.reduce((a,t)=>a+t.pnl,0))},closed,
       logTypes:types,log:logs.filter(l=>l.type!=="skip"||/bayat|boş|hata/.test(l.text)).slice(-25).map(l=>new Date(l.t).toISOString().slice(11,16)+" "+l.type+" "+l.sym+" "+String(l.text).slice(0,260)),lastSkip:(logs.filter(l=>l.type==="skip").pop()||{}).text||null,
       votes:{n:(bot.lastVotes||[]).length,abst:ab,yes,top:(bot.lastVotes||[]).slice(0,5).map(v=>v.sym+" "+v.dir+" "+pts(v.score)+" "+v.yes+"e"+(v.go?" go":"")+(v.veto?" veto":""))},
-      fc:{pend:F.pend.length,done:F.done.length,base:L?r2(L.base):null,go:L&&L.go?{n:L.go.n,hit:r2(L.go.hit)}:null,buckets:L?L.buckets.filter(b=>b.n).map(b=>b.t+":"+b.n+"/"+(b.hit!=null?Math.round(b.hit*100):"-")):[],lessons:L?L.lessons.length:0},
+      fc:{pend:F.pend.length,done:F.done.length,base:L?r2(L.base):null,go:L&&L.go?{n:L.go.n,hit:r2(L.go.hit)}:null,buckets:L?L.buckets.filter(b=>b.n).map(b=>b.t+":"+b.n+"/"+(b.hit!=null?Math.round(b.hit*100):"-")):[],lessons:L?L.lessons.length:0,goBy:botDigGo(F)},
       aud:AUD?{lessons:(AUD.lessons||[]).map(l=>l.k)}:null};
     botDig.lastT=now; console.info("SWEEP · durum "+JSON.stringify(out)); }catch(e){ console.warn("SWEEP · durum özeti yazılamadı: "+e.message); } }
 setTimeout(botDigest,90e3); setInterval(botDigest,10*60e3);
