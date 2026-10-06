@@ -461,12 +461,17 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const chip=(cls,txt)=>`<span class="chip ${cls}">${txt}</span>`;
 const tl = ms => new Date(ms).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
 const K = k => k.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5],q:+x[7],tb:+x[10]}));
-const rest={cool:0,fails:0,used:0};
+const rest={cool:0,fails:0,used:0,usedT:0};
+// Binance yasağı (418) ya da hız sınırı (429) yeniden başlatmada unutulmasın: art arda açılışlar 429'u saatlik 418'e çeviriyordu (6 Ekim 2026 gecesi)
+try{ const c=+(localStorage.getItem("st-rest-cool")||0); if(c>Date.now()) rest.cool=c; }catch(e){}
+const restSleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function j(path){
-  if(Date.now()<rest.cool) await new Promise(r=>setTimeout(r,rest.cool-Date.now()));
+  for(let g=0;g<20;g++){ const now=Date.now(); if(now<rest.cool){ await restSleep(rest.cool-now); continue; }
+    // dakikalık ağırlık 2400: 1800'ü geçtiyse dakika dolana kadar bekle (429'a varmadan)
+    if(rest.used>=1800&&Math.floor(rest.usedT/6e4)===Math.floor(now/6e4)){ await restSleep(6e4-now%6e4+500); continue; } break; }
   let r; try{ r=await fetch(BASE+path); }catch(e){ throw new Error(path.split("?")[0]+" → bağlantı kurulamadı ("+e.message+")"); }
-  try{ const w=+r.headers.get("x-mbx-used-weight-1m"); if(w) rest.used=w; }catch(e){}
-  if(r.status===429||r.status===418){ const ra=+(r.headers.get("retry-after")||0); rest.cool=Date.now()+Math.max(15000,ra*1000); throw new Error(path.split("?")[0]+" → hız sınırı (HTTP "+r.status+"), "+Math.round((rest.cool-Date.now())/1000)+" sn bekleniyor"); }
+  try{ const w=+r.headers.get("x-mbx-used-weight-1m"); if(w){ rest.used=w; rest.usedT=Date.now(); } }catch(e){}
+  if(r.status===429||r.status===418){ const ra=+(r.headers.get("retry-after")||0); rest.cool=Date.now()+Math.max(15000,ra*1000); try{ localStorage.setItem("st-rest-cool",String(rest.cool)); }catch(e){} throw new Error(path.split("?")[0]+" → hız sınırı (HTTP "+r.status+"), "+Math.round((rest.cool-Date.now())/1000)+" sn bekleniyor"); }
   if(!r.ok){ let t=""; try{ t=(await r.text()).slice(0,120); }catch(e){} throw new Error(path.split("?")[0]+" → HTTP "+r.status+(t?" · "+t:"")); }
   const data=await r.json();
   if(path.startsWith("/futures/data/") && (!Array.isArray(data) || !data.length)) throw new Error(path.split("?")[0]+" → boş yanıt (Binance bu coin için kalabalık/OI verisi vermiyor ya da veri uç noktası geçici olarak kısıtlı)");
