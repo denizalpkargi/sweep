@@ -52,6 +52,13 @@ const E=loadEngine({fetch});
   const c2=calls.length; const t=await E.j('/fapi/v1/ticker/24hr'), pm=await E.j('/fapi/v1/premiumIndex?symbol=C3USDT'), tp=await E.j('/fapi/v1/ticker/price');
   ok(calls.length===c2&&t.length===60&&t[0].quoteVolume==='1000'&&t[0].priceChangePercent==='2.5','24 sa özeti akıştan, REST\'siz');
   ok(pm&&pm.markPrice==='10.4'&&pm.lastFundingRate==='0.0001','mark/fonlama akıştan'); ok(tp.length===60&&tp[0].price==='10.5','son fiyat akıştan');
+  // bekçi: uykudan sonra sessizce ölen soket 30 sn'de kapatılıp yeniden açılır
+  const nG=sockets.length; NOW+=31e3; E.wsdWatch(NOW);
+  ok(g.readyState===3&&E.wsdSummary().kick>=1,'sessiz tüm coin akışı bekçi tarafından kapatıldı');
+  await new Promise(r=>setTimeout(r,2300)); const g2=sockets.slice(nG).find(s=>s.url.includes('!ticker@arr'));
+  ok(!!g2&&g2!==g,'sessiz akış yeniden açıldı');
+  g2.emit({stream:'!markPrice@arr@1s',data:[{e:'markPriceUpdate',E:NOW,s:'C3USDT',p:'10.6',i:'10.3',P:'10.3',r:'0.0001',T:NOW+3600e3}]});
+  const k0=E.wsdSummary().kick; NOW+=5e3; E.wsdWatch(NOW); ok(g2.readyState===1&&E.wsdSummary().kick===k0,'konuşan akışa dokunulmadı');
   console.log('özet',JSON.stringify(E.wsdSummary()));
   Date.now=realNow; console.log('wsdata-test errors',JSON.stringify(errors)); process.exit(errors.length?1:0);
 })().catch(e=>{ console.error(e); process.exit(1); });
