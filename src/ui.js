@@ -439,7 +439,8 @@ const LIQ_WAVE=250000; // 5 dakikada tek tarafta bu kadar likidasyon = dalga
 function wsConnect(sym){
   const s=sym.toLowerCase(); live.wantSym=sym; if(live.ws){ try{ live.ws.onclose=null; live.ws.close(); }catch(e){} live.ws=null; }
   if(live.sym!==sym){ live.sym=sym; live.px=null; live.cvd=0; live.cvdT0=Date.now(); live.tape=[]; live.liq=[]; live.depth=null; }
-  const streams=[`${s}@trade`,`${s}@kline_15m`,`${s}@markPrice@1s`,`${s}@depth20@500ms`,`${s}@forceOrder`,"!forceOrder@arr"]; // aggTrade/markPrice/kline/forceOrder kanalları 5 Ekim 2026'da Binance tarafında sessiz; trade/depth akıyor, mark ve mumlar REST turundan
+  const streams=[`${s}@trade`,`${s}@depth20@500ms`]; // eski yol: yalnız trade/depth akıyor (6 Ekim 2026 ölçümü)
+  wsMarket(sym,[`${s}@kline_15m`,`${s}@markPrice@1s`,`${s}@forceOrder`,"!forceOrder@arr"]); // kline/mark/likidasyon Binance'in /market yolunda
   let ws; try{ ws=new WebSocket(WS_BASE+streams.join("/")); }catch(e){ wsStatus(false,"ws açılamadı"); return; }
   live.ws=ws;
   ws.onopen=()=>{ live.tries=0; live.ok=true; wsStatus(true); };
@@ -447,6 +448,11 @@ function wsConnect(sym){
   ws.onerror=()=>{};
   ws.onclose=()=>{ live.ok=false; wsStatus(false,"bağlantı koptu, yeniden deneniyor"); if(live.wantSym!==sym) return; const wait=Math.min(30000,1000*Math.pow(2,live.tries++)); clearTimeout(live.timer); live.timer=setTimeout(()=>{ if(live.wantSym===sym) wsConnect(sym); },wait); };
 }
+// /market yolundaki piyasa akışları (src/wsdata.js WSD_URL): seçili coinin 15 dk mumu, mark/fonlama, likidasyonlar
+let liveWs2=null;
+function wsMarket(sym,streams){ if(liveWs2){ try{ liveWs2.onclose=null; liveWs2.close(); }catch(e){} liveWs2=null; } let ws; try{ ws=new WebSocket(WSD_URL+streams.join("/")); }catch(e){ return; } liveWs2=ws;
+  ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } const d=m.data||m; const st=m.stream||""; try{ wsDispatch(st,d); }catch(e){ console.error("SWEEP · ws",e); } };
+  ws.onerror=()=>{}; ws.onclose=()=>{ if(liveWs2!==ws) return; liveWs2=null; setTimeout(()=>{ if(live.wantSym===sym&&!liveWs2) wsMarket(sym,streams); },5000); }; }
 function wsStatus(ok,txt){ const el=$("wsDot"); if(!el) return; el.className="wsdot "+(ok?"ok":"off"); el.title=ok?"Canlı akış bağlı (WebSocket)":"Canlı akış kapalı · "+(txt||""); const lbl=$("wsTxt"); if(lbl) lbl.textContent=ok?"canlı":"canlı yok"; }
 function wsDispatch(stream,d){
   if(stream.endsWith("@aggTrade")||stream.endsWith("@trade")){ const p=+d.p,q=+d.q,v=p*q,sell=!!d.m; live.px=p; live.cvd+=sell?-v:v; if(v>=tapeMin()) tapePush({t:d.T,kind:sell?"sell":"buy",p,v}); onLivePrice(); }
@@ -605,11 +611,14 @@ function botDecide(reason){
   botSave(); botWsSync();
 }
 /* --- bot için ayrı canlı akış: tüm pozisyon ve emir sembolleri tek bağlantıda --- */
+let botWs2=null;
 function botWsSync(){
   const syms=Array.from(new Set([...bot.positions.map(p=>p.sym),...bot.orders.map(o=>o.sym)])).sort(); const key=syms.join(",");
   if(bot.wsKey===key && bot.ws && bot.ws.readyState<=1) return;
-  if(bot.ws){ try{ bot.ws.onclose=null; bot.ws.close(); }catch(e){} bot.ws=null; } bot.wsKey=key; if(!syms.length) return;
-  let ws; try{ ws=new WebSocket(WS_BASE+syms.map(s=>s.toLowerCase()).flatMap(s=>[`${s}@trade`,`${s}@bookTicker`,`${s}@markPrice@1s`]).join("/")); }catch(e){ return; } bot.ws=ws;
+  if(bot.ws){ try{ bot.ws.onclose=null; bot.ws.close(); }catch(e){} bot.ws=null; } if(botWs2){ try{ botWs2.onclose=null; botWs2.close(); }catch(e){} botWs2=null; } bot.wsKey=key; if(!syms.length) return;
+  let ws; try{ ws=new WebSocket(WS_BASE+syms.map(s=>s.toLowerCase()).flatMap(s=>[`${s}@trade`,`${s}@bookTicker`]).join("/")); }catch(e){ return; } bot.ws=ws;
+  // mark fiyatı ve fonlama yalnız /market yolunda akıyor: eski yolda sessizdi, 5 Ekim'den beri kâğıt pozisyonlardan fonlama kesilmiyordu
+  try{ botWs2=new WebSocket(WSD_URL+syms.map(s=>s.toLowerCase()+"@markPrice@1s").join("/")); botWs2.onmessage=ev=>ws.onmessage(ev); botWs2.onerror=()=>{}; const me=botWs2; botWs2.onclose=()=>{ if(botWs2!==me) return; botWs2=null; setTimeout(()=>{ if(bot.wsKey===key&&!botWs2){ bot.wsKey=null; botWsSync(); } },5000); }; }catch(e){}
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } const d=m.data||m; const st=m.stream||""; const sym=(d.s||st.split("@")[0]||"").toUpperCase(); if(!sym) return;
     if(st.endsWith("@aggTrade")||st.endsWith("@trade")){ bot.src="ws"; bot._lastTrade[sym]=Date.now(); botOnPrice(sym,+d.p,d.T); }
     else if(st.endsWith("@bookTicker")){ const b=+d.b,a=+d.a; if(b>0&&a>0){ bot.book[sym]={b,a}; const now=Date.now(); if(!bot._lastTrade[sym]||now-bot._lastTrade[sym]>3000){ bot.src="ws"; botOnPrice(sym,(b+a)/2,now); } } }
