@@ -474,7 +474,7 @@ const K = k => k.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5],q:+x[7]
 const WSD_URL="wss://fstream.binance.com/market/stream?streams=";
 const WSD_IV={"1m":6e4,"3m":18e4,"5m":3e5,"15m":9e5,"30m":18e5,"1h":36e5,"2h":72e5,"4h":144e5,"6h":216e5,"8h":288e5,"12h":432e5,"1d":864e5};
 const WSD_CFG={perConn:150,maxSyms:240,staleMax:3*3600e3,respMax:3000,fresh:30e3};
-const wsd={on:false,k:{},tick:{},tickT:0,mark:{},markT:0,glob:null,conns:[],resp:new Map(),stat:{hit:0,rest:0,stale:0,msg:0,respHit:0}};
+const wsd={on:false,k:{},tick:{},tickT:0,mark:{},markT:0,glob:null,conns:[],resp:new Map(),stat:{hit:0,rest:0,stale:0,msg:0,respHit:0,kick:0},watch:null};
 const wsdNum=r=>r.map(x=>+x);
 function wsdStore(s){ return wsd.k[s]||(wsd.k[s]={ivs:{},wsSince:0,wsFirst:Infinity,last:0,conn:null,req:Date.now()}); }
 // akış kesintisizse ve REST dolumu akış başladıktan sonra yapıldıysa mum REST'siz verilebilir
@@ -493,20 +493,32 @@ function wsdOnKline(s,k){ const st=wsd.k[s]; if(!st) return; const now=Date.now(
   for(const iv in st.ivs) wsdFold(st.ivs[iv],WSD_IV[iv],m); }
 const WSD_T=d=>({symbol:d.s,priceChange:d.p,priceChangePercent:d.P,weightedAvgPrice:d.w,lastPrice:d.c,lastQty:d.Q,openPrice:d.o,highPrice:d.h,lowPrice:d.l,volume:d.v,quoteVolume:d.q,openTime:d.O,closeTime:d.C,firstId:d.F,lastId:d.L,count:d.n});
 const WSD_M=d=>({symbol:d.s,markPrice:d.p,indexPrice:d.i,estimatedSettlePrice:d.P,lastFundingRate:d.r,interestRate:"0.00010000",nextFundingTime:d.T,time:d.E});
-function wsdMsg(conn,ev){ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } const st=m.stream||"", d=m.data; if(!d) return; wsd.stat.msg++; const now=Date.now();
+function wsdMsg(conn,ev){ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } const st=m.stream||"", d=m.data; if(!d) return; wsd.stat.msg++; const now=Date.now(); conn.lastMsg=now;
   if(st==="!ticker@arr"){ for(const x of d) wsd.tick[x.s]=WSD_T(x); wsd.tickT=now; }
   else if(st.startsWith("!markPrice@arr")){ for(const x of d) wsd.mark[x.s]=WSD_M(x); wsd.markT=now; }
   else if(st.endsWith("@kline_1m")&&d.k) wsdOnKline(d.s||d.k.s,d.k); }
 function wsdOpen(conn){ if(typeof WebSocket==="undefined") return; const streams=[...conn.streams]; if(!streams.length) return;
-  let ws; try{ ws=new WebSocket(WSD_URL+streams.join("/")); }catch(e){ return; } conn.ws=ws; conn.sent=new Set(streams);
-  ws.onopen=()=>{ conn.tries=0; };
+  let ws; try{ ws=new WebSocket(WSD_URL+streams.join("/")); }catch(e){ return; } conn.ws=ws; conn.sent=new Set(streams); conn.openT=Date.now(); conn.lastMsg=0;
+  ws.onopen=()=>{ conn.tries=0; conn.openT=Date.now(); };
   ws.onmessage=ev=>wsdMsg(conn,ev);
   ws.onclose=()=>{ for(const s of conn.syms){ const x=wsd.k[s]; if(x){ x.wsSince=0; } } conn.ws=null; const wait=Math.min(60e3,5e3*Math.pow(2,conn.tries++||0)); setTimeout(()=>{ if(wsd.on&&!conn.ws) wsdOpen(conn); },wait); };
   ws.onerror=()=>{}; }
+/* Bekçi (7 Ekim 2026): bilgisayar uykudan uyanınca ya da ağ (WARP) kopunca soket "açık" görünüp susuyordu; onclose gelmediği için
+   yeniden bağlanılmıyor, tarama 30–90 dk bayat kalıyordu. Mesaj gelmeyen soket (genel akış 30 sn, mum akışı 90 sn; bağlanamayan 30 sn)
+   kapatılıp hemen yeniden açılır. Yalnız WebSocket; REST'e istek atmaz. */
+function wsdKill(conn,why){ const ws=conn.ws; if(!ws) return; ws.onclose=null; ws.onmessage=null; ws.onerror=null; try{ ws.close(); }catch(e){}
+  for(const s of conn.syms){ const x=wsd.k[s]; if(x) x.wsSince=0; } conn.ws=null; wsd.stat.kick++; try{ console.warn("SWEEP · akış yenileniyor ("+why+")"); }catch(e){}
+  const wait=Math.min(60e3,2e3*Math.pow(2,conn.kicks=(conn.kicks||0)+1)-2e3); setTimeout(()=>{ if(wsd.on&&!conn.ws) wsdOpen(conn); },wait); }
+function wsdWatch(now){ now=now||Date.now(); for(const c of [wsd.glob,...wsd.conns]){ if(!c||!c.ws) continue; const rs=c.ws.readyState;
+    if(rs===0&&now-c.openT>30e3){ wsdKill(c,"bağlanamadı"); continue; }
+    if(rs!==1) continue; const quiet=now-(c.lastMsg||c.openT), lim=c===wsd.glob?30e3:90e3;
+    if(quiet>lim) wsdKill(c,"sustu "+Math.round(quiet/1e3)+" sn"); else if(c.lastMsg) c.kicks=0; } }
+function wsdKickAll(why){ for(const c of [wsd.glob,...wsd.conns]) if(c&&c.ws){ c.kicks=0; wsdKill(c,why); } }
 // sonradan eklenen akışlar açık bağlantıya SUBSCRIBE ile girer (kapalıysa açılışta URL'ye eklenir)
 function wsdSub(conn,stream){ conn.streams.add(stream); if(conn.ws&&conn.ws.readyState===1){ if(!conn.sent.has(stream)){ try{ conn.ws.send(JSON.stringify({method:"SUBSCRIBE",params:[stream],id:Date.now()%1e9})); conn.sent.add(stream); }catch(e){} } } else if(!conn.ws) wsdOpen(conn); }
 function wsdUnsub(conn,stream){ conn.streams.delete(stream); if(conn.ws&&conn.ws.readyState===1&&conn.sent.has(stream)){ try{ conn.ws.send(JSON.stringify({method:"UNSUBSCRIBE",params:[stream],id:Date.now()%1e9})); }catch(e){} conn.sent.delete(stream); } }
-function wsdStart(){ if(!wsd.on||wsd.glob||typeof WebSocket==="undefined") return; wsd.glob={streams:new Set(["!ticker@arr","!markPrice@arr@1s"]),syms:new Set(),ws:null,tries:0,sent:new Set()}; wsdOpen(wsd.glob); }
+function wsdStart(){ if(!wsd.on||wsd.glob||typeof WebSocket==="undefined") return; wsd.glob={streams:new Set(["!ticker@arr","!markPrice@arr@1s"]),syms:new Set(),ws:null,tries:0,sent:new Set()}; wsdOpen(wsd.glob);
+  if(!wsd.watch){ wsd.watch=setInterval(()=>wsdWatch(),10e3); try{ window.addEventListener("online",()=>wsdKickAll("ağ geri geldi")); }catch(e){} } }
 function wsdWant(s){ if(!wsd.on||typeof WebSocket==="undefined") return; wsdStart(); const st=wsdStore(s); st.req=Date.now(); if(st.conn) return;
   const all=Object.keys(wsd.k).filter(x=>wsd.k[x].conn);
   if(all.length>=WSD_CFG.maxSyms){ const old=all.sort((a,b)=>wsd.k[a].req-wsd.k[b].req)[0]; const o=wsd.k[old]; wsdUnsub(o.conn,old.toLowerCase()+"@kline_1m"); o.conn.syms.delete(old); delete wsd.k[old]; }
@@ -3580,7 +3592,7 @@ function botWsSync(){
   const syms=Array.from(new Set([...bot.positions.map(p=>p.sym),...bot.orders.map(o=>o.sym)])).sort(); const key=syms.join(",");
   if(bot.wsKey===key && bot.ws && bot.ws.readyState<=1) return;
   if(bot.ws){ try{ bot.ws.onclose=null; bot.ws.close(); }catch(e){} bot.ws=null; } if(botWs2){ try{ botWs2.onclose=null; botWs2.close(); }catch(e){} botWs2=null; } bot.wsKey=key; if(!syms.length) return;
-  let ws; try{ ws=new WebSocket(WS_BASE+syms.map(s=>s.toLowerCase()).flatMap(s=>[`${s}@trade`,`${s}@bookTicker`]).join("/")); }catch(e){ return; } bot.ws=ws;
+  let ws; try{ ws=new WebSocket(WS_BASE+syms.map(s=>s.toLowerCase()).flatMap(s=>[`${s}@trade`,`${s}@bookTicker`]).join("/")); }catch(e){ return; } bot.ws=ws; bot.wsAt=Date.now();
   // mark fiyatı ve fonlama yalnız /market yolunda akıyor: eski yolda sessizdi, 5 Ekim'den beri kâğıt pozisyonlardan fonlama kesilmiyordu
   try{ botWs2=new WebSocket(WSD_URL+syms.map(s=>s.toLowerCase()+"@markPrice@1s").join("/")); botWs2.onmessage=ev=>ws.onmessage(ev); botWs2.onerror=()=>{}; const me=botWs2; botWs2.onclose=()=>{ if(botWs2!==me) return; botWs2=null; setTimeout(()=>{ if(bot.wsKey===key&&!botWs2){ bot.wsKey=null; botWsSync(); } },5000); }; }catch(e){}
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } const d=m.data||m; const st=m.stream||""; const sym=(d.s||st.split("@")[0]||"").toUpperCase(); if(!sym) return;
@@ -4112,6 +4124,8 @@ if(acct.key&&acct.secret&&acct.remember){ acctStart(acct.key,acct.secret,true).t
   const dr=LS("st-drawer"); if(dr) setDrawer(true,dr); else setDrawer(false,"scan");
   sessionTick(); ui.sessTimer=setInterval(sessionTick,15000);
   setInterval(()=>{ if(live.ws&&live.ok&&Date.now()-live.lastMsg>25000){ wsStatus(false,"akış sustu, yenileniyor"); try{ live.ws.close(); }catch(e){} } },10000);
+  // bot akışı da susabiliyor (uyku/ağ kopması, onclose gelmiyor): mark 30 sn gelmezse bağlantıyı baştan kur (en çok 30 sn'de bir; REST'e gitmez)
+  setInterval(()=>{ const now=Date.now(); if(bot.ws&&(bot.positions.length||bot.orders.length)&&now-Math.max(bot.lastMark||0,bot.wsAt||0)>30000&&now-(bot.wsKick||0)>30000){ bot.wsKick=now; bot.wsKey=null; botWsSync(); } },10000);
   renderFeed(); renderWatch(); renderJournal(); scheduleScan();
   setTimeout(()=>{ ldRefresh(false).catch(()=>{}); },3000); setInterval(()=>{ ldRefresh(false).catch(()=>{}); },10*60e3);
   sel.posProvider=()=>bot.positions.map(p=>({sym:p.sym,dir:p.dir})); // Tolga açık pozisyonlarımızın coininde liderleri izler

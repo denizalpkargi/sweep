@@ -616,7 +616,7 @@ function botWsSync(){
   const syms=Array.from(new Set([...bot.positions.map(p=>p.sym),...bot.orders.map(o=>o.sym)])).sort(); const key=syms.join(",");
   if(bot.wsKey===key && bot.ws && bot.ws.readyState<=1) return;
   if(bot.ws){ try{ bot.ws.onclose=null; bot.ws.close(); }catch(e){} bot.ws=null; } if(botWs2){ try{ botWs2.onclose=null; botWs2.close(); }catch(e){} botWs2=null; } bot.wsKey=key; if(!syms.length) return;
-  let ws; try{ ws=new WebSocket(WS_BASE+syms.map(s=>s.toLowerCase()).flatMap(s=>[`${s}@trade`,`${s}@bookTicker`]).join("/")); }catch(e){ return; } bot.ws=ws;
+  let ws; try{ ws=new WebSocket(WS_BASE+syms.map(s=>s.toLowerCase()).flatMap(s=>[`${s}@trade`,`${s}@bookTicker`]).join("/")); }catch(e){ return; } bot.ws=ws; bot.wsAt=Date.now();
   // mark fiyatı ve fonlama yalnız /market yolunda akıyor: eski yolda sessizdi, 5 Ekim'den beri kâğıt pozisyonlardan fonlama kesilmiyordu
   try{ botWs2=new WebSocket(WSD_URL+syms.map(s=>s.toLowerCase()+"@markPrice@1s").join("/")); botWs2.onmessage=ev=>ws.onmessage(ev); botWs2.onerror=()=>{}; const me=botWs2; botWs2.onclose=()=>{ if(botWs2!==me) return; botWs2=null; setTimeout(()=>{ if(bot.wsKey===key&&!botWs2){ bot.wsKey=null; botWsSync(); } },5000); }; }catch(e){}
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } const d=m.data||m; const st=m.stream||""; const sym=(d.s||st.split("@")[0]||"").toUpperCase(); if(!sym) return;
@@ -1148,6 +1148,8 @@ if(acct.key&&acct.secret&&acct.remember){ acctStart(acct.key,acct.secret,true).t
   const dr=LS("st-drawer"); if(dr) setDrawer(true,dr); else setDrawer(false,"scan");
   sessionTick(); ui.sessTimer=setInterval(sessionTick,15000);
   setInterval(()=>{ if(live.ws&&live.ok&&Date.now()-live.lastMsg>25000){ wsStatus(false,"akış sustu, yenileniyor"); try{ live.ws.close(); }catch(e){} } },10000);
+  // bot akışı da susabiliyor (uyku/ağ kopması, onclose gelmiyor): mark 30 sn gelmezse bağlantıyı baştan kur (en çok 30 sn'de bir; REST'e gitmez)
+  setInterval(()=>{ const now=Date.now(); if(bot.ws&&(bot.positions.length||bot.orders.length)&&now-Math.max(bot.lastMark||0,bot.wsAt||0)>30000&&now-(bot.wsKick||0)>30000){ bot.wsKick=now; bot.wsKey=null; botWsSync(); } },10000);
   renderFeed(); renderWatch(); renderJournal(); scheduleScan();
   setTimeout(()=>{ ldRefresh(false).catch(()=>{}); },3000); setInterval(()=>{ ldRefresh(false).catch(()=>{}); },10*60e3);
   sel.posProvider=()=>bot.positions.map(p=>({sym:p.sym,dir:p.dir})); // Tolga açık pozisyonlarımızın coininde liderleri izler
