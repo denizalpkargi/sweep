@@ -1659,6 +1659,8 @@ function paperStep(p, px, now, cfg){
   const isL=p.dir==="long"; const out=[]; p.hi=Math.max(p.hi,px); p.lo=Math.min(p.lo,px);
   const risk=p.risk0||Math.abs(p.entry-(p.stop0||p.stop));
   if(isL? px<=p.stop : px>=p.stop){ out.push({part:1,price:isL?p.stop*(1-cfg.slip):p.stop*(1+cfg.slip),k:"stop",t:p.stage==="open"?"Stop":"Kalan stop",taker:true,final:true}); return out; }
+  // erken kısmi kâr (varsayılan kapalı): hedef 1'den önce preR'de prePart kadarı kapanır, stop yerinde kalır
+  if(cfg.preR>0&&p.stage==="open"&&!p.preDone&&risk>0&&(isL?px-p.entry:p.entry-px)>=cfg.preR*risk){ p.preDone=true; out.push({part:cfg.prePart||0.3,price:isL?p.entry+cfg.preR*risk:p.entry-cfg.preR*risk,k:"pre",t:`Erken kâr ${fx(cfg.preR,2)}R`,taker:false}); return out; }
   if(p.stage==="open" && (isL? px>=p.t1 : px<=p.t1)){ if(p.t1Part>=1){ out.push({part:1,price:p.t1,k:"tp1",t:"Hedef 1 (tamamı: 200 $ hedefi)",taker:false,final:true}); return out; }
     out.push({part:p.t1Part||0.5,price:p.t1,k:"tp1",t:"Hedef 1",taker:false}); p.stage="tp1"; if(isL? p.entry>p.stop : p.entry<p.stop) p.stop=p.entry; out.push({k:"move",t:`Stop girişe çekildi (${fmtP(p.entry)}).`}); return out; }
   if(p.stage==="tp1"){ if(p.t2 && (isL? px>=p.t2 : px<=p.t2)){ out.push({part:0.6,price:p.t2,k:"tp2",t:"Hedef 2",taker:false}); p.stage="tp2"; }
