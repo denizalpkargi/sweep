@@ -8,7 +8,11 @@
    4. deskAdjust: açık pozisyonda hedef ve stopu günceller (başabaş, dirence göre hedef 1, koşucuyu uzat/kısalt, yapısal stop, hedefi 200 $'a taşıyan hedef 1'de tamamını al).
    Murat (auditor.js) her kararı sonradan puanlar; kötü çıkan kolu kapatır (AUD.off). */
 const GOAL_DEF={goal:200,ddGuard:0.10,nearGoal:0.85,lockGoal:true,maxOpenRisk:1,maxSameDir:4,dirGapMin:15,lossGapMin:30,
-  freeMargin:true,freeEdge:0.08,freeMinR:0.3,beR:0,shortRule:"warn",warnMult:0.75,maxWarn:2,dyn:true,riskMax:0.10,confSpan:0.35};
+  freeMargin:true,freeEdge:0.08,freeMinR:0.3,beR:0,shortRule:"warn",warnMult:0.75,maxWarn:2,dyn:true,riskMax:0.10,confSpan:0.35,aggr:false};
+/* Agresif mod (7 Ekim 2026, kullanıcı: "bakiyede düşüş yaşamış olsalar bile işlem açabilsinler; işlem açmadıktan sonra bakiyeyi geri kazanamazlar"):
+   aggr açıkken düşüşe bağlı frenler kalkar: "koru" modu (risk ×0,6, eşik +5), kayıptan sonra soğuma (lossGapMin, Murat'ın pauseMin'i) ve
+   günlük kayıp sınırı (maxLosses). Kalanlar aynen: işlem başına stop, eşik ve asgari oy, veto, BTC çöküşü, aynı coin/aynı yön sınırı ve 15 dk arası,
+   yer/teminat, günlük işlem sayısı, Murat'ın kalıp dersleri (eşik/asgari oy eki, uyarı yasağı, veto). Varsayılan kapalı; kendi tercihle açılır. */
 Object.assign(BOT_CFG_DEF,GOAL_DEF);
 // kayıtlı eski ayar (riskMax yok): açık risk sınırı %9'du, tek bir %10'luk işleme yer kalmazdı → yeni varsayılana taşınır. Tam bütçe (6 Ekim gecesi): sınır 1 = özkaynağın tamamı, bütçeyi teminat sınırı (%95) belirler; maxSameDir 4, maxPos 6, günde 24/12 (comMigrate v3)
 function cfgMigrate(saved,cfg){ if(saved&&saved.riskMax==null) cfg.maxOpenRisk=GOAL_DEF.maxOpenRisk; return cfg; }
@@ -36,6 +40,7 @@ function goalState(b, cfg){
   const peak=Math.max(b.peak||start,eq,start); const dd=peak>0?Math.max(0,1-eq/peak):0; const prog=(eq-start)/(goal-start); const need=goal-eq;
   let mode="normal", riskMult=1, thrAdd=0, why=`200 $ hedefine ${fx(Math.max(0,need),2)} $ var (yol %${Math.round(clamp(prog,0,1)*100)})`;
   if(eq>=goal||b.goalHit){ mode="tamam"; riskMult=0.5; thrAdd=0.1; why=`hedef ${fx(goal,0)} $ tamam; kazancı korumak için risk yarıya, eşik +0,10`; }
+  else if(dd>=cfg.ddGuard&&cfg.aggr){ mode="agresif"; why=`zirveden (${fx(peak,2)} $) %${fx(dd*100,1)} geride; agresif mod açık: koru freni yok, risk ve eşik normal`; }
   else if(dd>=cfg.ddGuard){ mode="koru"; riskMult=0.6; thrAdd=0.05; why=`zirveden (${fx(peak,2)} $) %${fx(dd*100,1)} geride: risk ×0,6, eşik +0,05; önce kaybı durdur`; }
   else if(prog>=cfg.nearGoal){ mode="yakın"; riskMult=0.7; why=`hedefe ${fx(need,2)} $ kaldı: elde edileni geri vermemek için risk ×0,7`; }
   return {goal,start,eq,peak,dd,prog,need,mode,riskMult,thrAdd,why};
@@ -68,7 +73,7 @@ function entryStages(x, ctx){
   /* aşama 4 (sayaçlar önce): korelasyon ve bekleme */
   const pos=ctx.positions||[]; const same=pos.filter(p=>p.dir===x.dir); const cap=Math.min(cfg.maxSameDir||9,au&&au.maxSameDir?au.maxSameDir:9);
   const opens=pos.map(p=>({t:p.openT,dir:p.dir})).concat((ctx.trades||[]).map(t=>({t:t.openT,dir:t.dir}))); const lastSame=Math.max(0,...opens.filter(o=>o.dir===x.dir).map(o=>o.t||0));
-  const lastLoss=(ctx.trades||[]).filter(t=>t.r<0).reduce((a,t)=>Math.max(a,t.closeT||0),0); const gapLoss=Math.max(cfg.lossGapMin||0,au&&au.pauseMin||0);
+  const lastLoss=(ctx.trades||[]).filter(t=>t.r<0).reduce((a,t)=>Math.max(a,t.closeT||0),0); const gapLoss=cfg.aggr?0:Math.max(cfg.lossGapMin||0,au&&au.pauseMin||0);
   let f4=null; if(pos.some(p=>p.sym===x.sym)) f4="bu coinde zaten pozisyon var"; else if(same.length>=cap) f4=`zaten ${same.length} ${x.dir} açık (sınır ${cap}); hepsi BTC ile birlikte hareket eder`;
   else if(lastSame&&now-lastSame<cfg.dirGapMin*60e3) f4=`${Math.round((now-lastSame)/60e3)} dk önce aynı yönde giriş yapıldı; aynı bahsi ikinci kez oynamamak için ${cfg.dirGapMin} dk ara`;
   else if(lastLoss&&now-lastLoss<gapLoss*60e3) f4=`son kayıp ${Math.round((now-lastLoss)/60e3)} dk önce; ${gapLoss} dk soğuma`;
