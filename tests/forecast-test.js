@@ -28,4 +28,7 @@ const L=F.done.find(f=>f.dir==="long"), S=F.done.find(f=>f.dir==="short"); ok(L&
   ok(E.fcMult("liq")===Lr.agents.liq.m,'fcMult okunmadı'); }
 // 5. kalıcılık
 ok(JSON.parse(mem["st-fc"]).done.length>=2,'localStorage yazılmadı');
+// 6. en yüksek puanlı tahminler (fcTop): pozisyon notları ve faktör anahtarları karışmaz
+{ const T=E.fcTop({done:[{sym:"AUSDT",dir:"long",t:1,score:0.55,y:1,go:true,v:{trend:1,liq:-0.2,"f:x":1}},{sym:"B",dir:"short",t:2,score:0.2,y:0,v:{}},{sym:"C",dir:"long",t:3,score:0.9,y:1,kind:"pos",v:{}}]},5);
+  ok(T.length===2&&T[0].sym==="AUSDT"&&T[0].yes.join()==="trend",'fcTop yanlış'); }
 console.log('errors',JSON.stringify(errors)); process.exit(errors.length?1:0);
