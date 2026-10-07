@@ -3995,7 +3995,7 @@ function botDigest(){ try{ const now=Date.now(); if(botDig.lastN==null) botDig.l
     const logs=bot.log.filter(l=>l.t>botDig.lastT); const types={}; for(const l of logs) types[l.type]=(types[l.type]||0)+1;
     const ab={}, yes={}; for(const v of bot.lastVotes||[]) for(const a of v.agents||[]){ const k=a.id||a.name; ab[k]=(ab[k]||0)+(a.abst?1:0); yes[k]=(yes[k]||0)+(!a.abst&&a.v>0.3?1:0); }
     const F=FC||fcLoad(), L=F.learn;
-    const out={t:new Date(now).toISOString(),on:bot.on,mode:bot.cfg.mode,bal:r2(bot.bal),eq:r2(botEquity()),start:bot.start,goalMode:bot.goalMode||null,day:bot.day,thr:r2(botThr()),minYes:botMinYes(),
+    const out={t:new Date(now).toISOString(),on:bot.on,mode:bot.cfg.mode,bal:r2(bot.bal),eq:r2(botEquity()),start:bot.start,goalMode:bot.goalMode||null,aggr:!!bot.cfg.aggr,day:bot.day,thr:r2(botThr()),minYes:botMinYes(),
       scan:{rows:scan.rows.length,ageMin:scan.at?Math.round((now-scan.at)/6e4):null,running:!!scan.running,hidden:document.hidden},rest:{fails:rest.fails||0},
       pos,orders:bot.orders.length,trades:bot.trades.length,all:{n:bot.trades.length,win:bot.trades.filter(t=>t.pnl>0).length,R:r2(bot.trades.reduce((a,t)=>a+t.r,0))},d24:{n:d24.length,win:d24.filter(t=>t.pnl>0).length,R:r2(d24.reduce((a,t)=>a+t.r,0)),pnl:r2(d24.reduce((a,t)=>a+t.pnl,0))},closed,
       logTypes:types,log:logs.filter(l=>l.type!=="skip"||/bayat|boş|hata/.test(l.text)).slice(-25).map(l=>new Date(l.t).toISOString().slice(11,16)+" "+l.type+" "+l.sym+" "+String(l.text).slice(0,260)),lastSkip:(logs.filter(l=>l.type==="skip").pop()||{}).text||null,
