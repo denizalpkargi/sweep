@@ -561,12 +561,15 @@ try{ scan.cons=JSON.parse(localStorage.getItem("rp-cons")||"{}"); const cut=Date
 function consSave(){ try{ localStorage.setItem("rp-cons",JSON.stringify(scan.cons)); }catch(e){} }
 function consPut(sym,A){ if(!A.cons) return; const slim=c=>({tier:c.tier,n:c.n,wr:c.wr,ev:c.ev,lastT:c.lastT}); scan.cons[sym]={L:slim(A.cons.long),S:slim(A.cons.short),t:Date.now()}; consSave(); }
 async function universe(minVol){
-  if(!scan.info || Date.now()-scan.infoAt>3600e3){ scan.info=await j("/fapi/v1/exchangeInfo"); scan.infoAt=Date.now(); }
+  if(!scan.info || Date.now()-scan.infoAt>3600e3){ try{ scan.info=await j("/fapi/v1/exchangeInfo"); scan.infoAt=Date.now(); }catch(e){ if(!scan.info) scan.info={symbols:[]}; } }
   const ok=new Set(scan.info.symbols.filter(x=>x.contractType==="PERPETUAL"&&x.quoteAsset==="USDT"&&x.status==="TRADING").map(x=>x.symbol));
+  if(!ok.size) for(const p of await j("/fapi/v1/premiumIndex")) if(/USDT$/.test(p.symbol)) ok.add(p.symbol); // exchangeInfo yoksa (yasak) mark listesinden
   const [tick,prem]=await Promise.all([j("/fapi/v1/ticker/24hr"),j("/fapi/v1/premiumIndex")]);
   const pm={}; prem.forEach(p=>pm[p.symbol]=p);
   return tick.filter(t=>ok.has(t.symbol)&&+t.quoteVolume>=minVol).sort((a,b)=>+b.quoteVolume-+a.quoteVolume).slice(0,120).map(t=>({t24:t,prem:pm[t.symbol]})).filter(x=>x.prem);
 }
+// yasak/bağlantı hatasında nötr değer (boş yanıt = Binance bu coinde veri vermiyor → yine atlanır)
+async function jOr(path,def){ try{ return await j(path); }catch(e){ if(/yasağı|hız sınırı|bağlantı kurulamadı/.test(e.message)) return def; throw e; } }
 async function scanOne(u){
   const s=u.t24.symbol;
   const [k1d,k4h,k1h,k15,k5,oi5,taker5,toppos,glob]=await Promise.all([
@@ -575,10 +578,10 @@ async function scanOne(u){
     j(`/fapi/v1/klines?symbol=${s}&interval=1h&limit=60`),
     j(`/fapi/v1/klines?symbol=${s}&interval=15m&limit=100`),
     j(`/fapi/v1/klines?symbol=${s}&interval=5m&limit=24`),
-    j(`/futures/data/openInterestHist?symbol=${s}&period=5m&limit=24`),
-    j(`/futures/data/takerlongshortRatio?symbol=${s}&period=5m&limit=12`),
-    j(`/futures/data/topLongShortPositionRatio?symbol=${s}&period=5m&limit=8`),
-    j(`/futures/data/globalLongShortAccountRatio?symbol=${s}&period=5m&limit=8`)
+    jOr(`/futures/data/openInterestHist?symbol=${s}&period=5m&limit=24`,[{sumOpenInterestValue:"0",sumOpenInterest:"0"}]),
+    jOr(`/futures/data/takerlongshortRatio?symbol=${s}&period=5m&limit=12`,[{buySellRatio:"1"}]),
+    jOr(`/futures/data/topLongShortPositionRatio?symbol=${s}&period=5m&limit=8`,[{longShortRatio:"1"}]),
+    jOr(`/futures/data/globalLongShortAccountRatio?symbol=${s}&period=5m&limit=8`,[{longShortRatio:"1"}])
   ]);
   if(k1d.length<60 || !oi5.length || !taker5.length || !toppos.length || !glob.length) return null;
   const f={t24:u.t24,prem:u.prem,k5:K(k5),k15:K(k15),oi5,taker5}, sl={k1d:K(k1d),k4h:K(k4h),k1h:K(k1h),toppos,glob};

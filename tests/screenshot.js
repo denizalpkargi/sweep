@@ -38,7 +38,7 @@ function data(p){ const sym=(p.match(/symbol=(\w+)/)||[])[1];
   if(p.startsWith('/fapi/v1/fundingRate')) return [{fundingRate:'0.00005',fundingTime:Date.now()-3600e3},{fundingRate:'0.00008',fundingTime:Date.now()-7200e3},{fundingRate:'0.00002',fundingTime:Date.now()-10800e3}];
   return null; }
 (async()=>{
-  const br=await chromium.launch();
+  const br=await chromium.launch(process.env.PW_EXEC?{executablePath:process.env.PW_EXEC}:{});
   for(const [name,vp,full] of [['desktop',{width:1366,height:800},false],['mobile',{width:390,height:844},true]]){
     const ctx=await br.newContext({viewport:vp,deviceScaleFactor:1,locale:'tr-TR',timezoneId:'Europe/Istanbul'}); const page=await ctx.newPage();
     page.on('pageerror',e=>console.log('PAGEERROR',e.message)); page.on('console',m=>{ if(m.type()==='error') console.log('CONSOLE',m.text().slice(0,200)); });

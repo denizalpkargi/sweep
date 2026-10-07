@@ -13,12 +13,21 @@ rep(`const inZone=!!(r&&r.stage==="entry");`,`const inZone=!!(r&&(r.stageLive||r
 rep(`async function j(path){
   let r; try{ r=await fetch(BASE+path); }catch(e){ throw new Error(path.split("?")[0]+" → bağlantı kurulamadı ("+e.message+")"); }
   if(!r.ok){ let t=""; try{ t=(await r.text()).slice(0,120); }catch(e){} throw new Error(path.split("?")[0]+" → HTTP "+r.status+(t?" · "+t:"")); }`,
-`const rest={cool:0,fails:0,used:0,usedT:0};
+`${rd(P+'wsdata.js','utf8')}
+const rest={cool:0,fails:0,used:0,usedT:0};
 // Binance yasağı (418) ya da hız sınırı (429) yeniden başlatmada unutulmasın: art arda açılışlar 429'u saatlik 418'e çeviriyordu (6 Ekim 2026 gecesi)
 try{ const c=+(localStorage.getItem("st-rest-cool")||0); if(c>Date.now()) rest.cool=c; }catch(e){}
 const restSleep=ms=>new Promise(r=>setTimeout(r,ms));
+// önce WebSocket veri katmanı (src/wsdata.js): akıştan mum/fiyat, saklanan yanıtlar; yasakta son hâl
 async function j(path){
-  for(let g=0;g<20;g++){ const now=Date.now(); if(now<rest.cool){ await restSleep(rest.cool-now); continue; }
+  if(wsd.on){ const t=wsdTicker(path); if(t!==undefined) return t; }
+  if(path.startsWith("/fapi/v1/klines")){ if(wsd.on){ const kk=await wsdKlines(path,jRest); if(kk!==undefined) return kk; } }
+  else { const c=wsdRespGet(path,false); if(c!==undefined){ wsd.stat.respHit++; return c; } }
+  try{ const d=await jRest(path); wsdRespPut(path,d); return d; }
+  catch(e){ const c=wsdRespGet(path,true); if(c!==undefined){ wsd.stat.stale++; return c; } throw e; }
+}
+async function jRest(path){
+  for(let g=0;g<20;g++){ const now=Date.now(); if(now<rest.cool){ if(rest.cool-now>60e3) throw new Error(path.split("?")[0]+" → Binance yasağı/hız sınırı, "+Math.round((rest.cool-now)/6e4)+" dk kaldı (akıştaki ve saklanan veri kullanılıyor)"); await restSleep(rest.cool-now); continue; }
     // dakikalık ağırlık 2400: 1800'ü geçtiyse dakika dolana kadar bekle (429'a varmadan)
     if(rest.used>=1800&&Math.floor(rest.usedT/6e4)===Math.floor(now/6e4)){ await restSleep(6e4-now%6e4+500); continue; } break; }
   let r; try{ r=await fetch(BASE+path); }catch(e){ throw new Error(path.split("?")[0]+" → bağlantı kurulamadı ("+e.message+")"); }
@@ -59,6 +68,8 @@ eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P
 if(!eng.includes('function fcObserve')) throw new Error('forecast insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'goal.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function entryStages')) throw new Error('goal insert failed');
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'llmdesk.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function lmdMeet')) throw new Error('llmdesk insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'trend.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function trendTargets')) throw new Error('trend insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'dip.js','utf8')+`\n// backtest: every completed sequence in the history`);

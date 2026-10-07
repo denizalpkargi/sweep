@@ -42,7 +42,7 @@ function corsBridge(){
   ses.webRequest.onHeadersReceived(F,(d,cb)=>{ const h=Object.assign({},d.responseHeaders||{}); for(const k of Object.keys(h)) if(/^access-control-/i.test(k)) delete h[k]; h['Access-Control-Allow-Origin']=['*']; h['Access-Control-Allow-Headers']=['*']; h['Access-Control-Allow-Methods']=['GET, POST, OPTIONS']; cb({responseHeaders:h,statusLine:d.method==='OPTIONS'?'HTTP/1.1 200 OK':d.statusLine}); });
 }
 
-let win=null, quitting=false, crashes=[], hangTimer=null;
+let win=null, quitting=false, crashes=[], hangTimer=null, sysEndAt=0, asking=false;
 const MEM_RELOAD_MB=2500; // sayfa bu kadar belleğe ulaşırsa kontrollü yeniden yükle (bot durumu localStorage'da)
 
 function reloadSafe(why){
@@ -78,16 +78,26 @@ function create(){
   win.on('close',e=>{
     if(quitting) return;
     e.preventDefault();
+    // Windows (güncelleme/yükleyici, oturum sonu) kapatmak istiyorsa soru açma: eşzamanlı pencere ana süreci kilitliyor, günlük ve kayıt duruyordu (7 Ekim 00:17).
+    // Gerçek kapanışta session-end gelir ve uygulama kapanır; gelmezse pencere açık kalır.
+    if(Date.now()-sysEndAt<120e3){ log('Windows pencereyi kapatmak istedi; bot için açık kalıyor'); return; }
+    if(asking) return;
     // sayfa çökmüş/donmuşsa yanıt gelmeyebilir: 1,5 sn sonra sormadan devam
     Promise.race([wc.executeJavaScript('(()=>{try{const b=JSON.parse(localStorage.getItem("st-bot")||"{}");return {on:!!b.on,n:(b.positions||[]).length};}catch(e){return {on:false,n:0};}})()',true),new Promise(r=>setTimeout(()=>r({on:false,n:0}),1500))])
       .catch(()=>({on:false,n:0}))
       .then(s=>{
-        if(s.on||s.n){ const r=dialog.showMessageBoxSync(win,{type:'question',buttons:['Kapat','Açık kalsın'],defaultId:1,cancelId:1,title:'SWEEP',message:'Bot çalışıyor'+(s.n?' ('+s.n+' açık pozisyon)':'')+'. Kapatılsın mı?',detail:'Pencere kapanınca bot durur; pozisyonlar kayıtlı kalır.'}); if(r!==0){ log('kapatma iptal edildi'); return; } }
+        if(!s.on&&!s.n) return 0;
+        // Eşzamansız soru: yanıt beklenirken ana süreç (günlük, durum dosyası, localStorage) çalışmaya devam eder.
+        asking=true;
+        return dialog.showMessageBox(win,{type:'question',buttons:['Kapat','Açık kalsın'],defaultId:1,cancelId:1,title:'SWEEP',message:'Bot çalışıyor'+(s.n?' ('+s.n+' açık pozisyon)':'')+'. Kapatılsın mı?',detail:'Pencere kapanınca bot durur; pozisyonlar kayıtlı kalır.'}).then(r=>r.response).finally(()=>{ asking=false; });
+      })
+      .then(r=>{
+        if(r!==0){ log('kapatma iptal edildi'); return; }
         log('kullanıcı pencereyi kapattı'); quitting=true; if(win&&!win.isDestroyed()) win.close();
       });
   });
   // Windows kapanışı / oturum kapatma: soru sorup kapanışı engelleme, nedeni kaydet.
-  win.on('query-session-end',()=>log('Windows oturumu/kapanışı soruyor (query-session-end)'));
+  win.on('query-session-end',()=>{ sysEndAt=Date.now(); log('Windows oturumu/kapanışı soruyor (query-session-end)'); });
   win.on('session-end',()=>{ quitting=true; log('Windows oturumu kapanıyor veya bilgisayar kapanıyor (session-end)'); });
   win.on('closed',()=>{ win=null; });
 }
