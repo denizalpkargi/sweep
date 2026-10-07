@@ -15,10 +15,10 @@ const ll=(a,i,n)=>{ let m=Infinity; for(let k=Math.max(0,i-n+1);k<=i;k++) m=Math
 const atr=(a,i,n)=>{ let s=0; for(let k=i-n+1;k<=i;k++) s+=Math.max(a[k].h-a[k].l,Math.abs(a[k].h-a[k-1].c),Math.abs(a[k].l-a[k-1].c)); return s/n; };
 const sma=(a,i,n)=>{ if(i<n-1) return NaN; let s=0; for(let k=i-n+1;k<=i;k++) s+=a[k].c; return s/n; };
 
-function loadSets(){ const sets=[]; const dd=path.join(__dirname,'data','daily');
+function loadSets(){ const sets=[]; const DATA=process.env.SWEEP_DATA||path.join(__dirname,'data'); const dd=path.join(DATA,'daily');
   if(fs.existsSync(dd)){ const D={}; for(const f of fs.readdirSync(dd).filter(f=>f.endsWith('.csv'))) D[f.replace('.csv','')]=fs.readFileSync(path.join(dd,f),'utf8').trim().split('\n').map(l=>{ const a=l.split(',').map(Number); return {t:a[0],o:a[1],h:a[2],l:a[3],c:a[4]}; }).filter(b=>isFinite(b.c));
     if(D.BTCUSDT) sets.push({name:'4 büyük coin, günlük 2020–2026',D}); }
-  const jd=path.join(__dirname,'data'); const D={}; for(const f of fs.readdirSync(jd).filter(f=>f.endsWith('.json')&&!f.startsWith('_'))){ try{ const r=JSON.parse(fs.readFileSync(path.join(jd,f),'utf8')); if(r.k1d&&r.k1d.length>250) D[r.sym]=r.k1d.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]})); }catch(e){} }
+  const jd=DATA; const D={}; for(const f of fs.readdirSync(jd).filter(f=>f.endsWith('.json')&&!f.startsWith('_'))){ try{ const r=JSON.parse(fs.readFileSync(path.join(jd,f),'utf8')); if(r.k1d&&r.k1d.length>250) D[r.sym]=r.k1d.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]})); }catch(e){} }
   if(D.BTCUSDT&&Object.keys(D).length>4) sets.push({name:`${Object.keys(D).length} coin (masanın evreni), günlük son ~400 gün`,D});
   return sets; }
 

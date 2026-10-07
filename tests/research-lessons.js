@@ -2,11 +2,11 @@
 // Masa (bugünkü committee(), güncel kod) 24 coinde saatte bir iki yön için toplanır; eşiği geçen her sinyal için
 // giriş bağlamı (coin ve BTC hareketi, günlük ortalamalar, 24 sa aralıkta yer, stop/ATR, saat) ve plan çeşitlerinin sonucu (sim-lib.js) saklanır.
 // Sonra: (1) giriş süzgeçleri tek tek, iki yarı; (2) çıkış/stop çeşitleri; (3) portföy: aynı yönde en çok N pozisyon, düşüşte boy kısma (Kaplumbağa), %3 risk.
-// Kullanım (kendi makinende; veri tests/data/*.json, node tests/fetch-history.js):
+// Kullanım (kendi makinende; veri tests/data/*.json ya da SWEEP_DATA=<klasör>, node tests/fetch-history.js):
 //   node tests/research-lessons.js all        → 4 parça paralel örnekleme + rapor (tests/data/_lessons.json, tests/lessons-report.txt)
 //   node tests/research-lessons.js report     → yalnız rapor
 const fs=require('fs'), path=require('path'), {spawn}=require('child_process');
-const OUT=path.join(__dirname,'data','_lessons.json'), REP=path.join(__dirname,'lessons-report.txt');
+const OUT=path.join(__dirname,'_lessons.json'), REP=path.join(__dirname,'lessons-report.txt');
 const mode=process.argv[2]||'all';
 const M15=9e5, H=36e5;
 const sma=(a,n)=>a.length<n?NaN:a.slice(-n).reduce((x,y)=>x+y,0)/n;
