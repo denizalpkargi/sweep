@@ -124,7 +124,7 @@ async function main(o,inj){
   function shutdown(sig){ if(stopping) return; stopping=true; for(const t of timers) clearInterval(t); if(ws){ try{ ws.onclose=null; ws.close(); }catch(e){} }
     log('sys','',`Durduruldu (${sig}). Açık pozisyonlar bot.json'da; yeniden başlatınca aradaki süre oynatılır.`); B.save(true); store.flush(); status(); }
 
-  const c=bot.cfg; log('sys','',`Ekransız bot başladı · KOMİTE · sanal ${bot.bal.toFixed(2)} $ · risk %${c.risk*100} · ${c.lev}x · aynı anda ${c.maxPos} pozisyon · eşik ${E.pts(c.threshold)}/${E.SCORE_MAX}, ${c.minYes}/${E.DESK.length} oy · zaman stopu ${c.holdH} sa · hedef ${c.goal} $ · aynı yönde en fazla ${c.maxSameDir} · yer açma ${c.freeMargin?"açık":"kapalı"} · tarama ${Math.round(o.every/60000)} dk · ${bot.positions.length} açık pozisyon`,{cfg:c,opts:o});
+  const c=bot.cfg; log('sys','',`Ekransız bot başladı · KOMİTE · sanal ${bot.bal.toFixed(2)} $ · risk %${c.risk*100} · ${c.lev}x · aynı anda ${c.maxPos} pozisyon · eşik ${E.pts(c.threshold)}/${E.SCORE_MAX}, ${c.minYes}/${E.DESK.length} oy · zaman stopu ${c.holdH} sa · hedef ${c.goal} $ · aynı yönde en fazla ${c.maxSameDir} · yer açma ${c.freeMargin?"açık":"kapalı"}${c.aggr?" · AGRESİF (düşüş frenleri kapalı)":""} · tarama ${Math.round(o.every/60000)} dk · ${bot.positions.length} açık pozisyon`,{cfg:c,opts:o});
   await gapFill(); wsSync();
   await E.ldRefresh(false).catch(()=>{});
   await trendRun(); await dipRun();

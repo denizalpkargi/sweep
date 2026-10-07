@@ -34,6 +34,14 @@ es=E.entryStages(X({score:0.6}),ctx({positions:full,px:()=>0.99})); ok(es.ok&&es
 let fp=E.freePlan(X({score:0.6}),es,ctx({positions:full,px:()=>0.99})); ok(fp&&fp[0].kind==="free"&&fp[0].part===0.5,'kârdaki pozisyondan yarısı alınmalı: '+JSON.stringify(fp&&fp.map(o=>[o.kind,o.part])));
 fp=E.freePlan(X({score:0.6}),es,ctx({positions:full,px:()=>1.01})); ok(!fp,'zarardaki pozisyon yer açmak için kesilmemeli');
 fp=E.freePlan(X({score:0.33}),es,ctx({positions:full,px:()=>0.99})); ok(!fp,'eşiğe yakın kurulum için yer açılmamalı');
+// agresif mod: düşüşte koru yok, kayıp soğuması yok; korelasyon, eşik ve BTC çöküşü aynen
+const cA={...cfg,aggr:true}; const gA=E.goalState({start:100,eq:89,peak:157},cA); ok(gA.mode==="agresif"&&gA.riskMult===1&&gA.thrAdd===0,'agresif modda koru yok');
+es=E.entryStages(X({score:0.32}),ctx({eq:89,bal:89,peak:157})); ok(!es.ok,'koru modunda eşik +5: 32 puanla girmemeli');
+es=E.entryStages(X({score:0.32}),ctx({cfg:cA,eq:89,bal:89,peak:157})); ok(es.ok&&es.gs.mode==="agresif",'agresif modda 32 puanla girmeli: '+E.stagesTxt(es));
+es=E.entryStages(X(),ctx({cfg:cA,trades:[{r:-1,closeT:now-10*60e3,openT:now-60*60e3,dir:"short"}],aud:{pauseMin:60}})); ok(es.ok,'agresif modda kayıp soğuması yok');
+es=E.entryStages(X(),ctx({cfg:cA,positions:[P({openT:now-5*60e3})]})); ok(!es.ok,'agresif modda da aynı yönde 15 dk ara');
+es=E.entryStages(X({feat:{btc:{ch4:-0.03,ch24:-0.05,bias:"down",ok:false,dump:true}}}),ctx({cfg:cA})); ok(!es.ok,'agresif modda da BTC çöküşünde long yok');
+es=E.entryStages(X({score:0.2}),ctx({cfg:cA})); ok(!es.ok,'agresif modda da eşik altı girmemeli');
 // 4. dinamik hedef
 const gs=E.goalState({start:100,eq:198},cfg); let p=P(); let adj=E.deskAdjust(p,{cfg,px:1.01,rv:null,lvl:null,gs}); ok(adj.some(a=>a.k==="t1full"),'hedef 1 200 $a taşıyorsa tamamı');
 p=P(); adj=E.deskAdjust(p,{cfg,px:1.005,rv:null,lvl:1.018,gs:E.goalState({start:100,eq:110},cfg)}); const pull=adj.find(a=>a.k==="t1pull"); ok(pull&&pull.t1<1.018,'direnç önünde hedef 1 çekilmeli');

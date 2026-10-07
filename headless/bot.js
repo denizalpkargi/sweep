@@ -78,7 +78,7 @@ function createBot(E, opt){
     const c=rows.length?candidates(rows):[];
     if(reason==="scan"&&opt.votes!=="none"){ for(const x of c) if(opt.votes==="all"||x.go||(opt.votes==="deep"&&(x.row.deep||x.score>=cfg.threshold-0.15))) write('votes',voteRec(x,now,bot.scanId)); }
     if(d.opens>=cfg.maxOpens){ if(reason==="scan") log("skip","",`Bugün ${d.opens}/${cfg.maxOpens} işlem açıldı: gün kapalı.`); return; }
-    if(d.losses>=cfg.maxLosses){ if(reason==="scan") log("skip","",`Bugün ${d.losses}/${cfg.maxLosses} kayıp: gün kapalı.`); return; }
+    if(d.losses>=cfg.maxLosses&&!cfg.aggr){ if(reason==="scan") log("skip","",`Bugün ${d.losses}/${cfg.maxLosses} kayıp: gün kapalı.`); return; }
     if(!rows.length){ if(reason==="scan") log("skip","","Tarama boş: Binance'e ulaşılamıyor ya da ilk tur bitmedi."); return; }
     goalWatch(); const go=c.filter(x=>x.go);
     if(!go.length){ if(reason==="scan") log("skip","",`Komite ${rows.length} coin × 2 yön puanladı; eşik ${pts(thr())} ve ${minYes()}/${E.DESK.length} oyu sağlayan yok. En iyi: ${c.slice(0,3).map(x=>x.sym.replace("USDT","")+" "+(x.dir==="long"?"L":"S")+" "+pts(x.score)+(x.veto?" (veto)":"")).join(", ")||"—"}.`); save(); return; }
