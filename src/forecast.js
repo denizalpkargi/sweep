@@ -43,6 +43,8 @@ function fcNote(kind,key,sym,dir,A,v,score,now,extra){
     F.pend.push({sym,dir,t:now,px:A.px,atr,score:isFinite(score)?score:0,go:false,kind,v,f:extra||{}}); F.last[lk]=now; if(F.pend.length>FC_DEF.maxPend) F.pend.splice(0,F.pend.length-FC_DEF.maxPend); fcSave(); return true; }
   catch(e){ return false; } }
 function fcPosNote(key,sym,dir,A,rv,now){ if(!rv||!rv.views) return false; const v={"p:masa":rv.hold}; for(const x of rv.views) if(!x.abst) v["p:"+x.id]=x.v; return fcNote("pos",key,sym,dir,A,v,rv.hold,now,{eylem:rv.verdict}); }
+/* en yüksek puanlı sonuçlanmış giriş tahminleri (7 Ekim 2026, kullanıcı "50 üstü başarılı karar hangisi" diye sordu): coin, yön, zaman, puan, sonuç, evet diyen üyeler */
+function fcTop(F,n){ return (F.done||[]).filter(f=>!f.kind&&f.y!=null).sort((a,b)=>b.score-a.score).slice(0,n||5).map(f=>({sym:f.sym,dir:f.dir,t:f.t,score:f.score,y:f.y,go:!!f.go,yes:Object.keys(f.v||{}).filter(id=>!id.startsWith("f:")&&f.v[id]>0)})); }
 const fcHit=a=>a.length?a.reduce((s,f)=>s+f.y,0)/a.length:null; // süre dolan yarım sayılır
 function fcLearn(done){
   const ALL=done.filter(f=>f.y!=null); const D=ALL.filter(f=>!f.kind); const out={n:D.length,at:Date.now(),base:fcHit(D),buckets:[],go:null,agents:{},lessons:[],dir:{},kinds:{}};
