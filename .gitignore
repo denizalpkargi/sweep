@@ -7,3 +7,5 @@ tests/backtest-*.json
 bot-data/
 tests/replay-*.json
 tests/audit-*.json
+tests/lessons-report.txt
+tests/legends-report.txt
