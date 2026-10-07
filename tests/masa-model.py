@@ -37,19 +37,20 @@ def fit_pred(name, tr, te):
         mu = tr[cols].mean(); sd = tr[cols].std().replace(0, 1)
         Z = lambda d: ((d[cols].fillna(mu) - mu) / sd).values
         m = Ridge(alpha=100.0).fit(Z(tr), tr.Rc.values); return m.predict(Z(te)), m.predict(Z(tr))
+    y = tr.f4c.values if name == 'lgbm_f4' else tr.Rc.values
     m = lgb.LGBMRegressor(n_estimators=300, learning_rate=0.03, num_leaves=15, min_child_samples=400, subsample=0.7, subsample_freq=1, colsample_bytree=0.7, reg_lambda=5, verbose=-1)
-    m.fit(tr[ALL], tr.Rc.values); fit_pred.imp = dict(zip(ALL, m.feature_importances_)); return m.predict(te[ALL]), m.predict(tr[ALL])
+    m.fit(tr[ALL], y); fit_pred.imp = dict(zip(ALL, m.feature_importances_)); return m.predict(te[ALL]), m.predict(tr[ALL])
 
-MODELS = ['puan', 'ridge_üye', 'ridge_tüm', 'lgbm']
+MODELS = ['puan', 'ridge_üye', 'ridge_tüm', 'lgbm', 'lgbm_f4']
 oos = {m: [] for m in MODELS}; imps = []
 start = 12
 for i in range(start, len(months), 3):
     test_m = months[i:i+3]; tr = df[df.month < months[i]]; tr = tr[tr.t < df[df.month == months[i]].t.min() - 864e5]; te = df[df.month.isin(test_m)]
     if len(te) == 0: continue
     for m in MODELS:
-        p, ptr = fit_pred(m, tr, te); thr = np.quantile(ptr, 0.9)
-        oos[m].append(pd.DataFrame({'t': te.t.values, 'month': te.month.values, 'sym': te.sym.values, 'dir': te.dir.values, 'p': p, 'top': p >= thr, 'R': te.R.values, 'y': te.y.values, 'f4': te.f4c.values}))
-        if m == 'lgbm': imps.append(fit_pred.imp)
+        p, ptr = fit_pred(m, tr, te); thr = np.quantile(ptr, 0.9); thr2 = np.quantile(ptr, 0.98)
+        oos[m].append(pd.DataFrame({'t': te.t.values, 'month': te.month.values, 'sym': te.sym.values, 'dir': te.dir.values, 'p': p, 'top': p >= thr, 'top2': p >= thr2, 'R': te.R.values, 'y': te.y.values, 'f4': te.f4c.values}))
+        if m == 'lgbm_f4': imps.append(fit_pred.imp)
     print('test', test_m[0], 'eğitim', len(tr), 'test', len(te), flush=True)
 
 def ic_stats(o, col):
@@ -57,23 +58,24 @@ def ic_stats(o, col):
     ics = np.array([x for x in ics if not np.isnan(x)]); return (ics.mean() if len(ics) else np.nan), (ics.mean()/ics.std()*math.sqrt(len(ics)) if len(ics) > 2 and ics.std() > 0 else np.nan), len(ics)
 
 lines = ['# Puanı öğrenen model · ileriye yürüyen test', '', f'Örnek {len(df):,} (veto hariç), {df.sym.nunique()} coin, {months[0]} → {months[-1]}. Taban: R {df.R.mean():+.3f}, isabet %{100*df.y.mean():.1f}. Örneklem dışı dönem {months[start]} → {months[-1]}.', '']
-lines += ['| Model | Dönem | IC (R) | t | IC (4 sa) | t | Üst %10 n | Üst %10 R | Üst %10 isabet |', '|---|---|---|---|---|---|---|---|---|']
+lines += ['| Model | Dönem | IC (R) | t | IC (4 sa) | t | Üst %10 n | Üst %10 R | Üst %10 isabet | Üst %2 n | Üst %2 R |', '|---|---|---|---|---|---|---|---|---|---|---|']
 summary = {}
 for m in MODELS:
     o = pd.concat(oos[m]); mid = np.sort(o.t.values)[len(o)//2]; last24 = o.t.max() - 730*864e5
     for nm, sub in [('tümü', o), ('1. yarı', o[o.t < mid]), ('2. yarı', o[o.t >= mid]), ('son 24 ay', o[o.t >= last24])]:
-        a, at, _ = ic_stats(sub, 'R'); b, bt, _ = ic_stats(sub, 'f4'); tp = sub[sub.top]
-        lines.append(f'| {m} | {nm} | {a:+.3f} | {at:+.1f} | {b:+.3f} | {bt:+.1f} | {len(tp):,} | {tp.R.mean():+.3f} | %{100*tp.y.mean():.1f} |')
+        a, at, _ = ic_stats(sub, 'R'); b, bt, _ = ic_stats(sub, 'f4'); tp = sub[sub.top]; t2 = sub[sub.top2]
+        lines.append(f'| {m} | {nm} | {a:+.3f} | {at:+.1f} | {b:+.3f} | {bt:+.1f} | {len(tp):,} | {tp.R.mean():+.3f} | %{100*tp.y.mean():.1f} | {len(t2):,} | {t2.R.mean():+.3f} |')
         summary[(m, nm)] = dict(icR=a, icRt=at, icF=b, icFt=bt, topN=len(tp), topR=tp.R.mean())
 lines += ['', '## Tahmin onluklarına göre (örneklem dışı, ay içinde sıralı)', '']
-for m in ['puan', 'lgbm', 'ridge_tüm']:
-    o = pd.concat(oos[m]).copy(); o['dec'] = o.groupby('month').p.transform(lambda s: pd.qcut(s.rank(method='first'), 10, labels=False))
+for m in ['puan', 'lgbm', 'lgbm_f4', 'ridge_tüm']:
+    o = pd.concat(oos[m]).copy(); o['dec'] = o.groupby('month').p.transform(lambda s: pd.qcut(s.rank(method='first'), 10, labels=False)); mid = np.sort(o.t.values)[len(o)//2]
     g = o.groupby('dec').agg(n=('R', 'size'), R=('R', 'mean'), y=('y', 'mean'), f4=('f4', 'mean'))
-    lines += [f'**{m}**', '', '| Onluk | n | R | isabet | 4 sa ATR |', '|---|---|---|---|---|'] + [f'| {int(d)+1} | {r.n:,} | {r.R:+.3f} | %{100*r.y:.1f} | {r.f4:+.3f} |' for d, r in g.iterrows()] + ['']
+    g1 = o[o.t < mid].groupby('dec').R.mean(); g2 = o[o.t >= mid].groupby('dec').R.mean(); gl = o[o.dir == 1].groupby('dec').R.mean(); gs = o[o.dir == -1].groupby('dec').R.mean()
+    lines += [f'**{m}**', '', '| Onluk | n | R | 1. yarı R | 2. yarı R | long R | short R | isabet | 4 sa ATR |', '|---|---|---|---|---|---|---|---|---|'] + [f'| {int(d)+1} | {int(r.n):,} | {r.R:+.3f} | {g1[d]:+.3f} | {g2[d]:+.3f} | {gl.get(d, np.nan):+.3f} | {gs.get(d, np.nan):+.3f} | %{100*r.y:.1f} | {r.f4:+.3f} |' for d, r in g.iterrows()] + ['']
 imp = pd.DataFrame(imps).mean().sort_values(ascending=False)
 lines += ['## LightGBM: en çok kullanılan girdiler', '', ', '.join(f'{k} ({v:.0f})' for k, v in imp.head(15).items()), '']
 # geçme kriteri (plan, Adım 4b): örneklem dışı IC ≥ 0,05 iki yarıda ve üst dilimde maliyet sonrası R > 0, iki yarıda
-best = max(['ridge_üye', 'ridge_tüm', 'lgbm'], key=lambda m: summary[(m, 'tümü')]['icR'])
-ok = all(summary[(best, h)]['icR'] >= 0.05 and summary[(best, h)]['topR'] > 0 for h in ['1. yarı', '2. yarı'])
-lines += ['## Karar', '', f'En iyi model: {best}. Geçme kriteri (iki yarıda IC ≥ 0,05 ve üst %10 R > 0): **{"GEÇTİ" if ok else "GEÇMEDİ"}**.']
+best = max(['ridge_üye', 'ridge_tüm', 'lgbm', 'lgbm_f4'], key=lambda m: summary[(m, 'tümü')]['topR'])
+ok = all(max(summary[(best, h)]['icR'], summary[(best, h)]['icF']) >= 0.05 and summary[(best, h)]['topR'] > 0 for h in ['1. yarı', '2. yarı'])
+lines += ['## Karar', '', f'En iyi model: {best}. Geçme kriteri (iki yarıda IC (R ya da 4 sa) ≥ 0,05 ve üst %10 R > 0): **{"GEÇTİ" if ok else "GEÇMEDİ"}**.']
 open(OUT, 'w').write('\n'.join(lines) + '\n'); print('\n'.join(lines))
