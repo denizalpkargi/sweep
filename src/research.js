@@ -38,7 +38,7 @@ async function labHarvest(maxLeaders){
   if(typeof ldPost!=="function"||typeof ld==="undefined"||!ld.list.length) return 0; let done=0,added=0;
   for(const L of ld.list){ if(done>=maxLeaders) break; const last=lab.harvestAt[L.id]||0; if(Date.now()-last<LAB_CFG.harvestEveryH*3600e3) continue;
     const pages=last?1:LAB_CFG.firstPages; done++; lab.prog=`geçmiş: ${L.nick}`;
-    try{ for(let pg=1;pg<=pages;pg++){ const d=await ldPost("lead-portfolio/position-history",{portfolioId:L.id,pageNumber:pg,pageSize:LAB_CFG.pageSize}); const list=d.list||[]; added+=labIngest(L,list); if(list.length<LAB_CFG.pageSize) break; await new Promise(r=>setTimeout(r,400)); }
+    try{ for(let pg=1;pg<=pages;pg++){ const d=await ldPost("lead-portfolio/position-history",{portfolioId:L.id,pageNumber:pg,pageSize:LAB_CFG.pageSize}); const list=d.list||[]; added+=labIngest(L,list); if(list.length<LAB_CFG.pageSize) break; }
       lab.harvestAt[L.id]=Date.now(); }
     catch(e){ lab.err=e.message; break; } }
   return added;
