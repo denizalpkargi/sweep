@@ -4,7 +4,7 @@
 const fs=require('fs'), path=require('path');
 const BASE='https://fapi.binance.com'; const OUT=path.join(__dirname,'data'); const N=+process.argv[2]||24, PAGES=+process.argv[3]||12;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function j(p){ await sleep(1000); const r=await fetch(BASE+p); if(r.status===429||r.status===418){ console.error('hız sınırı',r.status,'— duruyorum'); process.exit(2); } if(!r.ok) throw new Error(p+' HTTP '+r.status); return r.json(); }
+async function j(p){ await sleep(1000); let r; for(let a=0;;a++){ try{ r=await fetch(BASE+p); break; }catch(e){ if(a>=5) throw e; console.log('bağlantı hatası, bekleyip yeniden:',e.cause&&e.cause.code||e.message); await sleep(5000*(a+1)); } } if(r.status===429||r.status===418){ console.error('hız sınırı',r.status,'— duruyorum'); process.exit(2); } if(!r.ok) throw new Error(p+' HTTP '+r.status); return r.json(); }
 const kl=(s,iv,lim,q='')=>j(`/fapi/v1/klines?symbol=${s}&interval=${iv}&limit=${lim}${q}`);
 async function back(s,iv,pages){ let all=[],end; for(let p=0;p<pages;p++){ const k=await kl(s,iv,1500,end?`&endTime=${end}`:''); if(!k.length) break; all=k.concat(all); end=k[0][0]-1; if(k.length<1500) break; } const seen=new Set(); return all.filter(r=>!seen.has(r[0])&&seen.add(r[0])); }
 (async()=>{ fs.mkdirSync(path.join(OUT,'daily'),{recursive:true});
