@@ -15,6 +15,7 @@ t0=$(date +%s); el(){ echo "[$(( $(date +%s)-t0 )) sn] $*"; }
 if [ ! -d "$ARCH/1d" ] && [ -f "$VERI/arch-csv.tar.gz" ]; then el "arşiv önbellekten açılıyor"; tar -xzf "$VERI/arch-csv.tar.gz" -C "$ARCH"; fi
 el "arşiv güncelleniyor"; node tests/fetch-archive.js --update --conc 24 | grep -v '^  ' || true
 node tests/fetch-metrics.js | grep -v '^  ' || true   # 5 dk OI, long/short, taker (ilk 30 coin)
+node tests/fetch-extra.js | grep -v '^  ' || true     # prim endeksi ve spot 15 dk (ilk 30 coin)
 rm -rf "$ARCH/zip"
 
 # 2) masa örnekleri: motor kodu (src + yeniden oynatma betikleri) değiştiyse ya da 7 günden eskiyse yeniden üret
@@ -36,5 +37,5 @@ node tests/hata-orneklem.js --out "$CIKTI" --date "$GUN" ${LIVE:+--live "$LIVE"}
 
 # 4) arşiv önbelleğini geri yaz (günde bir; arka planda kesilirse eski kopya kalır)
 el "arşiv önbelleği yazılıyor"
-tar -czf "$VERI/arch-csv.tar.gz.tmp" -C "$ARCH" 1d 1h 15m funding metrics universe.json symbols.json && mv "$VERI/arch-csv.tar.gz.tmp" "$VERI/arch-csv.tar.gz"
+tar -czf "$VERI/arch-csv.tar.gz.tmp" -C "$ARCH" 1d 1h 15m funding metrics premium15m spot15m universe.json symbols.json && mv "$VERI/arch-csv.tar.gz.tmp" "$VERI/arch-csv.tar.gz"
 el "bitti → $CIKTI/hata-orneklemi-$GUN.md"
