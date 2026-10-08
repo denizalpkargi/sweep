@@ -34,6 +34,9 @@ fi
 # 2b) denklem (100+ değişkenli saatlik model, VWAP sağlamlığı): 7 günde bir, çıktı CIKTI/../dongu/denklem-<gün>.md
 DEN=$ARCH/denklem.f32; DAGE=$(( ( $(date +%s) - $(stat -c %Y "$DEN" 2>/dev/null || echo 0) ) / 86400 ))
 if [ "$DAGE" -ge 7 ]; then el "denklem özellikleri + modeli"; node --max-old-space-size=12000 tests/denklem-ozellik.js | tail -1 && python3 tests/denklem-model.py --fast --target vwap --from 2023-06 --out "$PF/arastirma/dongu/denklem-$GUN.md" 2>/dev/null | tail -3 || true; fi
+# 2c) olay takvimi / seans / günlük faktörler: 7 günde bir, çıktı dongu/olay-etkisi-<gün>.md
+OLR=tests/olay-etkisi-report.md; OAGE=$(( ( $(date +%s) - $(stat -c %Y "$OLR" 2>/dev/null || echo 0) ) / 86400 ))
+if [ "$OAGE" -ge 7 ]; then el "olay etkisi"; node --max-old-space-size=12000 tests/olay-etkisi.js > /dev/null 2>&1 && cp "$OLR" "$PF/arastirma/dongu/olay-etkisi-$GUN.md" || true; fi
 
 # 3) hata örneklemi: en yeni canlı kayıt (bilgisayardan çekilen state.json kopyası ya da elle yüklenen yedek)
 LIVE=$(ls -t "$CANLI"/state-*.json "$PF"/sweep-yedek/sweep-geri-yukle*.json 2>/dev/null | head -1 || true)
