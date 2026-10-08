@@ -30,6 +30,10 @@ if ! ls $ARCH/samples-*.jsonl >/dev/null 2>&1 || [ "$HASH" != "$OLD" ] || [ "$AG
   tar -czf "$VERI/samples.tar.gz.tmp" -C "$ARCH" $(cd $ARCH && ls samples-*.jsonl) && mv "$VERI/samples.tar.gz.tmp" "$VERI/samples.tar.gz"; echo "$HASH" > "$VERI/samples.hash"
 fi
 
+# 2b) denklem (100+ değişkenli saatlik model, VWAP sağlamlığı): 7 günde bir, çıktı CIKTI/../dongu/denklem-<gün>.md
+DEN=$ARCH/denklem.f32; DAGE=$(( ( $(date +%s) - $(stat -c %Y "$DEN" 2>/dev/null || echo 0) ) / 86400 ))
+if [ "$DAGE" -ge 7 ]; then el "denklem özellikleri + modeli"; node --max-old-space-size=12000 tests/denklem-ozellik.js | tail -1 && python3 tests/denklem-model.py --fast --out "$PF/arastirma/dongu/denklem-$GUN.md" 2>/dev/null | tail -3 || true; fi
+
 # 3) hata örneklemi: en yeni canlı kayıt (bilgisayardan çekilen state.json kopyası ya da elle yüklenen yedek)
 LIVE=$(ls -t "$CANLI"/state-*.json "$PF"/sweep-yedek/sweep-geri-yukle*.json 2>/dev/null | head -1 || true)
 el "hata örneklemi (canlı: ${LIVE:-yok})"
