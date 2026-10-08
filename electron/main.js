@@ -42,7 +42,18 @@ function corsBridge(){
   ses.webRequest.onHeadersReceived(F,(d,cb)=>{ const h=Object.assign({},d.responseHeaders||{}); for(const k of Object.keys(h)) if(/^access-control-/i.test(k)) delete h[k]; h['Access-Control-Allow-Origin']=['*']; h['Access-Control-Allow-Headers']=['*']; h['Access-Control-Allow-Methods']=['GET, POST, OPTIONS']; cb({responseHeaders:h,statusLine:d.method==='OPTIONS'?'HTTP/1.1 200 OK':d.statusLine}); });
 }
 
-let win=null, quitting=false, crashes=[], hangTimer=null, sysEndAt=0, asking=false;
+// Windows bir yükleyici için SWEEP'i kapatırsa (Restart Manager) uygulama ölmeden önce bağımsız bir komut başlatır: 90 sn bekle, SWEEP'i aç.
+// Bilgisayar gerçekten kapanıyorsa yardımcı da kapanır; açılışta openAtLogin devreye girer.
+let relaunchArmed=false;
+function relaunchLater(why){
+  if(relaunchArmed||!app.isPackaged||process.platform!=='win32') return; relaunchArmed=true;
+  try{
+    const exe=process.execPath; const {spawn}=require('child_process');
+    const p=spawn('cmd.exe',['/d','/c','timeout /t 90 /nobreak >nul & start "" "'+exe+'"'],{detached:true,stdio:'ignore',windowsHide:true});
+    p.unref(); log('yeniden açılma kuruldu (90 sn):',why);
+  }catch(e){ logErr('relaunchLater',e); }
+}
+let win=null, quitting=false, crashes=[], hangTimer=null, sysEndAt=0, sysEndWhy=[], asking=false;
 const MEM_RELOAD_MB=2500; // sayfa bu kadar belleğe ulaşırsa kontrollü yeniden yükle (bot durumu localStorage'da)
 
 function reloadSafe(why){
@@ -80,7 +91,10 @@ function create(){
     e.preventDefault();
     // Windows (güncelleme/yükleyici, oturum sonu) kapatmak istiyorsa soru açma: eşzamanlı pencere ana süreci kilitliyor, günlük ve kayıt duruyordu (7 Ekim 00:17).
     // Gerçek kapanışta session-end gelir ve uygulama kapanır; gelmezse pencere açık kalır.
-    if(Date.now()-sysEndAt<120e3){ log('Windows pencereyi kapatmak istedi; bot için açık kalıyor'); return; }
+    if(Date.now()-sysEndAt<120e3){
+      // Restart Manager kapatıyorsa direnmek zorla sonlandırılmaya yol açar (kayıt yarım kalır): düzgün kapan, yardımcı yeniden açar.
+      if(sysEndWhy.includes('close-app')){ log('Windows uygulamayı kapatıyor; kayıt yazılıp kapanılıyor, 90 sn sonra yeniden açılacak'); quitting=true; setImmediate(()=>{ try{ win&&!win.isDestroyed()&&win.close(); }catch(_){} }); return; }
+      log('Windows pencereyi kapatmak istedi; bot için açık kalıyor'); return; }
     if(asking) return;
     // sayfa çökmüş/donmuşsa yanıt gelmeyebilir: 1,5 sn sonra sormadan devam
     Promise.race([wc.executeJavaScript('(()=>{try{const b=JSON.parse(localStorage.getItem("st-bot")||"{}");return {on:!!b.on,n:(b.positions||[]).length};}catch(e){return {on:false,n:0};}})()',true),new Promise(r=>setTimeout(()=>r({on:false,n:0}),1500))])
@@ -97,7 +111,11 @@ function create(){
       });
   });
   // Windows kapanışı / oturum kapatma: soru sorup kapanışı engelleme, nedeni kaydet.
-  win.on('query-session-end',()=>{ sysEndAt=Date.now(); log('Windows oturumu/kapanışı soruyor (query-session-end)'); });
+  // 8 Ekim: üç gecedir yalnız SWEEP kapanıyordu (bilgisayar ve diğer uygulamalar açık): query-session-end'den sonra hiçbir kayıt yok,
+  // yani süreç zorla sonlandırılıyor. Bu, bir yükleyicinin/güncelleyicinin Restart Manager ile tek uygulamayı kapatmasıdır (neden "close-app").
+  // Bu durumda kapanış engellenemez; bağımsız bir yardımcı süreç 90 sn sonra SWEEP'i yeniden açar (tek kopya kilidi çift açılışı önler).
+  win.on('query-session-end',e=>{ sysEndAt=Date.now(); const rs=(e&&e.reasons)||[]; sysEndWhy=rs; log('Windows oturumu/kapanışı soruyor (query-session-end) nedenler:',rs.join(',')||'-');
+    if(rs.includes('close-app')||rs.includes('critical')) relaunchLater('Windows uygulamayı kapatıyor ('+rs.join(',')+')'); });
   win.on('session-end',()=>{ quitting=true; log('Windows oturumu kapanıyor veya bilgisayar kapanıyor (session-end)'); });
   win.on('closed',()=>{ win=null; });
 }
