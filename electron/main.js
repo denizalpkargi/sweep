@@ -1,6 +1,7 @@
 const {app,BrowserWindow,shell,Menu,powerSaveBlocker,powerMonitor,session,crashReporter,dialog,ipcMain}=require('electron');
 const path=require('path');
 const fs=require('fs');
+const startLive=require('./live');
 
 /* ---- günlük dosyası: %APPDATA%/SWEEP/logs/sweep-YYYY-MM-DD.log (14 gün tutulur) ---- */
 // Uygulama bir daha kendi kendine kapanırsa nedeni burada görünsün: çökme, donma, bellek, Windows kapanışı/oturum sonu, uyku.
@@ -49,7 +50,12 @@ function relaunchLater(why){
   if(relaunchArmed||!app.isPackaged||process.platform!=='win32') return; relaunchArmed=true;
   try{
     const exe=process.execPath; const {spawn}=require('child_process');
-    const p=spawn('cmd.exe',['/d','/c','timeout /t 90 /nobreak >nul & start "" "'+exe+'"'],{detached:true,stdio:'ignore',windowsHide:true});
+    // 8 Ekim 21:39: Windows close-app istedi, yardımcı kuruldu ama SWEEP geri gelmedi. Olası iki neden: `timeout` konsolsuz (stdin NUL) süreçte
+    // "Input redirection is not supported" deyip hemen çıkar, yani bekleme hiç olmuyordu; açılış tek kopya kilidine takılıp boşa gidiyordu.
+    // Artık bekleme ping ile; 90 sn sonra bu süreç bitene kadar (en çok ~30 dk) 10 sn'de bir bakar, bitince açar.
+    const pid=process.pid, nap=n=>'ping -n '+(n+1)+' 127.0.0.1 >nul';
+    const wait='for /l %i in (1,1,180) do @(tasklist /FI "PID eq '+pid+'" /NH | find " '+pid+' " >nul && '+nap(10)+')';
+    const p=spawn('cmd.exe',['/d','/s','/c','"'+nap(90)+' & '+wait+' & start "" "'+exe+'""'],{detached:true,stdio:'ignore',windowsHide:true,windowsVerbatimArguments:true});
     p.unref(); log('yeniden açılma kuruldu (90 sn):',why);
   }catch(e){ logErr('relaunchLater',e); }
 }
@@ -173,7 +179,8 @@ function memWatch(){
 
 app.on('second-instance',()=>{ if(win){ if(win.isMinimized()) win.restore(); win.show(); win.focus(); } });
 app.on('child-process-gone',(e,d)=>logErr('child-process-gone',d.type,d.reason,'exitCode='+d.exitCode,d.name||''));
-app.on('before-quit',()=>{ quitting=true; log('uygulama kapanıyor (before-quit)'); });
+let liveSrv=null;
+app.on('before-quit',()=>{ quitting=true; log('uygulama kapanıyor (before-quit)'); try{ liveSrv&&liveSrv.stop(); }catch(e){} });
 app.on('will-quit',()=>log('uygulama kapandı'));
 
 app.whenReady().then(()=>{
@@ -187,6 +194,8 @@ app.whenReady().then(()=>{
   for(const ev of ['suspend','resume','shutdown','lock-screen','unlock-screen','on-ac','on-battery']) powerMonitor.on(ev,()=>log('güç olayı:',ev));
   corsBridge();
   create();
+  // Telefondan salt okunur canlı panel (gizli adres + Cloudflare tüneli); bkz. live.js.
+  try{ liveSrv=startLive({app,getWin:()=>win,log,logErr}); }catch(e){ logErr('live',e); }
   setInterval(memWatch,10*60e3); setTimeout(memWatch,60e3);
   setInterval(()=>backupState('dakikalık'),60e3);
   app.on('activate',()=>{ if(BrowserWindow.getAllWindows().length===0) create(); });

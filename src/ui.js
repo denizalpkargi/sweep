@@ -934,8 +934,9 @@ async function botManage(){
     if(act==="lock"){ p.locked=true; const tpBy=rv.views.filter(x=>x.w&&x.act==="kâr al"); if(rv.takeProfit) say(tpBy.map(x=>x.name).join(", "),`${fx(rNow,2)}R kârdayız, kâr al diyoruz: ${tpBy.map(x=>x.txt).join(" · ")}.`); else say("Baran",`${fx(peakR,1)}R görüp ${fx(rNow,1)}R'ye geri geldi, momentum söndü.`); say("Can",`Yarısını alıyorum, stop girişe; kalan koşsun.`); botCloseAt(p,0.5,taker,{k:"desk",t:"Masa kararı · kârı kilitle"},true); if(bot.positions.includes(p)){ p.stop=p.entry; p.stage="tp1"; } botSave(); continue; }
     if(act==="add"){
       const addQty=p.qty0*0.5; const addNotional=addQty*px; const addMargin=addNotional/p.lev; if(addMargin+botMarginUsed()<=bot.bal*0.95){ p.added=true; const fill=isL?px*(1+bot.cfg.slip):px*(1-bot.cfg.slip); const fee=addNotional*bot.cfg.feeTaker; bot.bal-=fee; p.fees+=fee;
-        const newQty=p.qty+addQty; p.entry=(p.entry*p.qty+fill*addQty)/newQty; p.qty=newQty; p.notional=p.qty*p.entry; p.margin=p.notional/p.lev;
-        const lp=(typeof ld!=="undefined"&&ld.profile)?` Tolga: liderlerin %${Math.round((ld.profile.addRate||0)*100)}'i kazanan pozisyona ekliyor.`:""; say("Baran",`hedef 1 alındı, masa hâlâ tut diyor (puan ${pts(rv.score)}); yarım boy ekliyorum.`+lp); say("Can",`Onay: ekleme bir kez, yarım boy. Ortalama giriş ${fmtP(p.entry)}, stop ${fmtP(p.stop)}.`); botLog("add",p.sym,`Ekleme ${fmtP(fill)} · ${fmtB(addNotional)} · toplam ${fmtB(p.notional)} · teminat ${fmtB(p.margin)}.`); botSave(); continue; }
+        const newQty=p.qty+addQty; p.entry=(p.entry*p.qty+fill*addQty)/newQty; p.qty=newQty; p.notional=p.qty*p.entry; p.margin=p.notional/p.lev; const stop0=p.stop; if(isL? p.stop<p.entry : p.stop>p.entry) p.stop=p.entry; // eklemeden sonra stop en az yeni ortalamada: hedef 1 kârı eklemeyle geri verilmesin (WLFI 8 Eki)
+        
+        const lp=(typeof ld!=="undefined"&&ld.profile)?` Tolga: liderlerin %${Math.round((ld.profile.addRate||0)*100)}'i kazanan pozisyona ekliyor.`:""; say("Baran",`hedef 1 alındı, masa hâlâ tut diyor (puan ${pts(rv.score)}); yarım boy ekliyorum.`+lp); say("Can",`Onay: ekleme bir kez, yarım boy. Ortalama giriş ${fmtP(p.entry)}, stop ${p.stop!==stop0?fmtP(stop0)+" → ":""}${fmtP(p.stop)}.`); botLog("add",p.sym,`Ekleme ${fmtP(fill)} · ${fmtB(addNotional)} · toplam ${fmtB(p.notional)} · teminat ${fmtB(p.margin)}.`); botSave(); continue; }
     }
     if(rv.verdict==="tut"&&!p.heldNoted){ p.heldNoted=true; say("Can",`masa tut diyor (tutma puanı ${pts(rv.hold)}, ${rv.views.filter(a=>a.w&&a.v>0.15).length}/${rv.views.filter(a=>a.w).length} destek). Plan aynen: stop ${fmtP(p.stop)}, hedef ${fmtP(p.t1)} / ${fmtP(p.t2)}.`); }
   } } finally{ if(bot._manT===run) bot._managing=false; }
@@ -1059,6 +1060,18 @@ function botDigest(){ try{ const now=Date.now(); if(botDig.lastN==null) botDig.l
       aud:AUD?{lessons:(AUD.lessons||[]).map(l=>l.k)}:null,caps:{maxPos:bot.cfg.maxPos,maxSameDir:bot.cfg.maxSameDir},man:{err:bot.manErr||null,busyMin:bot._managing?Math.round((now-(bot._manT||now))/6e4):null},lmd:typeof lmd!=="undefined"?{...lmd.stats,q:lmd.q.length,busy:lmd.busy,err:lmd.err,wait:lmdReady()}:null,wsd:wsdSummary(),restCoolMin:rest.cool>now?Math.round((rest.cool-now)/6e4):0,used:rest.used};
     botDig.lastT=now; console.info("SWEEP · durum "+JSON.stringify(out)); }catch(e){ console.warn("SWEEP · durum özeti yazılamadı: "+e.message); } }
 setTimeout(botDigest,90e3); setInterval(botDigest,10*60e3);
+/* Canlı panel (electron/live.js): telefondan açılan salt okunur sayfa bunu birkaç saniyede bir ister. Anahtar, emir ya da ayar yok. */
+window.sweepLive=function(){ const now=Date.now(), r2=v=>isFinite(v)?Math.round(v*100)/100:null, day0=now-864e5;
+  const pos=bot.positions.map(p=>{ const px=botMk(p.sym); const r=px&&p.risk0?((p.dir==="long"?px-p.entry0:p.entry0-px)/p.risk0):null; const lr=p.lastReview;
+    return {sym:p.sym,dir:p.dir,entry:p.entry,px:px||null,stop:p.stop,t1:p.t1,t2:p.t2,r:r2(r),pnl:r2((px?botPnl(p,px):0)+(p.realized||0)),margin:r2(p.margin),ageMin:Math.round((now-p.openT)/6e4),stage:p.stage,score:pts(p.score),yes:p.yes,rev:lr?{v:lr.verdict,hold:pts(lr.hold),min:Math.round((now-lr.t)/6e4)}:null}; });
+  const d24=bot.trades.filter(t=>t.closeT>day0); const sum=a=>({n:a.length,win:a.filter(t=>t.pnl>0).length,R:r2(a.reduce((x,t)=>x+t.r,0)),pnl:r2(a.reduce((x,t)=>x+t.pnl,0))});
+  const eqs=(bot.eq||[]).filter(e=>e.t>day0); const step=Math.max(1,Math.ceil(eqs.length/120));
+  return {t:now,on:bot.on,bal:r2(bot.bal),eq:r2(botEquity()),start:bot.start,peak:r2(bot.peak),goalMode:bot.goalMode||null,aggr:!!bot.cfg.aggr,
+    day:bot.day,d24:sum(d24),all:sum(bot.trades),pos,
+    closed:bot.trades.slice(-12).reverse().map(t=>({sym:t.sym,dir:t.dir,r:r2(t.r),pnl:r2(t.pnl),closeT:t.closeT,holdMin:Math.round((t.closeT-t.openT)/6e4),exits:t.exits||[]})),
+    curve:eqs.filter((e,i)=>i%step===0||i===eqs.length-1).map(e=>[e.t,r2(e.v)]),
+    scanMin:scan.at?Math.round((now-scan.at)/6e4):null,feed:(()=>{ const w=wsdSummary(); return {ok:!!w.glob,tickS:w.tickAgeS}; })(),
+    log:bot.log.filter(l=>l.type!=="skip"&&l.type!=="fund").slice(-10).reverse().map(l=>({t:l.t,type:l.type,sym:l.sym,text:String(l.text).slice(0,180)}))}; };
 if(bot.on||bot.positions.length||bot.orders.length){ botWsSync(); }
 
 /* ================= masaya sor: hesap bağlamadan, elle girilen plan ya da açık işlem ================= */

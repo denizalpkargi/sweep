@@ -94,6 +94,8 @@ setTimeout(async()=>{
   setA('sym','NEARUSDT'); setA('open','0'); setA('dir','short'); setA('entry','0.1006'); setA('liq',''); setA('sl','0.107'); setA('tp','0.098'); setA('margin','isolated'); setA('lev','50'); setA('size',''); setA('bal','');
   d.getElementById('askGo').click(); await new Promise(r=>setTimeout(r,2500)); console.log('ask plan:', txt('askVerdict'), '|', txt('askOut').slice(0,900));
   console.log('ask hist:', d.querySelectorAll('#askHist [data-ask-h]').length, '| status:', txt('askStatus'));
+  // telefondaki canlı panelin verisi (electron/live.js)
+  try{ const L=w.sweepLive(); console.log('live:', L.bal, L.pos.length, L.closed.length, L.curve.length); }catch(e){ errors.push('sweepLive: '+e); }
   console.log('errors', errors, 'console.error', logs);
   w.close(); process.exit(0);
 },2500);
