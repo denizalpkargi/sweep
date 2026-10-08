@@ -1,6 +1,7 @@
 const {app,BrowserWindow,shell,Menu,powerSaveBlocker,powerMonitor,session,crashReporter,dialog,ipcMain}=require('electron');
 const path=require('path');
 const fs=require('fs');
+const startLive=require('./live');
 
 /* ---- günlük dosyası: %APPDATA%/SWEEP/logs/sweep-YYYY-MM-DD.log (14 gün tutulur) ---- */
 // Uygulama bir daha kendi kendine kapanırsa nedeni burada görünsün: çökme, donma, bellek, Windows kapanışı/oturum sonu, uyku.
@@ -173,7 +174,8 @@ function memWatch(){
 
 app.on('second-instance',()=>{ if(win){ if(win.isMinimized()) win.restore(); win.show(); win.focus(); } });
 app.on('child-process-gone',(e,d)=>logErr('child-process-gone',d.type,d.reason,'exitCode='+d.exitCode,d.name||''));
-app.on('before-quit',()=>{ quitting=true; log('uygulama kapanıyor (before-quit)'); });
+let liveSrv=null;
+app.on('before-quit',()=>{ quitting=true; log('uygulama kapanıyor (before-quit)'); try{ liveSrv&&liveSrv.stop(); }catch(e){} });
 app.on('will-quit',()=>log('uygulama kapandı'));
 
 app.whenReady().then(()=>{
@@ -187,6 +189,8 @@ app.whenReady().then(()=>{
   for(const ev of ['suspend','resume','shutdown','lock-screen','unlock-screen','on-ac','on-battery']) powerMonitor.on(ev,()=>log('güç olayı:',ev));
   corsBridge();
   create();
+  // Telefondan salt okunur canlı panel (gizli adres + Cloudflare tüneli); bkz. live.js.
+  try{ liveSrv=startLive({app,getWin:()=>win,log,logErr}); }catch(e){ logErr('live',e); }
   setInterval(memWatch,10*60e3); setTimeout(memWatch,60e3);
   setInterval(()=>backupState('dakikalık'),60e3);
   app.on('activate',()=>{ if(BrowserWindow.getAllWindows().length===0) create(); });
