@@ -163,8 +163,9 @@ function createBot(E, opt){
       if(act==="lock"){ p.locked=true; const tpBy=rv.views.filter(x=>x.w&&x.act==="kâr al"); if(rv.takeProfit) sayD(tpBy.map(x=>x.name).join(", "),`${fx(rNow,2)}R kârdayız, kâr al diyoruz: ${tpBy.map(x=>x.txt).join(" · ")}.`); else sayD("Baran",`${fx(peakR,1)}R görüp ${fx(rNow,1)}R'ye geri geldi, momentum söndü.`); sayD("Can","Yarısını alıyorum, stop girişe; kalan koşsun."); closeAt(p,0.5,taker,{k:"desk",t:"Masa kararı · kârı kilitle"},true); if(bot.positions.includes(p)){ p.stop=p.entry; p.stage="tp1"; } save(); continue; }
       if(act==="add"){ const addQty=p.qty0*0.5; const addNotional=addQty*px; const addMargin=addNotional/p.lev;
         if(addMargin+marginUsed()<=bot.bal*0.95){ p.added=true; const fill=isL?px*(1+cfg.slip):px*(1-cfg.slip); const fee=addNotional*cfg.feeTaker; bot.bal-=fee; p.fees+=fee;
-          const newQty=p.qty+addQty; p.entry=(p.entry*p.qty+fill*addQty)/newQty; p.qty=newQty; p.notional=p.qty*p.entry; p.margin=p.notional/p.lev;
-          sayD("Baran",`hedef 1 alındı, masa hâlâ tut diyor (puan ${pts(rv.score)}); yarım boy ekliyorum.`); sayD("Can",`Onay: ekleme bir kez, yarım boy. Ortalama giriş ${fmtP(p.entry)}, stop ${fmtP(p.stop)}.`);
+          const newQty=p.qty+addQty; p.entry=(p.entry*p.qty+fill*addQty)/newQty; p.qty=newQty; p.notional=p.qty*p.entry; p.margin=p.notional/p.lev; const stop0=p.stop; if(isL? p.stop<p.entry : p.stop>p.entry) p.stop=p.entry; // eklemeden sonra stop en az yeni ortalamada: hedef 1 kârı eklemeyle geri verilmesin (WLFI 8 Eki)
+        
+          sayD("Baran",`hedef 1 alındı, masa hâlâ tut diyor (puan ${pts(rv.score)}); yarım boy ekliyorum.`); sayD("Can",`Onay: ekleme bir kez, yarım boy. Ortalama giriş ${fmtP(p.entry)}, stop ${p.stop!==stop0?fmtP(stop0)+" → ":""}${fmtP(p.stop)}.`);
           log("add",p.sym,`Ekleme ${fmtP(fill)} · ${fmtB(addNotional)} · toplam ${fmtB(p.notional)} · teminat ${fmtB(p.margin)}.`,{id:p.id,fill,addNotional:r4(addNotional)}); save(); continue; } }
       if(rv.verdict==="tut"&&!p.heldNoted){ p.heldNoted=true; sayD("Can",`masa tut diyor (tutma puanı ${pts(rv.hold)}, ${rv.views.filter(a=>a.w&&a.v>0.15).length}/${rv.views.filter(a=>a.w).length} destek). Plan aynen: stop ${fmtP(p.stop)}, hedef ${fmtP(p.t1)} / ${fmtP(p.t2)}.`); }
     } } finally{ rt.managing=false; save(); }
