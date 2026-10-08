@@ -16,6 +16,7 @@ if [ ! -d "$ARCH/1d" ] && [ -f "$VERI/arch-csv.tar.gz" ]; then el "arşiv önbel
 el "arşiv güncelleniyor"; node tests/fetch-archive.js --update --conc 24 | grep -v '^  ' || true
 node tests/fetch-metrics.js | grep -v '^  ' || true   # 5 dk OI, long/short, taker (ilk 30 coin)
 node tests/fetch-extra.js | grep -v '^  ' || true     # prim endeksi ve spot 15 dk (ilk 30 coin)
+node tests/fetch-bookdepth.js | grep -v '^  ' || true # emir defteri derinliği 15 dk'ya toplanmış (ilk 30 coin, 2023-06'dan)
 rm -rf "$ARCH/zip"
 
 # 2) masa örnekleri: motor kodu (src + yeniden oynatma betikleri) değiştiyse ya da 7 günden eskiyse yeniden üret
@@ -32,7 +33,7 @@ fi
 
 # 2b) denklem (100+ değişkenli saatlik model, VWAP sağlamlığı): 7 günde bir, çıktı CIKTI/../dongu/denklem-<gün>.md
 DEN=$ARCH/denklem.f32; DAGE=$(( ( $(date +%s) - $(stat -c %Y "$DEN" 2>/dev/null || echo 0) ) / 86400 ))
-if [ "$DAGE" -ge 7 ]; then el "denklem özellikleri + modeli"; node --max-old-space-size=12000 tests/denklem-ozellik.js | tail -1 && python3 tests/denklem-model.py --fast --out "$PF/arastirma/dongu/denklem-$GUN.md" 2>/dev/null | tail -3 || true; fi
+if [ "$DAGE" -ge 7 ]; then el "denklem özellikleri + modeli"; node --max-old-space-size=12000 tests/denklem-ozellik.js | tail -1 && python3 tests/denklem-model.py --fast --target vwap --from 2023-06 --out "$PF/arastirma/dongu/denklem-$GUN.md" 2>/dev/null | tail -3 || true; fi
 
 # 3) hata örneklemi: en yeni canlı kayıt (bilgisayardan çekilen state.json kopyası ya da elle yüklenen yedek)
 LIVE=$(ls -t "$CANLI"/state-*.json "$PF"/sweep-yedek/sweep-geri-yukle*.json 2>/dev/null | head -1 || true)
@@ -41,5 +42,5 @@ node tests/hata-orneklem.js --out "$CIKTI" --date "$GUN" ${LIVE:+--live "$LIVE"}
 
 # 4) arşiv önbelleğini geri yaz (günde bir; arka planda kesilirse eski kopya kalır)
 el "arşiv önbelleği yazılıyor"
-tar -czf "$VERI/arch-csv.tar.gz.tmp" -C "$ARCH" 1d 1h 15m funding metrics premium15m spot15m universe.json symbols.json && mv "$VERI/arch-csv.tar.gz.tmp" "$VERI/arch-csv.tar.gz"
+tar -czf "$VERI/arch-csv.tar.gz.tmp" -C "$ARCH" 1d 1h 15m funding metrics premium15m spot15m depth15m universe.json symbols.json && mv "$VERI/arch-csv.tar.gz.tmp" "$VERI/arch-csv.tar.gz"
 el "bitti → $CIKTI/hata-orneklemi-$GUN.md"

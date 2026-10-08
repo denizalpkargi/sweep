@@ -18,9 +18,14 @@ X = np.fromfile(os.path.join(D, 'denklem.f32'), dtype=np.float32).reshape(-1, NF
 df = pd.DataFrame(X, columns=COLS); del X
 df = df[np.isfinite(df.y1) & np.isfinite(df.y4)].copy()
 df['t'] = (df.th.astype(np.int64) * 3600000 + meta['t0']); df['month'] = pd.to_datetime(df.t, unit='ms').dt.strftime('%Y-%m')
+TARGET = arg('target', 'close')  # close: kapanıştan kapanışa (eski); vwap: sonraki mumun VWAP'ı → çıkış mumunun VWAP'ı (gerçekçi)
+if TARGET == 'vwap': df = df[np.isfinite(df.y1v) & np.isfinite(df.y4v)].copy(); df['y1'] = df.y1v; df['y4'] = df.y4v
+FROM = arg('from', None)
+if FROM: df = df[df.month >= FROM].copy()
 for c in ['y1', 'y4', 'y24']: df[c+'c'] = df[c].clip(-5, 5)
 SESS = {0: 'Asya 00–07', 1: 'Londra 07–12', 2: 'New York 12–21', 3: 'Gece 21–24'}
-DROP = {'sym', 'th', 'y1', 'y4', 'y24', 'sd15', 't', 'month', 'y1c', 'y4c', 'y24c'}
+DROP = {'sym', 'th', 'y1', 'y4', 'y24', 'y1v', 'y4v', 'sd15', 't', 'month', 'y1c', 'y4c', 'y24c'}
+if '--nodepth' in sys.argv: DROP |= {c for c in COLS if c.startswith('dImb') or c.startswith('dDepth') or c in ('dBid1Ch', 'dAsk1Ch')}
 FEATS = [c for c in COLS if c not in DROP]
 months = sorted(df.month.unique()); t_all0 = time.time()
 print('satır', len(df), 'coin', df.sym.nunique(), 'ay', months[0], '→', months[-1], 'özellik', len(FEATS), flush=True)
@@ -49,8 +54,8 @@ def fit(tr, target, feats=FEATS):
 
 # ---------- (a) ileriye yürüyen ----------
 oos = {'y1c': [], 'y4c': []}; imps = {'y1c': [], 'y4c': []}; sess_oos = []
-start = 12
-CACHE = os.path.join(D, 'denklem-oos.pkl')
+start = int(arg('start', 12))
+CACHE = os.path.join(D, f'denklem-oos-{TARGET}{"-"+FROM if FROM else ""}{"-nodepth" if "--nodepth" in sys.argv else ""}.pkl')
 if '--cached' in sys.argv and os.path.exists(CACHE):
     import pickle; oos, imps, sess_oos = pickle.load(open(CACHE, 'rb')); print('tahminler önbellekten', flush=True)
 for i in (range(start, len(months), STEP) if not ('--cached' in sys.argv and os.path.exists(CACHE)) else []):
@@ -70,7 +75,7 @@ for i in (range(start, len(months), STEP) if not ('--cached' in sys.argv and os.
     print('test', test_m[0], 'eğitim', len(tr), 'test', len(te), f'{time.time()-t_all0:.0f} sn', flush=True)
 
 import pickle; pickle.dump((oos, imps, sess_oos), open(CACHE, 'wb'))
-L = [f'# Denklem · ~100 değişkenle 15 dk/1 sa/4 sa yön modeli, seans ve etkileşimler · {time.strftime("%Y-%m-%d")}', '',
+L = [f'# Denklem · ~100 değişkenle 15 dk/1 sa/4 sa yön modeli, seans ve etkileşimler · {time.strftime("%Y-%m-%d")}', '', f'Hedef ölçüsü: **{"VWAP → VWAP (gerçekçi dolum)" if TARGET == "vwap" else "kapanış → kapanış"}**' + (f', veri {FROM} sonrası' if FROM else '') + (', derinlik değişkenleri dışarıda' if '--nodepth' in sys.argv else '') + '.', '',
      f'{len(df):,} saatlik gözlem, {df.sym.nunique()} coin (ayın ilk 30\'u), {months[0]} → {months[-1]}, {len(FEATS)} değişken (liste sonda). Hedef: sonraki 1 sa ve 4 sa getiri ÷ coinin 30 günlük oynaklığı (±5 kırpılmış). Model: LightGBM, ileriye yürüyen (her {STEP} ayda bir yalnız geçmişle yeniden eğitilir, ilk 12 ay yalnız eğitim). Bütün sayılar örneklem dışı.', '',
      '**IC** = her saatte coinleri tahmine göre sıralayıp gerçek getiriyle Spearman ilişkisi, saatlerin ortalaması (0 = bilgi yok; 0,05 zayıf ama gerçek; 0,10 güçlü). t ≥ 3 anlamlı sayılır.', '']
 summary = {}
@@ -234,6 +239,6 @@ L.append('')
 # ---------- karar ----------
 a1, t1 = summary[('y1c', '1. yarı')]; a2, t2 = summary[('y1c', '2. yarı')]; a3, t3 = summary[('y1c', 'son 12 ay')]
 okv = all(VW_SUM[('1 sa', h)] - 0.04 > 0 for h in ['1. yarı', '2. yarı', 'son 12 ay'])
-L += ['## Karar', '', f'1 sa modeli kapanıştan kapanışa IC: 1. yarı {fx(a1)}, 2. yarı {fx(a2)}, son 12 ay {fx(a3)}; VWAP dolumla {fx(fast_ic(o[o.t<mid],"p","y1v")[0])} / {fx(fast_ic(o[o.t>=mid],"p","y1v")[0])} / {fx(fast_ic(o[o.t>=y12],"p","y1v")[0])}. Gerçekçi işlem (2+2, VWAP, 1 sa) maker maliyet sonrası: ' + ' · '.join(f'{h} {fx(VW_SUM[("1 sa", h)] - 0.04)}%' for h in ['1. yarı', '2. yarı', 'son 12 ay']) + f'. Kriter (üç dönemde de maker sonrası artı): **{"GEÇTİ" if okv else "GEÇMEDİ"}**; taker ile hiçbir dönemde artı değil.', '',
+L += ['## Karar', '', f'1 sa modeli {"VWAP hedefli" if TARGET == "vwap" else "kapanıştan kapanışa"} IC: 1. yarı {fx(a1)}, 2. yarı {fx(a2)}, son 12 ay {fx(a3)}; VWAP dolumla {fx(fast_ic(o[o.t<mid],"p","y1v")[0])} / {fx(fast_ic(o[o.t>=mid],"p","y1v")[0])} / {fx(fast_ic(o[o.t>=y12],"p","y1v")[0])}. Gerçekçi işlem (2+2, VWAP, 1 sa) maker maliyet sonrası: ' + ' · '.join(f'{h} {fx(VW_SUM[("1 sa", h)] - 0.04)}%' for h in ['1. yarı', '2. yarı', 'son 12 ay']) + f'. Kriter (üç dönemde de maker sonrası artı): **{"GEÇTİ" if okv else "GEÇMEDİ"}**; taker ile hiçbir dönemde artı değil.', '',
       '## Değişken listesi', '', ', '.join(FEATS), '']
 open(OUT, 'w').write('\n'.join(L) + '\n'); print('\n'.join(L)); print('süre', f'{time.time()-t_all0:.0f} sn')

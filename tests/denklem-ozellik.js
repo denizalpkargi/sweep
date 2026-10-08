@@ -15,7 +15,7 @@ const U=JSON.parse(fs.readFileSync(path.join(ARCH,'universe.json'),'utf8')).mont
 const monthsOf={}; for(const m in U) for(const s of U[m].slice(0,TOP)) (monthsOf[s]=monthsOf[s]||new Set()).add(m);
 const top10={}; for(const m in U) top10[m]=new Set(U[m].slice(0,10));
 const fixT=t=>t>1e14?Math.floor(t/1000):t;
-const COLS=['sym','th','y1','y4','y24','sd15',
+const COLS=['sym','th','y1','y4','y24','y1v','y4v','sd15',
   // fiyat / oynaklık
   'r15','r1','r4','r24','r7d','r30d','sq','sq7','rng4','rng1v24','ac1','rsi','bb','hi30','lo30','sinceHi30','sinceLo30','hi7','lo7','pos24','pos7',
   // hacim / işlem
@@ -28,6 +28,8 @@ const COLS=['sym','th','y1','y4','y24','sd15',
   'oi15','oi1','oi4','oi24','oiZ7','oiVsPx1','oiVsPx4','oiVsPx24','oiTurn','topPosZ','topAccZ','globZ','smartDiv','topPosCh4','globCh4','takerM',
   // fonlama / prim / spot
   'fr','frZ','frCh','frCrowd','prem','premZ','premCh','basis','basisCh','spotShare','spotShareCh','spotTk','spotLead',
+  // emir defteri derinliği (bookDepth, 2023-06'dan): dengesizlik = (alış − satış) / (alış + satış) nominal
+  'dImb02','dImb1','dImb2','dImb5','dImb1Ch','dImb1Z','dDepth1','dDepth5','dBid1Ch','dAsk1Ch',
   // BTC
   'b15','b1','b4','b24','bPrev1','bs50','bs200','bVol','bPos24','rel4','rel24',
   // coinler arası
@@ -57,6 +59,7 @@ const rsiOf=(c,i)=>{ let g=0,l=0; for(let j=i-13;j<=i;j++){ const d=c[j]-c[j-1];
 for(const s of Object.keys(kl)){ const k=kl[s]; delete kl[s]; const si=symList.push(s)-1;
   const M=csv(path.join(ARCH,'metrics',s+'.csv')), F=csv(path.join(ARCH,'funding',s+'.csv')), P=csv(path.join(ARCH,'premium15m',s+'.csv')), S=csv(path.join(ARCH,'spot15m',s+'.csv'));
   const pIx=new Map(P.map((r,i)=>[fixT(r[0]),i])), sIx=new Map(S.map((r,i)=>[fixT(r[0]),i]));
+  const DP=csv(path.join(ARCH,'depth15m',s+'.csv')); const dIx=new Map(DP.map((r,i)=>[r[0],i])); const imbOf=(r,b,a)=>r[b]>0&&r[a]>0?(r[b]-r[a])/(r[b]+r[a]):NaN; // sütunlar: 0 t,1 n,2 b02,3 a02,4 b1,5 a1,6 b2,7 a2,8 b3,9 a3,10 b5,11 a5
   const n=k.length, lr=new Float64Array(n); for(let i=1;i<n;i++) lr[i]=L(k[i][4]/k[i-1][4]);
   const cs=c=>{ const a=new Float64Array(n+1); for(let i=0;i<n;i++) a[i+1]=a[i]+c(i); return a; }; const sum=(C,a,b)=>C[b+1]-C[a];
   const Cq=cs(i=>k[i][7]), Cb=cs(i=>k[i][5]), Cn=cs(i=>k[i][8]), Ctb=cs(i=>k[i][10]), Cr2=cs(i=>lr[i]*lr[i]), Crg=cs(i=>L(k[i][2]/k[i][3]));
@@ -70,6 +73,7 @@ for(const s of Object.keys(kl)){ const k=kl[s]; delete kl[s]; const si=symList.p
     const sd15=Math.sqrt(sum(Cr2,i-2879,i)/2880); if(!(sd15>0)) continue; const px=close[i], sd4=sd15*2, sd24=sd15*Math.sqrt(96), sd7=sd15*Math.sqrt(672);
     buf.fill(NaN); const set=(c,v)=>{ buf[IX[c]]=v; }; const ret=b=>L(px/close[i-b]);
     set('sym',si); set('th',(t-T0)/H); set('y1',L(close[i+4]/px)/(sd15*2)); set('y4',L(close[i+16]/px)/(sd15*4)); set('y24',L(close[i+96]/px)/sd24); set('sd15',sd15);
+    { const vw=j=>k[j][5]>0?k[j][7]/k[j][5]:close[j]; set('y1v',L(vw(i+5)/vw(i+1))/(sd15*2)); set('y4v',L(vw(i+17)/vw(i+1))/(sd15*4)); }
     // fiyat / oynaklık
     set('r15',lr[i]/sd15); set('r1',ret(4)/(sd15*2)); set('r4',ret(16)/(sd15*4)); set('r24',ret(96)/sd24); set('r7d',ret(672)/sd7); set('r30d',ret(2879)/(sd15*Math.sqrt(2880)));
     set('sq',Math.sqrt(sum(Cr2,i-95,i)/96)/sd15); set('sq7',Math.sqrt(sum(Cr2,i-671,i)/672)/sd15);
@@ -106,6 +110,11 @@ for(const s of Object.keys(kl)){ const k=kl[s]; delete kl[s]; const si=symList.p
       const sh1=sq/Math.max(1e-9,sum(Cq,i-3,i)), sh24=sq24/Math.max(1e-9,sum(Cq,i-99,i-4)), sh30=sq30/Math.max(1e-9,sum(Cq,i-2879,i));
       set('spotShare',sh1/sh30); set('spotShareCh',L(Math.max(1e-9,sh1)/Math.max(1e-9,sh24))); set('spotTk',sq>0?stb/sq:NaN); set('spotLead',(L(S[sj][4]/S[sj-4][4])-ret(4))/(sd15*2));
       set('basis',L(px/S[sj][4])*1e4); set('basisCh',(L(px/S[sj][4])-L(close[i-4]/S[sj-4][4]))*1e4); }
+    // emir defteri derinliği
+    { const dj=dIx.get(k[i][0]); if(dj!=null){ const r=DP[dj]; set('dImb02',imbOf(r,2,3)); set('dImb1',imbOf(r,4,5)); set('dImb2',imbOf(r,6,7)); set('dImb5',imbOf(r,10,11));
+        if(r[4]>0&&r[5]>0){ set('dDepth1',L((r[4]+r[5])/Math.max(1,q30*4))); } if(r[10]>0&&r[11]>0) set('dDepth5',L((r[10]+r[11])/Math.max(1,q30*4)));
+        const d4=dIx.get(k[i-4][0]); if(d4!=null){ const r4=DP[d4]; set('dImb1Ch',imbOf(r,4,5)-imbOf(r4,4,5)); if(r4[4]>0&&r[4]>0) set('dBid1Ch',L(r[4]/r4[4])); if(r4[5]>0&&r[5]>0) set('dAsk1Ch',L(r[5]/r4[5])); }
+        let s1=0,s2=0,c=0; for(let j=dj-672;j<dj;j+=4){ if(j<0) break; const v=imbOf(DP[j],4,5); if(Number.isFinite(v)&&DP[j][0]>=k[i][0]-7*DAY){ s1+=v; s2+=v*v; c++; } } if(c>=50){ const m=s1/c, sd=Math.sqrt(Math.max(1e-9,s2/c-m*m)); set('dImb1Z',(imbOf(r,4,5)-m)/sd); } } }
     // BTC
     const bi=btcIx.get(k[i][0]); if(bi!=null&&bi>=2880){ const b=(x,y=0)=>L(btcK[bi-y][4]/btcK[bi-x][4]); let bsd=0; for(let j=bi-2879;j<=bi;j++){ const x=L(btcK[j][4]/btcK[j-1][4]); bsd+=x*x; } bsd=Math.sqrt(bsd/2880); let bsd24=0; for(let j=bi-95;j<=bi;j++){ const x=L(btcK[j][4]/btcK[j-1][4]); bsd24+=x*x; } bsd24=Math.sqrt(bsd24/96);
       set('b15',L(btcK[bi][4]/btcK[bi-1][4])/bsd); set('b1',b(4)/(bsd*2)); set('b4',b(16)/(bsd*4)); set('b24',b(96)/(bsd*Math.sqrt(96))); set('bPrev1',b(8,4)/(bsd*2)); set('bVol',bsd24/bsd);
