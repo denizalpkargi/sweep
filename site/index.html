@@ -4117,6 +4117,18 @@ function botDigest(){ try{ const now=Date.now(); if(botDig.lastN==null) botDig.l
       aud:AUD?{lessons:(AUD.lessons||[]).map(l=>l.k)}:null,caps:{maxPos:bot.cfg.maxPos,maxSameDir:bot.cfg.maxSameDir},man:{err:bot.manErr||null,busyMin:bot._managing?Math.round((now-(bot._manT||now))/6e4):null},lmd:typeof lmd!=="undefined"?{...lmd.stats,q:lmd.q.length,busy:lmd.busy,err:lmd.err,wait:lmdReady()}:null,wsd:wsdSummary(),restCoolMin:rest.cool>now?Math.round((rest.cool-now)/6e4):0,used:rest.used};
     botDig.lastT=now; console.info("SWEEP · durum "+JSON.stringify(out)); }catch(e){ console.warn("SWEEP · durum özeti yazılamadı: "+e.message); } }
 setTimeout(botDigest,90e3); setInterval(botDigest,10*60e3);
+/* Canlı panel (electron/live.js): telefondan açılan salt okunur sayfa bunu birkaç saniyede bir ister. Anahtar, emir ya da ayar yok. */
+window.sweepLive=function(){ const now=Date.now(), r2=v=>isFinite(v)?Math.round(v*100)/100:null, day0=now-864e5;
+  const pos=bot.positions.map(p=>{ const px=botMk(p.sym); const r=px&&p.risk0?((p.dir==="long"?px-p.entry0:p.entry0-px)/p.risk0):null; const lr=p.lastReview;
+    return {sym:p.sym,dir:p.dir,entry:p.entry,px:px||null,stop:p.stop,t1:p.t1,t2:p.t2,r:r2(r),pnl:r2((px?botPnl(p,px):0)+(p.realized||0)),margin:r2(p.margin),ageMin:Math.round((now-p.openT)/6e4),stage:p.stage,score:pts(p.score),yes:p.yes,rev:lr?{v:lr.verdict,hold:pts(lr.hold),min:Math.round((now-lr.t)/6e4)}:null}; });
+  const d24=bot.trades.filter(t=>t.closeT>day0); const sum=a=>({n:a.length,win:a.filter(t=>t.pnl>0).length,R:r2(a.reduce((x,t)=>x+t.r,0)),pnl:r2(a.reduce((x,t)=>x+t.pnl,0))});
+  const eqs=(bot.eq||[]).filter(e=>e.t>day0); const step=Math.max(1,Math.ceil(eqs.length/120));
+  return {t:now,on:bot.on,bal:r2(bot.bal),eq:r2(botEquity()),start:bot.start,peak:r2(bot.peak),goalMode:bot.goalMode||null,aggr:!!bot.cfg.aggr,
+    day:bot.day,d24:sum(d24),all:sum(bot.trades),pos,
+    closed:bot.trades.slice(-12).reverse().map(t=>({sym:t.sym,dir:t.dir,r:r2(t.r),pnl:r2(t.pnl),closeT:t.closeT,holdMin:Math.round((t.closeT-t.openT)/6e4),exits:t.exits||[]})),
+    curve:eqs.filter((e,i)=>i%step===0||i===eqs.length-1).map(e=>[e.t,r2(e.v)]),
+    scanMin:scan.at?Math.round((now-scan.at)/6e4):null,feed:(()=>{ const w=wsdSummary(); return {ok:!!w.glob,tickS:w.tickAgeS}; })(),
+    log:bot.log.filter(l=>l.type!=="skip"&&l.type!=="fund").slice(-10).reverse().map(l=>({t:l.t,type:l.type,sym:l.sym,text:String(l.text).slice(0,180)}))}; };
 if(bot.on||bot.positions.length||bot.orders.length){ botWsSync(); }
 
 /* ================= masaya sor: hesap bağlamadan, elle girilen plan ya da açık işlem ================= */
