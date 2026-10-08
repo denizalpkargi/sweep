@@ -156,13 +156,13 @@ function liveSection(L,rules){
   md.push(`## Parametreler tek tek (başarısızı başarılıdan ayıran ilk 12)\n`,`AUC: başarısız kararın değeri başarılınınkinden büyük olma olasılığı; 0,50 ayırmıyor, 0,55 üstü ya da 0,45 altı ayırıyor. İki yarıda aynı tarafta olmayan parametrenin ayrımı 0 sayılır.\n`,
     '| Parametre | AUC 1. / 2. yarı | Dilim (beşte) ort. R, ilk yarı | İkinci yarı | Son 12 ay |','|---|---|---|---|---|');
   for(const s of scan.slice(0,12)) md.push(`| ${pname(s.k)} | ${fx(s.a1,3)} / ${fx(s.a2,3)} | ${s.bins.map(b=>sgn(b.h1.R)).join(' · ')} | ${s.bins.map(b=>sgn(b.h2.R)).join(' · ')} | ${s.bins.map(b=>sgn(b.y1.R)).join(' · ')} |`);
-  md.push('\nDilimler soldan sağa düşükten yükseğe (sınırlar ilk yarıdan). Ayırmayanlar: '+scan.filter(s=>s.sep<0.01).map(s=>pname(s.k)).join(', ')+'.\n');
+  md.push('\nDilimler soldan sağa düşükten yükseğe (sınırlar ilk yarıdan). Ayırmayanlar: '+scan.filter(s=>s.sep<0.005).map(s=>pname(s.k)).join(', ')+'.\n');
 
   md.push(`## Örnek kartları (son 12 aydan rastgele ${cardsF.length} başarısız, ${cardsW.length} başarılı)\n`,'Her sütun bir karar; değerin yanında karar kümesindeki yeri (çok düşük … çok yüksek). Satırlar ayrımı en güçlü parametreler.\n');
   const cards=[...cardsF,...cardsW]; const head=cards.map((d,i)=>`${i<cardsF.length?'✗':'✓'} ${d.sym.replace('USDT','')} ${d.dir==='long'?'L':'S'} ${new Date(d.t).toISOString().slice(5,13).replace('T',' ')}`);
   md.push('| Parametre | '+head.join(' | ')+' |','|---|'+cards.map(()=>'---').join('|')+'|');
   md.push('| Sonuç R | '+cards.map(d=>sgn(d.R)).join(' | ')+' |');
-  for(const k of cardKeys) md.push(`| ${pname(k)} | `+cards.map(d=>{ const q=pctOf(sorted[k],d.p[k]); return Number.isFinite(d.p[k])?`${fx(d.p[k],k==='hr'||k==='dow'||k==='evet'?0:3)} (${pctTxt(q)})`:'çekimser'; }).join(' | ')+' |');
+  for(const k of cardKeys) md.push(`| ${pname(k)} | `+cards.map(d=>{ const q=pctOf(sorted[k],d.p[k]); return Number.isFinite(d.p[k])?`${fx(d.p[k],k==='hr'||k==='dow'||k==='evet'?0:3)} (${pctTxt(q)})`:(/^(oy|güven):/.test(k)?'çekimser':'veri yok'); }).join(' | ')+' |');
   md.push('| aşama · kz | '+cards.map(d=>`${d.c.aşama} · ${d.c.kz}`).join(' | ')+' |');
   md.push('| desen | '+cards.map(d=>G.rules.some(r=>hit(r,d))?'atlardı':'girerdi').join(' | ')+' |');
   const cf=cardsF.filter(d=>G.rules.some(r=>hit(r,d))).length, cw=cardsW.filter(d=>G.rules.some(r=>hit(r,d))).length;
