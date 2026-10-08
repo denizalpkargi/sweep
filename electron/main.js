@@ -50,7 +50,12 @@ function relaunchLater(why){
   if(relaunchArmed||!app.isPackaged||process.platform!=='win32') return; relaunchArmed=true;
   try{
     const exe=process.execPath; const {spawn}=require('child_process');
-    const p=spawn('cmd.exe',['/d','/c','timeout /t 90 /nobreak >nul & start "" "'+exe+'"'],{detached:true,stdio:'ignore',windowsHide:true});
+    // 8 Ekim 21:39: Windows close-app istedi, yardımcı kuruldu ama SWEEP geri gelmedi. Olası iki neden: `timeout` konsolsuz (stdin NUL) süreçte
+    // "Input redirection is not supported" deyip hemen çıkar, yani bekleme hiç olmuyordu; açılış tek kopya kilidine takılıp boşa gidiyordu.
+    // Artık bekleme ping ile; 90 sn sonra bu süreç bitene kadar (en çok ~30 dk) 10 sn'de bir bakar, bitince açar.
+    const pid=process.pid, nap=n=>'ping -n '+(n+1)+' 127.0.0.1 >nul';
+    const wait='for /l %i in (1,1,180) do @(tasklist /FI "PID eq '+pid+'" /NH | find " '+pid+' " >nul && '+nap(10)+')';
+    const p=spawn('cmd.exe',['/d','/s','/c','"'+nap(90)+' & '+wait+' & start "" "'+exe+'""'],{detached:true,stdio:'ignore',windowsHide:true,windowsVerbatimArguments:true});
     p.unref(); log('yeniden açılma kuruldu (90 sn):',why);
   }catch(e){ logErr('relaunchLater',e); }
 }
