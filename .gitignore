@@ -2,10 +2,9 @@ node_modules/
 dist/
 electron/index.html
 tests/shot-*.png
-tests/data/
-!tests/data/
+tests/data/*
 !tests/data/events/
-!tests/data/events/**
+__pycache__/
 tests/backtest-*.json
 bot-data/
 tests/replay-*.json
