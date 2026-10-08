@@ -111,7 +111,7 @@ for(const name of Object.keys(SYS)) for(const d of [1,-1]) for(const pyr of (nam
     const st=rstats(tr), h1=rstats(tr.filter(x=>x.ti<TMID)), h2=rstats(tr.filter(x=>x.ti>=TMID)), l24=rstats(tr.filter(x=>x.ti>=T24)); const pf=portfolio(tr);
     res.push({name,d,pyr,filt,st,h1,h2,l24,pf,tr});
     lines.push(`| ${name} | ${d>0?'long':'short'} | ${filt?'BTC SMA200':'yok'} | ${pyr?'var':'yok'} | ${st.n} | ${fx(st.R)} | ${fx(st.t,1)} | %${(100*st.win).toFixed(0)} | ${fx(h1.R)} | ${fx(h2.R)} | ${fx(l24.R)} | ${pc(pf.cagr)} | −${(100*pf.mdd).toFixed(0)}% | ${fx(pf.sharpe)} | ${pc(pf.h1)} | ${pc(pf.h2)} |`);
-    console.log(name,d>0?'L':'S',pyr?'pyr':'',filt?'filt':'',st.n,fx(st.R),fx(h1.R),fx(h2.R),fx(l24.R),pc(pf.cagr),(100*pf.mdd).toFixed(0));
+    console.log(name,d>0?"L":"S",pyr?"pyr":"",filt?"filt":"","alındı",pf.taken,"atlandı",pf.skipped,st.n,fx(st.R),fx(h1.R),fx(h2.R),fx(l24.R),pc(pf.cagr),(100*pf.mdd).toFixed(0));
   }
 }
 lines.push('','## Yıl yıl (portföy getirisi)','','| Sistem | '+[2020,2021,2022,2023,2024,2025,2026].join(' | ')+' |','|---|'+'---|'.repeat(7));
