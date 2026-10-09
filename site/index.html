@@ -3612,13 +3612,20 @@ function botCandidatesCommittee(){
     for(const dir of ["long","short"]){ const c=r.com[dir]; if(!c) continue;
       const held=botHas(r.s), cool=bot.cool[r.s]&&now<bot.cool[r.s];
       const go=!!c.plan&&c.score>=botThr()&&c.yes>=botMinYes()&&!c.veto&&!held&&!cool;
-      out.push({sym:r.s,dir,model:"KOMİTE",grade:c.score>=0.5?"A":c.score>=bot.cfg.threshold?"B":"C",kz:null,entry:bot.px[r.s]||r.px,sd:c.plan?c.plan.sd:NaN,stop:c.plan?c.plan.stop:NaN,t1:c.plan?c.plan.t1:NaN,t2:c.plan?c.plan.t2:NaN,rr1:1.5,rr2:3,com:c,go,held,cool:!!cool,score:c.score,yes:c.yes,veto:c.veto});
+      out.push({sym:r.s,dir,model:"KOMİTE",grade:c.score>=0.5?"A":c.score>=bot.cfg.threshold?"B":"C",kz:null,entry:botLivePx(r.s)||r.px,sd:c.plan?c.plan.sd:NaN,stop:c.plan?c.plan.stop:NaN,t1:c.plan?c.plan.t1:NaN,t2:c.plan?c.plan.t2:NaN,rr1:1.5,rr2:3,com:c,go,held,cool:!!cool,score:c.score,yes:c.yes,veto:c.veto});
     }
   }
   return out.sort((a,b)=>b.score-a.score);
 }
+/* market giriş fiyatı yalnız taze olmalı (9 Ekim 2026, JUP: bot.px'te saatler önceki fiyat kalmıştı; 0,3804'ten girildi, ilk canlı fiyat 0,3744 stopu 1,4 sn'de vurdu, −13,07 $).
+   Sıra: bu coinin işlem akışı (≤60 sn) → tüm coin ticker akışı (≤30 sn) → mark fiyat akışı (≤30 sn); hiçbiri yoksa giriş yok. */
+function botLivePx(sym){ const now=Date.now();
+  if(bot.px[sym]>0&&bot.pxT&&now-(bot.pxT[sym]||0)<=60e3) return bot.px[sym];
+  try{ const t=wsd.tick[sym]; if(t&&now-wsd.tickT<=30e3&&+t.lastPrice>0) return +t.lastPrice; }catch(e){}
+  try{ const m=wsd.mark[sym]; if(m&&now-wsd.markT<=30e3&&+m.markPrice>0) return +m.markPrice; }catch(e){}
+  return NaN; }
 function botOpenMarket(x,es){
-  const cfg=bot.cfg; const isL=x.dir==="long"; const px=bot.px[x.sym]||x.entry; if(!(px>0)||!(x.sd>0)) return false;
+  const cfg=bot.cfg; const isL=x.dir==="long"; const px=botLivePx(x.sym); if(!(px>0)){ botLog("skip",x.sym,"Taze fiyat yok (akış ve ticker 30 sn'den eski): market giriş yapılmadı."); return false; } if(!(x.sd>0)) return false;
   const sd=x.sd; const stop=isL?px*(1-sd):px*(1+sd), t1=isL?px*(1+1.5*sd):px*(1-1.5*sd), t2=isL?px*(1+3*sd):px*(1-3*sd);
   const lev=cfg.lev||20; const risk=es?es.riskUsd:bot.bal*cfg.risk; const notional=risk/sd; const margin=notional/lev;
   if(margin+botMarginUsed()>bot.bal*0.95){ bot._noMargin={need:margin,free:Math.max(0,bot.bal*0.95-botMarginUsed())}; return false; }
@@ -3687,7 +3694,7 @@ function botWsSync(){
 }
 function botFunding(sym,rate){ for(const p of bot.positions){ if(p.sym!==sym) continue; const fee=p.notional*rate*(p.dir==="long"?1:-1); bot.bal-=fee; p.fees+=fee; botLog("fund",p.sym,`Fonlama ${fx(rate*100,4)}% → ${fee>=0?"ödendi":"alındı"} ${fmtB(Math.abs(fee))}.`); } }
 function botOnPrice(sym,px,T){
-  if(!(px>0)) return; bot.px[sym]=px; bot.lastTick=Date.now(); const cfg=bot.cfg; const now=Date.now();
+  if(!(px>0)) return; bot.px[sym]=px; (bot.pxT||(bot.pxT={}))[sym]=Date.now(); bot.lastTick=Date.now(); const cfg=bot.cfg; const now=Date.now();
   for(const o of [...bot.orders]){ if(o.sym!==sym) continue; const isL=o.dir==="long"; if(!(isL? px<=o.entry : px>=o.entry)) continue;
     bot.orders=bot.orders.filter(x=>x!==o);
     if(isL? px<=o.stop : px>=o.stop){ botLog("cancel",o.sym,`Fiyat stop seviyesine giriş olmadan geldi; emir iptal.`); botWsSync(); continue; }
