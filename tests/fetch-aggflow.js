@@ -3,7 +3,7 @@
 // data.binance.vision/data/futures/um/daily/aggTrades/<SYM>/<SYM>-aggTrades-YYYY-MM-DD.zip (sütunlar: agg_trade_id,price,quantity,first_trade_id,last_trade_id,transact_time,is_buyer_maker)
 // Çıktı tests/data/arch/aggflow/<SYM>.csv: t,n,q,qb,q1k,qb1k,q10k,qb10k,q100k,qb100k,mx,n100k
 //   n işlem sayısı, q nominal (USDT), qb taker alış nominali, qXk ≥ X bin USDT büyüklüğündeki işlemlerin nominali ve taker alış kısmı, mx en büyük işlem, n100k ≥100k işlem sayısı.
-// Yalnız coinin ayın ilk --top coini arasında olduğu günler. Kullanım: node tests/fetch-aggflow.js [--top 30] [--from 2024-06-01] [--conc 6] [--only DOGEUSDT] [--days 1]
+// Yalnız coinin ayın ilk --top coini arasında olduğu günler. Kullanım: node tests/fetch-aggflow.js [--top 30] [--from 2024-06-01] [--conc 6] [--only DOGEUSDT] [--days 1] [--ckpt 150]
 const fs=require('fs'), path=require('path'), zlib=require('zlib');
 const S3='https://s3-ap-northeast-1.amazonaws.com/data.binance.vision'; const ARCH=path.join(__dirname,'data','arch'), OUT=path.join(ARCH,'aggflow');
 const arg=(k,d)=>{ const i=process.argv.indexOf('--'+k); return i<0?d:process.argv[i+1]; };
@@ -35,10 +35,12 @@ const want={}; for(const m in U){ const t0=Date.UTC(+m.slice(0,4),+m.slice(5,7)-
     if(fs.existsSync(f)) for(const l of fs.readFileSync(f,'utf8').split('\n')) if(l){ rows[s].set(+l.split(',')[0],l); have.add(new Date(+l.split(',')[0]).toISOString().slice(0,10)); }
     let k=0; for(const d of [...want[s]].sort()) if(!have.has(d)&&k++<MAXD) jobs.push([s,d]); }
   console.log('coin',Object.keys(want).length,'indirilecek gün',jobs.length); let i=0, done=0; const t0=Date.now();
+  const CK=+arg('ckpt',150); const dirty=new Set(); // ara kayıt: her CK dosyada değişen coinlerin CSV'si yazılır (oturum yenilenirse inenler kalsın)
+  const flush=()=>{ for(const s of dirty) if(rows[s].size) fs.writeFileSync(path.join(OUT,s+'.csv'),[...rows[s].entries()].sort((a,b)=>a[0]-b[0]).map(x=>x[1]).join('\n')+'\n'); dirty.clear(); };
   await Promise.all(Array.from({length:CONC},async()=>{ while(i<jobs.length){ const [s,d]=jobs[i++];
-    try{ const b=await get(`${S3}/data/futures/um/daily/aggTrades/${s}/${s}-aggTrades-${d}.zip`); if(!b){ miss++; continue; } bytes+=b.length; const raw=unzip(b); for(const l of fold(raw)) rows[s].set(+l.split(',')[0],l); done++;
+    try{ const b=await get(`${S3}/data/futures/um/daily/aggTrades/${s}/${s}-aggTrades-${d}.zip`); if(!b){ miss++; continue; } bytes+=b.length; const raw=unzip(b); for(const l of fold(raw)) rows[s].set(+l.split(',')[0],l); done++; dirty.add(s); if(done%CK===0) flush();
       if(done%50===0||jobs.length<=5) console.log(' ',done,'/',jobs.length,s,d,(b.length/1e6).toFixed(1)+' MB zip',(raw.length/1e6).toFixed(0)+' MB csv','eksik',miss,'hata',fail,((Date.now()-t0)/1000|0)+' sn',(bytes/1e6/((Date.now()-t0)/1000)).toFixed(1)+' MB/sn'); }
     catch(e){ fail++; console.log('  hata',s,d,e.message); } } }));
-  for(const s in rows) if(rows[s].size) fs.writeFileSync(path.join(OUT,s+'.csv'),[...rows[s].entries()].sort((a,b)=>a[0]-b[0]).map(x=>x[1]).join('\n')+'\n');
+  for(const s in rows) dirty.add(s); flush();
   console.log('bitti gün',done,'eksik',miss,'hata',fail,(bytes/1e9).toFixed(2)+' GB',((Date.now()-t0)/1000|0)+' sn');
 })();
