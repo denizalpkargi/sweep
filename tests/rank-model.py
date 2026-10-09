@@ -44,21 +44,24 @@ if '--noeval' not in sys.argv:
         tr = df.loc[tr_idx]; te = df.loc[te_idx]; print('test', m0, 'eğitim', len(tr_idx), 'test', len(te_idx), flush=True)
         for name, feats in VARS:
             for h, (yc, pc) in HZ.items():
-                m = fit(tr, feats, yc + 'r'); o = pd.DataFrame({'t': te.t.values, 'th': te.th.values, 'p': m.predict(te[feats]), 'yc': te[yc + 'c'].values, 'ret': te[pc].values})
+                m = fit(tr, feats, yc + 'r'); o = pd.DataFrame({'t': te.t.values, 'th': te.th.values, 'si': te.si.values, 'p': m.predict(te[feats]), 'yc': te[yc + 'c'].values, 'ret': te[pc].values, 'fr': te.fr.values})
                 oos.setdefault((name, h), []).append((m0, o)); print(f'    {name} {h} IC {fx(fast_ic(o, "p", "yc")[0])} {time.time()-t0:.0f} sn', flush=True)
     L += ['## İleriye yürüyen IC (saat içi Spearman)', '', '| Model | Ufuk | Tümü | t | 1. yarı | 2. yarı | Son 12 ay | Pencereler |', '|---|---|---|---|---|---|---|---|']
     TR = ['', '## Onluklar ve 2+2 işlem (ham getiri, %)', '', 'Her saat en yüksek 2 coin long, en düşük 2 short, ufuk boyunca tutulur; taker gidiş-dönüş %0,16 (bacak başına). Saatler örtüşür, ortalama işlem başına.', '',
-          '| Model | Ufuk | Alt onluk | Üst onluk | Üst−alt | Long bacak | Short bacak | 2+2 brüt | 2+2 taker sonrası | Son 12 ay taker sonrası |', '|---|---|---|---|---|---|---|---|---|---|']
+          'Getiri basit (e^r − 1; log getiri shortu oynaklık kadar fazla gösterir) ve fonlama dahil (o anki fonlama oranı × ufuk ÷ 8 sa; short pozitif fonlamada alır).', '',
+          '| Model | Ufuk | Alt onluk | Üst onluk | Üst−alt | Long bacak | Short bacak | 2+2 brüt | 2+2 taker sonrası | Son 12 ay taker sonrası | Alt onlukta long (taker sonrası) |', '|---|---|---|---|---|---|---|---|---|---|---|']
     for (name, h), parts in oos.items():
         o = pd.concat([p for _, p in parts]); mid = np.sort(o.t.values)[len(o)//2]; y12 = o.t.max() - 365*864e5
         a, at, _ = fast_ic(o, 'p', 'yc'); win = ' / '.join(fx(fast_ic(p, 'p', 'yc')[0]) for _, p in parts)
         L.append(f'| {name} | {h} | {fx(a)} | {fx(at, 1)} | {fx(fast_ic(o[o.t < mid], "p", "yc")[0])} | {fx(fast_ic(o[o.t >= mid], "p", "yc")[0])} | {fx(fast_ic(o[o.t >= y12], "p", "yc")[0])} | {win} |')
-        def tr22(s):
-            s = s.dropna(subset=['ret']).copy(); s['rk'] = s.groupby('th')['p'].rank(method='first'); s['n'] = s.groupby('th')['p'].transform('size'); s['dec'] = np.floor(s.groupby('th')['p'].rank(method='first', pct=True)*10 - 1e-9).clip(0, 9)
-            lg = s[s.rk > s.n - 2].groupby('th').ret.mean()*100; sh = -s[s.rk <= 2].groupby('th').ret.mean()*100
+        hh = 4 if h.startswith('4') else 12
+        def tr22(s):  # long (ret) / short (sret) basit getiri, fonlama dahil
+            s = s.dropna(subset=['ret']).copy(); fd = np.nan_to_num(s.fr.values)/1e4*hh/8; r = s.ret.values; s['ret'] = np.expm1(r) - fd; s['sret'] = -np.expm1(r) + fd; s['rk'] = s.groupby('th')['p'].rank(method='first'); s['n'] = s.groupby('th')['p'].transform('size'); s['dec'] = np.floor(s.groupby('th')['p'].rank(method='first', pct=True)*10 - 1e-9).clip(0, 9)
+            lg = s[s.rk > s.n - 2].groupby('th').ret.mean()*100; sh = s[s.rk <= 2].groupby('th').sret.mean()*100
             return s[s.dec == 0].ret.mean()*100, s[s.dec == 9].ret.mean()*100, lg.mean(), sh.mean(), (lg.mean() + sh.mean())/2
         b, t_, lgm, shm, both = tr22(o); _, _, _, _, b12 = tr22(o[o.t >= y12])
-        TR.append(f'| {name} | {h} | {fx(b, 3)} | {fx(t_, 3)} | {fx(t_-b, 3)} | {fx(lgm, 3)} | {fx(shm, 3)} | {fx(both, 3)} | {fx(both-0.16, 3)} | {fx(b12-0.16, 3)} |')
+        TR.append(f'| {name} | {h} | {fx(b, 3)} | {fx(t_, 3)} | {fx(t_-b, 3)} | {fx(lgm, 3)} | {fx(shm, 3)} | {fx(both, 3)} | {fx(both-0.16, 3)} | {fx(b12-0.16, 3)} | {fx(b-0.16, 3)} |')
+        if '--save' in sys.argv: o.to_pickle(os.path.join(D, f'rank-oos-{name}-{hh}.pkl'))
     L += TR
 EXP = arg('export', None)
 if EXP:
@@ -66,9 +69,18 @@ if EXP:
     if len(tr_idx) > MAXTR*2: tr_idx = np.sort(np.random.choice(tr_idx, MAXTR*2, replace=False))
     tr = df.loc[tr_idx]; par = df.loc[np.sort(np.random.choice(df.index[df.t >= df.t.max() - 30*864e5].values, 300, replace=False))]; parity = {'rows': [], 'pred': {}}
     for r in par[RAW + XSF].values.tolist(): parity['rows'].append([None if not np.isfinite(v) else float(v) for v in r])
+    def f32dn(t):  # en büyük float32 ≤ t: float32 girdide x ≤ t ile aynı sonuç, dosya küçük
+        if not np.isfinite(t) or abs(t) > 1e30: return float(t)
+        f = np.float32(t)
+        if float(f) > t: f = np.nextafter(f, np.float32(-np.inf))
+        lo = float(f)
+        for k in range(1, 18):  # en kısa ondalık d, lo ≤ d ≤ t (float32 x için x ≤ d ⟺ x ≤ t)
+            for c in (float(f'{t:.{k}g}'), float(f'{lo:.{k}g}')):
+                if lo <= c <= t: return c
+        return float(t)
     def conv(node, S):
         if 'leaf_value' in node: S['v'].append(float(f"{node['leaf_value']:.7g}")); return ~(len(S['v']) - 1)
-        i = len(S['s']); S['s'].append(node['split_feature']); S['t'].append(float(node['threshold'])); S['l'].append(0); S['r'].append(0)
+        i = len(S['s']); S['s'].append(node['split_feature']); S['t'].append(f32dn(node['threshold'])); S['l'].append(0); S['r'].append(0)
         mt = {'None': 0, 'Zero': 2, 'NaN': 4}[node['missing_type']]; S['m'].append(mt | (1 if node['default_left'] else 0)); assert node['decision_type'] == '<='
         S['l'][i] = conv(node['left_child'], S); S['r'][i] = conv(node['right_child'], S); return i
     for h, (yc, _) in HZ.items():
