@@ -61,11 +61,11 @@ const SRC={
     const K=Object.keys(CH); return {...csvMerge('onchain-btc.csv','date,'+K.join(','),[...M.keys()].map(d=>[d,...K.map(k=>M.get(d)[k]??'')])),alanlar:got}; },
   news: async()=>{ const f=path.join(OUT,'news.jsonl'); const seen=new Set(); let oldest=Date.now()/1000|0; if(fs.existsSync(f)) for(const l of fs.readFileSync(f,'utf8').split('\n')) if(l){ try{ const x=JSON.parse(l); seen.add(x.id); if(x.t<oldest) oldest=x.t; }catch{} }
     const w=fs.createWriteStream(f,{flags:'a'}); let n=0, lTs=Math.floor(Date.now()/1000), calls=0, empty=0; const minTs=NEWS_FROM/1000; const toTs=seen.size?oldest:minTs; // ilk koşu: bugünden NEWS_FROM'a; sonraki: en eskiden geriye değil, yeni haberler için baştan (görülenler atlanır)
-    while(lTs>minTs&&calls<20000){ let j; try{ j=await get(`https://min-api.cryptocompare.com/data/v2/news/?lang=EN&lTs=${lTs}`); }catch(e){ console.log('  news',e.message); break; } calls++; const D=j.Data||[]; if(!D.length){ if(++empty>3) break; lTs-=3600; continue; } empty=0;
+    while(lTs>minTs&&calls<20000){ let j; try{ j=await get(`https://min-api.cryptocompare.com/data/v2/news/?lang=EN&lTs=${lTs}`); }catch(e){ if(!calls){ w.end(); throw new Error(e.message+(/401/.test(e.message)?' (CryptoCompare artık API anahtarı istiyor)':'')); } console.log('  news',e.message); break; } calls++; const D=j.Data||[]; if(!D.length){ if(++empty>3) break; lTs-=3600; continue; } empty=0;
       let minSeen=lTs; for(const x of D){ const t=+x.published_on; if(t<minSeen) minSeen=t; if(seen.has(x.id)) continue; seen.add(x.id); n++; w.write(JSON.stringify({id:x.id,t,src:x.source,title:x.title,cats:x.categories,up:+x.upvotes||0,down:+x.downvotes||0,url:x.url})+'\n'); }
       if(seen.size&&D.every(x=>seen.has(x.id))&&minSeen<=toTs) break; // eski kayıtlara ulaşıldı
       lTs=minSeen-1; if(calls%100===0) console.log('  news',calls,'istek',n,'yeni',day(lTs*1000)); await sleep(400); }
     w.end(); return {yeni:n,toplam:seen.size,istek:calls,enEski:day(Math.min(oldest,lTs)*1000)}; },
 };
 (async()=>{ fs.mkdirSync(OUT,{recursive:true}); console.log('çıktı',OUT); for(const k of Object.keys(SRC)) await run(k,SRC[k]);
-  fs.writeFileSync(path.join(OUT,'_ozet.json'),JSON.stringify({at:new Date().toISOString(),sources:S},null,1)); console.log('\nÖZET'); for(const k in S) console.log(' ',k.padEnd(6),JSON.stringify(S[k]).slice(0,200)); })();
+  const OZ=path.join(OUT,'_ozet.json'); let prev={}; try{ prev=JSON.parse(fs.readFileSync(OZ,'utf8')).sources||{}; }catch{} fs.writeFileSync(OZ,JSON.stringify({at:new Date().toISOString(),sources:{...prev,...S}},null,1)); /* --only koşuları birbirini silmesin */ console.log('\nÖZET'); for(const k in S) console.log(' ',k.padEnd(6),JSON.stringify(S[k]).slice(0,200)); })();
