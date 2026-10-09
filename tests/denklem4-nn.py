@@ -7,7 +7,8 @@
 #   - doğrulama: eğitim penceresinin son 60 günü ayrılır, en iyi IC'li tur saklanır; kosinüs öğrenme hızı, AdamW, gradyan kırpma,
 #   - topluluk: iki tohumun ortalaması.
 # Girdi: denklem4.f32 (eski 202 + 1 dk mikro yapı + çoklu pencere + coinler arası sıra; 2023-06'dan). Aynı bölünmelerde LightGBM (tümü) kıyası.
-# İleriye yürüyen: test 6 ay, eğitim yalnız öncesi (1 gün ara). Kullanım: python3 tests/denklem4-nn.py [--start 12] [--step 6] [--epochs 5] [--maxh 16000] [--d 320] [--out rapor.md]
+# İleriye yürüyen: test 6 ay, eğitim yalnız öncesi (1 gün ara). Kullanım: python3 tests/denklem4-nn.py [--start 12] [--step 6] [--epochs 5] [--maxh 16000] [--d 320] [--lam 1] [--variants derin,coinler,dikkat,tümü] [--out rapor.md] [--pkl ad.pkl]
+# Ablasyon (9 Ekim): --lam 0 --variants derin → yalnız MSE ile derin tablo (sıralama kaybının payı).
 import json, sys, os, math, time, pickle
 import numpy as np, pandas as pd, torch, torch.nn as nn, lightgbm as lgb
 torch.set_num_threads(4); D = os.path.join(os.path.dirname(__file__), 'data', 'arch')
@@ -88,7 +89,7 @@ def train_lgb(trRows, teRows):
         yc = HZ[h][0] + 'c'; ok = np.isfinite(tr[yc].values)
         m = lgb.LGBMRegressor(n_estimators=300, learning_rate=0.03, num_leaves=31, min_child_samples=1000, subsample=0.7, subsample_freq=1, colsample_bytree=0.6, reg_lambda=10, verbose=-1, n_jobs=4).fit(tr.loc[ok, FEATS], tr.loc[ok, yc]); P[:, k] = m.predict(df.iloc[teRows][FEATS])
     return P
-VARS = ['ağ derin tablo', 'ağ coinler arası dikkat', 'ağ dikkat ×2 topluluk', 'LightGBM tümü']; oos = {v: [] for v in VARS}
+ONLY = arg('variants', None); VARS = [v for v in ['ağ derin tablo', 'ağ coinler arası dikkat', 'ağ dikkat ×2 topluluk', 'LightGBM tümü'] if not ONLY or v.split()[1] in ONLY.split(',')]; oos = {v: [] for v in VARS}
 for i in range(START, len(months), STEP):
     test_m = months[i:i+STEP]; tmin = df[df.month == months[i]].t.min(); teH = np.where(np.isin(hmonth, test_m))[0]
     allTr = np.where((hmonth < months[i]) & (htime < tmin - 864e5))[0]
@@ -102,10 +103,10 @@ for i in range(START, len(months), STEP):
     te = df.iloc[teRows]; base = {'t': te.t.values, 'th': te.th.values, 'sym': te.sym.values, 'sd15': te.sd15.values}
     for h in HN: base['y_' + h] = te[HZ[h][0]].values; base['yc_' + h] = te[HZ[h][0] + 'c'].values
     preds = {}
-    P, v = train_nn(trH, vaH, teH, 0, 1, Xs, Ys); preds['ağ derin tablo'] = P[teRows]; print('   ', 'ağ derin tablo', 'en iyi doğrulama', fx(v), flush=True)
-    P1, v1 = train_nn(trH, vaH, teH, 2, 1, Xs, Ys); preds['ağ coinler arası dikkat'] = P1[teRows]; print('   ', 'ağ dikkat', 'en iyi doğrulama', fx(v1), flush=True)
-    P2, v2 = train_nn(trH, vaH, teH, 2, 2, Xs, Ys); preds['ağ dikkat ×2 topluluk'] = (P1[teRows] + P2[teRows])/2; print('   ', 'ağ dikkat tohum 2', 'en iyi doğrulama', fx(v2), flush=True)
-    preds['LightGBM tümü'] = train_lgb(trRows, teRows)
+    if 'ağ derin tablo' in VARS: P, v = train_nn(trH, vaH, teH, 0, 1, Xs, Ys); preds['ağ derin tablo'] = P[teRows]; print('   ', 'ağ derin tablo', 'en iyi doğrulama', fx(v), flush=True)
+    if 'ağ coinler arası dikkat' in VARS or 'ağ dikkat ×2 topluluk' in VARS: P1, v1 = train_nn(trH, vaH, teH, 2, 1, Xs, Ys); preds['ağ coinler arası dikkat'] = P1[teRows]; print('   ', 'ağ dikkat', 'en iyi doğrulama', fx(v1), flush=True)
+    if 'ağ dikkat ×2 topluluk' in VARS: P2, v2 = train_nn(trH, vaH, teH, 2, 2, Xs, Ys); preds['ağ dikkat ×2 topluluk'] = (P1[teRows] + P2[teRows])/2; print('   ', 'ağ dikkat tohum 2', 'en iyi doğrulama', fx(v2), flush=True)
+    if 'LightGBM tümü' in VARS: preds['LightGBM tümü'] = train_lgb(trRows, teRows)
     for v in VARS:
         o = pd.DataFrame(base)
         for k, h in enumerate(HN): o['p_' + h] = preds[v][:, k]
@@ -113,7 +114,7 @@ for i in range(START, len(months), STEP):
         for h in HN: o['q95_' + h] = np.quantile(o['p_' + h], 0.95); o['q05_' + h] = np.quantile(o['p_' + h], 0.05)
         oos[v].append(o); print('   ', v, ' '.join(f'{h} {fx(fast_ic(o, "p_"+h, "yc_"+h)[0])}' for h in HN), f'{time.time()-t0:.0f} sn', flush=True)
     del Xs, Ys
-pickle.dump({v: pd.concat(parts) for v, parts in oos.items()}, open(os.path.join(D, 'denklem4-nn-oos.pkl'), 'wb'))
+pickle.dump({v: pd.concat(parts) for v, parts in oos.items()}, open(os.path.join(D, arg('pkl', 'denklem4-nn-oos.pkl')), 'wb'))
 L = [f'# Denklem 4 · sinir ağı v3: derin gövde + coinler arası dikkat + sıralama kaybı + çok ufuk · {time.strftime("%Y-%m-%d")}', '',
      f'{len(df):,} saatlik gözlem ({months[0]} → {months[-1]}), {len(FEATS)} değişken (eski 202 + 1 dk mikro yapı + çoklu pencere + coinler arası sıra). Hedefler: 1 / 4 / 12 / 24 sa VWAP → VWAP ÷ oynaklık. Ağ: artık MLP (d {DM}, 3 blok) → [2 katman coinler arası Transformer] → 4 çıkış; kayıp MSE + {LAM:g}·(1 − saat içi Pearson); AdamW, tek döngü kosinüs, {EPOCHS} tur, eğitim penceresinin son 60 günü doğrulama (en iyi tur). İleriye yürüyen test {STEP} ay, eğitimde en çok {MAXH:,} saat. LightGBM (tümü) aynı bölünmelerde.', '',
      '| Model | Ufuk | Dönem | n | IC | t | Üst−alt onluk % |', '|---|---|---|---|---|---|---|']
