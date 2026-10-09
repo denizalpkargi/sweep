@@ -38,6 +38,13 @@ if [ "$DAGE" -ge 7 ]; then el "denklem özellikleri + modeli"; node --max-old-sp
 OLR=tests/olay-etkisi-report.md; OAGE=$(( ( $(date +%s) - $(stat -c %Y "$OLR" 2>/dev/null || echo 0) ) / 86400 ))
 if [ "$OAGE" -ge 7 ]; then el "olay etkisi"; node --max-old-space-size=12000 tests/olay-etkisi.js > /dev/null 2>&1 && cp "$OLR" "$PF/arastirma/dongu/olay-etkisi-$GUN.md" || true; fi
 
+# 2d) Ozan (sıralama modeli, src/rankmodel.js): 30 günde bir arşivin son haliyle yeniden eğit. Aday model ve rapor dongu/ozan/ altına yazılır;
+#     depodaki model değişmez (canlıya almak: dosyayı src/rankmodel-data.js'e kopyala, npm test, PR). Rapordaki son pencere IC'si modelin eskiyip eskimediğini gösterir.
+OZ=$PF/arastirma/dongu/ozan; mkdir -p "$OZ"; OAGE2=$(( ( $(date +%s) - $(stat -c %Y "$OZ/son-egitim" 2>/dev/null || echo 0) ) / 86400 ))
+if [ "$OAGE2" -ge 30 ]; then el "Ozan yeniden eğitim"
+  ( for p in 0 1 2 3; do node tests/rank-ozellik.js $p 4 > /dev/null & done; wait ) && python3 tests/rank-model.py --vars 0 --export tam --out "$OZ/ozan-$GUN.md" 2>/dev/null | tail -2 \
+    && node tests/rank-test.js | tail -1 && cp src/rankmodel-data.js "$OZ/rankmodel-data-$GUN.js" && touch "$OZ/son-egitim" || true
+  git checkout -- src/rankmodel-data.js tests/data/rank-parity.json tests/rank-model-report.md 2>/dev/null || true; rm -f $ARCH/rank-*.f32; fi
 # 3) hata örneklemi: en yeni canlı kayıt (bilgisayardan çekilen state.json kopyası ya da elle yüklenen yedek)
 LIVE=$(ls -t "$CANLI"/state-*.json "$PF"/sweep-yedek/sweep-geri-yukle*.json 2>/dev/null | head -1 || true)
 el "hata örneklemi (canlı: ${LIVE:-yok})"
