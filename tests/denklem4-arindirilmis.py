@@ -9,7 +9,8 @@ OUT = arg('out', os.path.join(os.path.dirname(__file__), 'denklem4-arindirilmis-
 meta = json.load(open(os.path.join(D, 'denklem4.json'))); COLS = meta['cols']; NEW = meta['new']; t0 = time.time()
 X = np.fromfile(os.path.join(D, 'denklem4.f32'), dtype=np.float32).reshape(-1, len(COLS)); df = pd.DataFrame(X, columns=COLS); del X
 df = df[np.isfinite(df.y1v) & np.isfinite(df.y4v)].copy(); df['t'] = df.th.astype(np.int64) * 3600000 + meta['t0']; df['month'] = pd.to_datetime(df.t, unit='ms').dt.strftime('%Y-%m')
-HZ = {'1 sa': ('y1v', 2.0), '4 sa': ('y4v', 4.0), '12 sa': ('y12v', math.sqrt(48)), '24 sa': ('y24v', math.sqrt(96))}
+HZ = {'1 sa': ('y1v', 2.0), '4 sa': ('y4v', 4.0), '12 sa': ('y12v', math.sqrt(48)), '24 sa': ('y24v', math.sqrt(96))}; HZ = {k: v for k, v in HZ.items() if k in arg('hz', ','.join(HZ)).split(',')}  # --hz "4 sa,12 sa"
+NTREE = int(arg('trees', 300))
 for h, (yc, _) in HZ.items():
     df[yc + 'c'] = df[yc].clip(-5, 5); df[yc + 'd'] = df[yc + 'c'] - df.groupby('th')[yc + 'c'].transform('mean')  # arındırılmış
 df = df.reset_index(drop=True)
@@ -29,6 +30,7 @@ def fast_ic(o, pcol, ycol, key='th', minn=10):
     with np.errstate(invalid='ignore', divide='ignore'): r = (sxy - sx*sy/n)/np.sqrt((sxx - sx*sx/n)*(syy - sy*sy/n))
     r = r[(n >= minn) & np.isfinite(r)]; return (r.mean() if len(r) else np.nan), (r.mean()/r.std()*math.sqrt(len(r)) if len(r) > 2 and r.std() > 0 else np.nan), len(r)
 VARS = [('LGB ham hedef, tüm değişkenler', FEATS, 'c'), ('LGB arındırılmış hedef, tüm değişkenler', FEATS, 'd'), ('LGB arındırılmış hedef, yalnız coin değişkenleri', COIN, 'd'), ('LGB ham hedef, yalnız coin değişkenleri', COIN, 'c')]
+VARS = [v for v in VARS if not arg('vars', None) or str(VARS.index(v)) in arg('vars', '').split(',')]  # --vars 0,1,2
 oos = {}
 for i in range(START, len(months), STEP):
     test_m = months[i:i+STEP]; tmin = df[df.month == months[i]].t.min()
@@ -39,7 +41,7 @@ for i in range(START, len(months), STEP):
     for name, feats, suf in VARS:
         for h, (yc, sc) in HZ.items():
             tg = yc + suf; ok = np.isfinite(tr[tg].values)
-            m = lgb.LGBMRegressor(n_estimators=300, learning_rate=0.03, num_leaves=31, min_child_samples=1000, subsample=0.7, subsample_freq=1, colsample_bytree=0.6, reg_lambda=10, verbose=-1, n_jobs=4).fit(tr.loc[ok, feats], tr.loc[ok, tg])
+            m = lgb.LGBMRegressor(n_estimators=NTREE, learning_rate=0.03, num_leaves=31, min_child_samples=1000, subsample=0.7, subsample_freq=1, colsample_bytree=0.6, reg_lambda=10, verbose=-1, n_jobs=4).fit(tr.loc[ok, feats], tr.loc[ok, tg])
             o = pd.DataFrame({'t': te.t.values, 'th': te.th.values, 'sym': te.sym.values, 'sd15': te.sd15.values, 'p': m.predict(te[feats]), 'y': te[yc].values, 'yc': te[yc + 'c'].values})
             oos.setdefault((name, h), []).append(o); print(f'    {name} {h} IC {fx(fast_ic(o, "p", "yc")[0])} {time.time()-t0:.0f} sn', flush=True)
 L = [f'# Denklem 4 ek · arındırılmış hedef ve coin düzeyi değişkenlerle LightGBM · {time.strftime("%Y-%m-%d")}', '',
