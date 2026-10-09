@@ -32,7 +32,10 @@ def fast_ic(o, pcol, ycol, key='th', minn=10):
     r = r[(n >= minn) & np.isfinite(r)]; return (r.mean() if len(r) else np.nan), (r.mean()/r.std()*math.sqrt(len(r)) if len(r) > 2 and r.std() > 0 else np.nan), len(r)
 VARS = [('LGB ham hedef, tüm değişkenler', FEATS, 'c'), ('LGB arındırılmış hedef, tüm değişkenler', FEATS, 'd'), ('LGB arındırılmış hedef, yalnız coin değişkenleri', COIN, 'd'), ('LGB ham hedef, yalnız coin değişkenleri', COIN, 'c')]
 VARS = [v for v in VARS if not arg('vars', None) or str(VARS.index(v)) in arg('vars', '').split(',')]  # --vars 0,1,2
-if '--lambdarank' in sys.argv: VARS = [('LGB lambdarank (saat içi onluk etiketi), tüm değişkenler', FEATS, 'r'), ('LGB lambdarank, yalnız coin değişkenleri', COIN, 'r')]
+LIVE_X = lambda c: c.startswith(('dImb', 'dDepth', 'dBid', 'dAsk', 'm_', 'x_m_', 'x_dImb')) or c in ('basis', 'basisCh', 'spotShare', 'spotShareCh', 'spotTk', 'spotLead', 'x_basis')  # canlıda yok: derinlik arşivi, 1 dk mikro yapı, spot
+LIVE1 = [c for c in FEATS if not LIVE_X(c)]; LIVE2 = [c for c in LIVE1 if c not in ('topPosZ', 'topAccZ', 'globZ', 'smartDiv', 'topPosCh4', 'globCh4', 'x_topPosZ', 'x_globZ')]  # dar: büyük trader / kalabalık oranları da yok
+if '--lambdarank' in sys.argv and '--live' in sys.argv: VARS = [('LGB lambdarank, canlı geniş (derinlik/1 dk/spot yok)', LIVE1, 'r'), ('LGB lambdarank, canlı dar (+ long/short oranları yok)', LIVE2, 'r')]
+elif '--lambdarank' in sys.argv: VARS = [('LGB lambdarank (saat içi onluk etiketi), tüm değişkenler', FEATS, 'r'), ('LGB lambdarank, yalnız coin değişkenleri', COIN, 'r')]
 oos = {}
 for i in range(START, len(months), STEP):
     test_m = months[i:i+STEP]; tmin = df[df.month == months[i]].t.min()
