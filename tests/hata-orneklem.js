@@ -20,7 +20,7 @@ const arg=(k,d)=>{ const i=process.argv.indexOf('--'+k); return i<0?d:process.ar
 const ARCH=arg('arch',path.join(__dirname,'data','arch'));
 const THR=+arg('thr',0.35), MINYES=+arg('yes',3), NCARD=+arg('n',8), LIVE=arg('live',null), DATE=String(arg('date',new Date().toISOString().slice(0,10)));
 const OUT=arg('out',path.join(__dirname,'data','hata')); const MIN_GAIN=0.01, MIN_KEEP=0.4, MAX_RULES=5;
-const NAMES={trend:'Emre',liq:'Kerem',flow:'Mert',macro:'Arda',quant:'Onur',mom:'Baran',copy:'Tolga',lab:'Burak',audit:'Murat',vol:'Serkan',check:'Yusuf',fac:'Kaan',risk:'Can',llm:'Yapay zekâ'};
+const NAMES={trend:'Emre',liq:'Kerem',flow:'Mert',macro:'Arda',quant:'Onur',mom:'Baran',copy:'Tolga',lab:'Burak',audit:'Murat',vol:'Serkan',check:'Yusuf',fac:'Kaan',rank:'Ozan',risk:'Can',llm:'Yapay zekâ'};
 const XDESC={atrp:'ATR / fiyat (oynaklık)',r1:'son 1 sa getiri (yönde)',r4:'son 4 sa getiri (yönde)',r24:'son 24 sa getiri (yönde)',r7d:'son 7 gün getiri (yönde)',r30d:'son 30 gün getiri (yönde)',
   s20:'fiyat / SMA20 günlük (yönde)',s50:'fiyat / SMA50 günlük (yönde)',s200:'fiyat / SMA200 günlük (yönde)',pos24:'24 sa aralıkta yer (0 dip, 1 tepe)',vq:'son 1 sa hacim / 24 sa ortalama',tk:'son 1 sa taker alış payı',
   vol30:'30 günlük oynaklık',b4:'BTC 4 sa (yönde)',b24:'BTC 24 sa (yönde)',bs200:'BTC / SMA200 (yönde)',bs50:'BTC / SMA50 (yönde)',fr:'fonlama (yönde)',hr:'saat (UTC)',dow:'haftanın günü (0 Paz)'};
