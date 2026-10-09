@@ -62,7 +62,7 @@ for s in syms:
             hitS = (l[j] <= stp) if d > 0 else (h[j] >= stp); hitT = (h[j] >= tgt) if d > 0 else (l[j] <= tgt)
             if hitS: hit = -1; dur = j - e; break
             if hitT: hit = 1; dur = j - e; break
-        row['hit'] = hit; row['dur'] = dur; row['R'] = (hit*abs(tgt-ent)/abs(ent-stp) if hit != 0 else d*(c[min(n-1, e+P['SIM'])]-ent)/abs(ent-stp)) - 0.0016*ent/abs(ent-stp)
+        row['hit'] = hit; row['dur'] = dur; row['R'] = ((abs(tgt-ent)/abs(ent-stp)) if hit == 1 else (-1.0 if hit == -1 else d*(c[min(n-1, e+P['SIM'])]-ent)/abs(ent-stp))) - 0.0016*ent/abs(ent-stp)  # stop = −1R (önce −hedef/stop yazılıyordu)
         # sahte kırılım: FB mum içinde kapanış tekrar çizgilerin arasına/aralığa dönerse
         back = False
         for j in range(b+1, min(n, b+1+P['FB'])):
