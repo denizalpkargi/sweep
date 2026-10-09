@@ -37,7 +37,7 @@ const SRC={
     for(const [y,m] of months){ const a=`${y}${String(m).padStart(2,'0')}01000000`; const e1=new Date(Date.UTC(y,m,1)-1); const b=`${e1.getUTCFullYear()}${String(e1.getUTCMonth()+1).padStart(2,'0')}${String(e1.getUTCDate()).padStart(2,'0')}235959`; const ym=`${y}-${String(m).padStart(2,'0')}`;
       for(const [name,q] of Q) for(const mode of ['timelinevol','timelinetone']){ if(have.has(name+'|'+mode+'|'+ym)&&ym<day(Date.now()).slice(0,7)) continue;
         try{ const j=await get(`https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=${mode}&startdatetime=${a}&enddatetime=${b}&format=json&timelinesmooth=0`,{retry:2}); const tl=j.timeline?.[0]?.data||[]; for(const p of tl){ const d=p.date; rows.push([name,mode,`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`,+p.value]); } }
-        catch(e){ err++; } await sleep(1500); } }
+        catch(e){ err++; } await sleep(10000); } console.log('  gdelt',ym,'satır',rows.length,'hata',err); } /* GDELT 5 sn'de bir istek ister, yoksa düz metin uyarı döner */
     const r=csvMerge('gdelt.csv','query,mode,date,value',rows.map(x=>[x[0]+'|'+x[1]+'|'+x[2],...x]),0); // anahtar sorgu|mod|gün
     const lines=fs.readFileSync(path.join(OUT,'gdelt.csv'),'utf8').split('\n'); fs.writeFileSync(path.join(OUT,'gdelt.csv'),[lines[0]].concat(lines.slice(1).filter(Boolean).map(l=>l.split(',').slice(1).join(','))).join('\n')+'\n'); return {...r,istekHatasi:err}; },
   llama: async()=>{ const all=await get('https://stablecoins.llama.fi/stablecoincharts/all'); const usdt=await get('https://stablecoins.llama.fi/stablecoincharts/all?stablecoin=1'); const usdc=await get('https://stablecoins.llama.fi/stablecoincharts/all?stablecoin=2');
