@@ -29,7 +29,7 @@ function fcObserve(sym,A,com,now){
   try{ const F=fcLoad(); now=now||Date.now(); const k=A&&A.src&&A.src.k15L; if(!k||k.length<30||!com) return;
     const got=fcResolve(sym,k,now); let add=0; const li=k[k.length-1].t+9e5<=now?k.length-1:k.length-2; const atr=fcAtr(k,li); const px=A.px;
     if(isFinite(atr)&&atr>0&&px>0) for(const dir of ["long","short"]){ const c=com[dir]; if(!c) continue; const key=sym+"|"+dir; if(F.last[key]&&now-F.last[key]<FC_DEF.gapMin*6e4) continue;
-      const v={}; for(const a of c.agents||[]) v[a.id]=a.v; const fa=c.feat&&c.feat.fac; if(fa) for(const id in fa) v["f:"+id]=fa[id]; /* faktörler (factors.js), yalnız koşuldayken */ F.pend.push({sym,dir,t:now,px,atr,score:c.score,go:c.decision==="giriş",yes:c.yes,v,f:fcFeat(c)}); F.last[key]=now; add++; }
+      const v={}; for(const a of c.agents||[]) if(!a.idle) v[a.id]=a.v; /* idle: Ozan sıralama yapamadı (evren dışı/veri yok), sıfır oy becerisini sulandırmasın */ const fa=c.feat&&c.feat.fac; if(fa) for(const id in fa) v["f:"+id]=fa[id]; /* faktörler (factors.js), yalnız koşuldayken */ F.pend.push({sym,dir,t:now,px,atr,score:c.score,go:c.decision==="giriş",yes:c.yes,v,f:fcFeat(c)}); F.last[key]=now; add++; }
     if(F.pend.length>FC_DEF.maxPend) F.pend.splice(0,F.pend.length-FC_DEF.maxPend);
     if(got) F.learn=fcLearn(F.done); if(got||add) fcSave(); }
   catch(e){}
@@ -42,7 +42,7 @@ function fcNote(kind,key,sym,dir,A,v,score,now,extra){
     const li=k[k.length-1].t+9e5<=now?k.length-1:k.length-2; const atr=fcAtr(k,li); if(!(isFinite(atr)&&atr>0&&A.px>0)) return false;
     F.pend.push({sym,dir,t:now,px:A.px,atr,score:isFinite(score)?score:0,go:false,kind,v,f:extra||{}}); F.last[lk]=now; if(F.pend.length>FC_DEF.maxPend) F.pend.splice(0,F.pend.length-FC_DEF.maxPend); fcSave(); return true; }
   catch(e){ return false; } }
-function fcPosNote(key,sym,dir,A,rv,now){ if(!rv||!rv.views) return false; const v={"p:masa":rv.hold}; for(const x of rv.views) if(!x.abst) v["p:"+x.id]=x.v; return fcNote("pos",key,sym,dir,A,v,rv.hold,now,{eylem:rv.verdict}); }
+function fcPosNote(key,sym,dir,A,rv,now){ if(!rv||!rv.views) return false; const v={"p:masa":rv.hold}; for(const x of rv.views) if(!x.abst||x.sh) v["p:"+x.id]=x.v; /* sh: gölge oy (Ozan) */ return fcNote("pos",key,sym,dir,A,v,rv.hold,now,{eylem:rv.verdict}); }
 /* en yüksek puanlı sonuçlanmış giriş tahminleri (7 Ekim 2026, kullanıcı "50 üstü başarılı karar hangisi" diye sordu): coin, yön, zaman, puan, sonuç, evet diyen üyeler */
 function fcTop(F,n){ return (F.done||[]).filter(f=>!f.kind&&f.y!=null).sort((a,b)=>b.score-a.score).slice(0,n||5).map(f=>({sym:f.sym,dir:f.dir,t:f.t,score:f.score,y:f.y,go:!!f.go,yes:Object.keys(f.v||{}).filter(id=>!id.startsWith("f:")&&f.v[id]>0)})); }
 const fcHit=a=>a.length?a.reduce((s,f)=>s+f.y,0)/a.length:null; // süre dolan yarım sayılır

@@ -204,6 +204,7 @@ function analyze(f, s){
   A.med15 = [...r15].sort((a,b)=>a-b)[Math.floor(r15.length/2)] || 0;
   A.src = {k15L:s.k15L||m15, k1h:h1, btc15:s.btc15||null, oi15:s.oi15||null, taker15:s.taker15||null, toppos15:s.toppos15||null, fundTimes:(s.fund||[]).map(x=>+x.fundingTime), nextFund:A.nextFund};
   A.src.k1d=d; // günlük mumlar (havuzlar: önceki gün tepesi/dibi)
+  A.src.k4h=h4; A.src.oi5raw=f.oi5; A.src.tp5=s.toppos||null; A.src.gl5=s.glob||null; A.src.fr=f.prem?+f.prem.lastFundingRate:NaN; // sıralama modeli (rankmodel.js rkFeatA)
   A.vp=sessionProfiles(A.src.k15L,A.src.k15L.length,{withCurrent:true,rows:true}).slice(-12).map(p=>({...p,prof:p.current?p.prof:null})); // günlük hacim profilleri (UTC): POC, VAH/VAL, çıplak POC
   const kb=A.src.k15L; A.bt={long:boxTheory(kb,A.med15,"long"),short:boxTheory(kb,A.med15,"short")};
   A.btStats = kb.length>=600 ? {long:boxTheoryStats(kb,A.med15,"long"),short:boxTheoryStats(kb,A.med15,"short")} : {};
