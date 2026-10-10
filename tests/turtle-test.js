@@ -38,6 +38,9 @@ ok(Math.abs(s5.trades[0].x-cat*(1-s5.cfg.slip))<1e-9,'felaket dolumu stop fiyat�
 // en çok pozisyon
 let s6=E.ttNew({maxPos:2}); const data={BTCUSDT:btc}; const syms=['A','B','C']; for(const k of syms) data[k]=A; E.ttClose(s6,data,syms,{A:105,B:105,C:105},T0+260*DAY);
 ok(Object.keys(s6.pos).length===2,'en çok pozisyon sınırı');
+// oynaklıkla boy (test #53): nominal = volTv × bakiye ÷ σ60
+const Av=A.map((b,i)=>i<259?{...b,c:100+(i%2?1:-1)}:b); let s7=E.ttNew({size:'vol',volTv:0.04}); E.ttClose(s7,{BTCUSDT:btc,X:Av},['X'],px,T0+260*DAY);
+{ const v=E.ttVol(Av,Av.length-1,60), q=s7.pos.X; ok(q&&v>0&&Math.abs(q.qty*q.e-Math.min(0.04*100/v,2*100))<1e-6,'oynaklıkla boy'); }
 // TradFi listesi
 ok(E.TT_TRADFI.has('NVDAUSDT')&&E.TT_TRADFI.has('XAUTUSDT')&&!E.TT_TRADFI.has('BTCUSDT'),'TradFi listesi');
 
@@ -48,7 +51,9 @@ if(process.argv.includes('--replay')){
     const syms=[...new Set(Object.values(U).flatMap(v=>v.slice(0,TOP)))];
     const D={}; for(const sym of syms){ const f=path.join(ARCH,'1d',sym+'.csv'); if(!fs.existsSync(f)) continue; D[sym]=fs.readFileSync(f,'utf8').split('\n').filter(Boolean).map(l=>{ const a=l.split(','); return {t:+a[0],o:+a[1],h:+a[2],l:+a[3],c:+a[4],q:+a[7]}; }).filter(b=>b.q>0); }
     const idx={}; for(const k in D) idx[k]=new Map(D[k].map((b,i)=>[b.t,i]));
-    const s=E.ttNew({fee:0.0005,slip:0.0003}); const t0=Date.UTC(2020,5,1), t1=D.BTCUSDT[D.BTCUSDT.length-1].t; let peak=100, mdd=0;
+    const t0=Date.UTC(2020,5,1), t1=D.BTCUSDT[D.BTCUSDT.length-1].t;
+    function replay(cfg){
+    const s=E.ttNew(Object.assign({fee:0.0005,slip:0.0003},cfg)); let peak=100, mdd=0; const daily=[]; let prev=100;
     for(let t=t0;t<t1;t+=DAY){
       // gün içi felaket (bugünün mumu), sonra gün kapanışı; işlemler ertesi günün açılışından
       for(const k of Object.keys(s.pos)){ const i=idx[k]&&idx[k].get(t); if(i!=null) E.ttIntraday(s,k,D[k][i],t); }
@@ -59,12 +64,25 @@ if(process.argv.includes('--replay')){
       for(const k of Object.keys(s.pos)){ const i=idx[k]&&idx[k].get(t); if(i!=null&&i===D[k].length-1) E.ttExit(s,k,D[k][i].c,'listeden çıktı',t); }
       E.ttClose(s,data,univ,px,t+DAY);
       for(const k of Object.keys(s.pos)){ const i=idx[k]&&idx[k].get(t); if(i!=null) s.pos[k].px=D[k][i].c; }
-      const eq=E.ttEq(s,null); peak=Math.max(peak,eq); mdd=Math.max(mdd,1-eq/peak);
+      const eq=E.ttEq(s,null); peak=Math.max(peak,eq); mdd=Math.max(mdd,1-eq/peak); daily.push({t,eq,r:eq/prev-1}); prev=eq;
     }
     const tr=s.trades, n=tr.length, R=tr.reduce((a,x)=>a+x.R,0)/n, mid=(t0+t1)/2;
     const h=f=>{ const a=tr.filter(f); return a.length?(a.reduce((x,y)=>x+y.R,0)/a.length).toFixed(2):'–'; };
     const yrs=(t1-t0)/365/DAY, eq=E.ttEq(s,null);
-    console.log(`tekrar oynatma (canlı kod): ${n} işlem, ort. ${R.toFixed(2)}R, 1. yarı ${h(x=>x.t<mid)}, 2. yarı ${h(x=>x.t>=mid)}, son 24 ay ${h(x=>x.t>=t1-730*DAY)}, 100 $ → ${eq.toFixed(0)} $, yıllık %${((Math.pow(eq/100,1/yrs)-1)*100).toFixed(0)}, en büyük düşüş %${(mdd*100).toFixed(0)}`);
+    const st=(f)=>{ const d=daily.filter(f); if(d.length<30) return {}; const g=d.reduce((a,x)=>a*(1+x.r),1), m=d.reduce((a,x)=>a+x.r,0)/d.length, sd=Math.sqrt(d.reduce((a,x)=>a+(x.r-m)**2,0)/d.length);
+      let pk=1,q=1,dd=0; for(const x of d){ q*=1+x.r; pk=Math.max(pk,q); dd=Math.max(dd,1-q/pk); } return {cagr:Math.pow(g,365/d.length)-1,sh:m/sd*Math.sqrt(365),dd}; };
+    const by={}; for(const x of daily){ const y=new Date(x.t).getUTCFullYear(); by[y]=(by[y]||1)*(1+x.r); }
+    const gross=[]; // ortalama açık nominal / özkaynak (tahmini, işlem kayıtlarından değil): atlandı
+    return {n,R,h1:h(x=>x.t<mid),h2:h(x=>x.t>=mid),l24:h(x=>x.t>=t1-730*DAY),eq,cagr:Math.pow(eq/100,1/yrs)-1,mdd,all:st(()=>true),a:st(x=>x.t<mid),b:st(x=>x.t>=mid),l:st(x=>x.t>=t1-730*DAY),by};
+    }
+    const pc=x=>Number.isFinite(x)?(x>=0?'+':'')+(100*x).toFixed(0)+'%':'–', fx=x=>Number.isFinite(x)?(x>=0?'+':'')+x.toFixed(2):'–';
+    const V=process.argv.includes('--variants')?[['bugünkü (risk %0,5 ÷ 2N)',{}],['oynaklık 0,03',{size:'vol',volTv:0.03}],['oynaklık 0,04',{size:'vol',volTv:0.04}],['oynaklık 0,06',{size:'vol',volTv:0.06}],['bugünkü, risk %0,75',{risk:0.0075}]]:[['bugünkü',{}]];
+    const Y=[2020,2021,2022,2023,2024,2025,2026]; const L=['| Boy | İşlem | Ort. R | R yarılar | R son 24 ay | Yıllık | Sharpe | En büyük düşüş | Calmar | 1. yarı yıllık / Sharpe / düşüş | 2. yarı yıllık / Sharpe / düşüş | Son 24 ay yıllık / Sharpe / düşüş |','|---|---|---|---|---|---|---|---|---|---|---|---|'], LY=['| Boy | '+Y.join(' | ')+' |','|---|'+'---|'.repeat(Y.length)];
+    for(const [nm,cfg] of V){ const r=replay(cfg);
+      console.log(`tekrar oynatma (canlı kod) ${nm}: ${r.n} işlem, ort. ${r.R.toFixed(2)}R, 1. yarı ${r.h1}, 2. yarı ${r.h2}, son 24 ay ${r.l24}, 100 $ → ${r.eq.toFixed(0)} $, yıllık %${(r.cagr*100).toFixed(0)}, en büyük düşüş %${(r.mdd*100).toFixed(0)}, Sharpe ${fx(r.all.sh)}`);
+      L.push(`| ${nm} | ${r.n} | ${fx(r.R)} | ${r.h1} / ${r.h2} | ${r.l24} | ${pc(r.cagr)} | ${fx(r.all.sh)} | −${(100*r.mdd).toFixed(0)}% | ${fx(r.cagr/r.mdd)} | ${pc(r.a.cagr)} / ${fx(r.a.sh)} / −${(100*r.a.dd).toFixed(0)}% | ${pc(r.b.cagr)} / ${fx(r.b.sh)} / −${(100*r.b.dd).toFixed(0)}% | ${pc(r.l.cagr)} / ${fx(r.l.sh)} / −${(100*r.l.dd).toFixed(0)}% |`);
+      LY.push(`| ${nm} | `+Y.map(y=>pc(r.by[y]-1)).join(' | ')+' |'); }
+    if(process.argv.includes('--variants')) fs.writeFileSync(path.join(__dirname,'test53-kaplumbaga-boy-report.md'),['# Test #53 · Kaplumbağa sepeti: oynaklıkla boy (canlı kod, arşiv)',`Evren her ay hacimce ilk ${TOP} (TradFi hariç, delist dahil), 2020-06 → ${new Date(t1).toISOString().slice(0,10)}, en çok 10 pozisyon, nominal ≤ 2x, maliyet taker %0,05 + kayma %0,03 + fonlama. "oynaklık x": nominal = x × özkaynak ÷ σ60 (yıllık); 0,04 ≈ bugünkü ortalama boy. Stoplar ve çıkışlar aynı; R her işlemde 2N stopa göre.`,'',...L,'','## Yıl yıl','',...LY].join('\n')+'\n');
     console.log('araştırma (research-daily-wide.js, %0,5/10/2x): 801 işlem, +0,94R, yarılar +1,52 / +0,54, son 24 ay +0,36, yıllık +%25, düşüş −%31');
   }
 }

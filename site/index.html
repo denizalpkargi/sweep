@@ -2458,7 +2458,9 @@ function dipSummary(s,px){ const eq=dipEq(s,px); const tr=s.trades; const w=tr.f
    Shortlar ve piramit kenarsız. Canlı evren: 24 sa hacimce ilk 80 aday → kapanmış son 30 günün hacmine göre ilk 50 (günde bir).
    Masa'dan ayrı sanal bakiye; ui.js (Bot sekmesi "Kaplumbağa sepeti") ve headless/run.js aynı fonksiyonları kullanır. Gerçek emir yok. */
 const TT_DEF={on:true,bal0:100,top:50,cand:80,entryN:20,exitN:10,atrN:20,stopN:2,catN:4,btcSma:200,risk:0.005,maxPos:10,lev:2,exLev:20,
-  fee:0.0005,slip:0.0003,fundDef:0.0001};
+  fee:0.0005,slip:0.0003,fundDef:0.0001,
+  // boy (10 Ekim 2026, test #53; sonuç: Sharpe değişmedi, varsayılan risk kalır): "risk" = risk ÷ stop uzaklığı (2N); "vol" = volTv ÷ σ (son volN günün kapanış getirisi std × √365), Grobys vd. 2025
+  size:"risk",volTv:0.04,volN:60};
 const TT_KEY="st-turtle";
 const TT_TRADFI=new Set("42 AAOI AAPL ADBE ALAB AMAT AMD AMZN ANC APP ARM ASML ASTS AVGO AXTI BABA BBX BE BITO BMNR BNC BOT BSP BTCST BX BYD BZ CAT CBRS CIEN CL COHR COIN COPPER COST CRCL CRDO CRM CRWD CRWV CSCO CSOPSAMSUNG2L CSOPSKHYNIX2L CXMT DDOG DELL DIS DJT DKNG DRAM EBAY EWJ EWT EWY FLEX FLNC FWDI GDX GEV GIGADEV GLW GME GOOGL GPRO GS GTLB HANMI HD HIMS HK0625 HK0700 HK0992 HK1810 HOOD HPE HYUNDAI IBM INTC INTW IONQ IREN JPM KLAC KODEX200 KORU KSTR KUAISHOU LGELECTRONICS LITE LLY LRCX LYTE MARA MDB MEITUAN META MINIMAX MRK MRNA MRVL MSFT MSTR MU MUU MVLL NATGAS NAVER NBIS NET NFLX NOK NOW NVDA NVDL NVO ONDS ORCL PANW PAXG PAYP PDD PENG PLTR POPMART PYPL QCOM QNTX QQQ RAM RDDT RIVN RKLB SAMSUNG SAMSUNGEM SHAZ SHOP SKDD SKHY SKHYNIX SKUU SMCI SMH SNDK SNOW SNXX SOFI SONY SOXL SOXS SPCX SPY SQQQ STRC STXX TBT TEAM TEM TENCENT TER TMF TQQQ TSLA TSLL TSM TTWO TXN TZA UBER UNITREE URNM USAR UVXY V VRT VST WDC WEN WMT XAG XAU XAUT XBI XPD XPT ZHIPU ZHONGJI ZM ZS".split(" ").map(s=>s+"USDT"));
 function ttNew(cfg){ cfg=Object.assign({},TT_DEF,cfg||{}); return {cfg,bal:cfg.bal0,start:cfg.bal0,peak:cfg.bal0,pos:{},trades:[],log:[],day:null,fundT:0,fees:0,funding:0,univ:[],btc:null}; }
@@ -2470,6 +2472,7 @@ function ttEq(s,px){ let u=0; for(const k in s.pos){ const p=s.pos[k]; const x=p
 function ttAtr(a,i,n){ if(i<n) return NaN; let s=0; for(let k=i-n+1;k<=i;k++) s+=Math.max(a[k].h-a[k].l,Math.abs(a[k].h-a[k-1].c),Math.abs(a[k].l-a[k-1].c)); return s/n; }
 function ttHi(a,i,n){ let m=-Infinity; for(let k=i-n+1;k<=i;k++) m=Math.max(m,a[k].h); return m; }
 function ttLo(a,i,n){ let m=Infinity; for(let k=i-n+1;k<=i;k++) m=Math.min(m,a[k].l); return m; }
+function ttVol(a,i,n){ if(i<n) return NaN; let x=0,y=0; for(let k=i-n+1;k<=i;k++){ const r=a[k].c/a[k-1].c-1; x+=r; y+=r*r; } const m=x/n; return Math.sqrt(Math.max(y/n-m*m,0))*Math.sqrt(365); }
 function ttBtcOk(b,cfg){ const i=b?b.length-1:-1; if(i<cfg.btcSma) return null; const m=trSma(b,i,cfg.btcSma); return {ok:b[i].c>m,c:b[i].c,sma:m,t:b[i].t}; }
 function ttExit(s,sym,px,why,now){
   const p=s.pos[sym], c=s.cfg; const fill=px*(1-c.slip); const fee=p.qty*fill*c.fee; const pnl=p.qty*(fill-p.e);
@@ -2492,7 +2495,9 @@ function ttClose(s,data,univ,px,now){
   for(const sym of s.univ){ if(s.pos[sym]||Object.keys(s.pos).length>=c.maxPos) continue; const a=data[sym], x=px[sym]; if(!a||a.length<Math.max(c.entryN,c.atrN)+2||!(x>0)) continue;
     const i=a.length-1; if(!(a[i].c>ttHi(a,i-1,c.entryN))) continue; const N=ttAtr(a,i,c.atrN); if(!(N>0)) continue;
     const e=x*(1+c.slip), stop=e-c.stopN*N, cat=e-c.catN*N; if(!(stop>0)||a[i].c<=stop) continue; const risk0=(e-stop)/e;
-    const used=Object.entries(s.pos).reduce((m,[k,p])=>m+p.qty*(px[k]||p.px),0); let usd=c.risk*s.bal/risk0; usd=Math.min(usd,c.lev*s.bal-used); if(!(usd>1)) continue;
+    const used=Object.entries(s.pos).reduce((m,[k,p])=>m+p.qty*(px[k]||p.px),0); let usd=c.risk*s.bal/risk0;
+    if(c.size==="vol"){ const v=ttVol(a,i,c.volN); if(!(v>0)) continue; usd=c.volTv*s.bal/v; }
+    usd=Math.min(usd,c.lev*s.bal-used); if(!(usd>1)) continue;
     const qty=usd/e, fee=usd*c.fee; s.bal-=fee; s.fees+=fee;
     s.pos[sym]={e,qty,t:now,day:a[i].t+864e5,stop,cat,N,risk0,fee,fund:0,px:x,age:0};
     evs.push(ttLog(s,{t:now,type:"entry",sym,px:e,usd,stop,cat,N,why:c.entryN+" günlük tepe "+ttHi(a,i-1,c.entryN)+" kapanışla geçildi"})); }
