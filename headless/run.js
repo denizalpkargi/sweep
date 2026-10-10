@@ -30,6 +30,8 @@ async function main(o,inj){
   const E=loadEngine({localStorage:store,fetch:fetchFn});
   // risk ayarları yalnızca --dir/config.json ile değişir (yoksa UI varsayılanları: BOT_CFG_DEF)
   let cfg=null; try{ cfg=JSON.parse(fs.readFileSync(path.join(dir,'config.json'),'utf8')); }catch(e){}
+  // masa kuralları config.json → masa (ör. {"masa":{"lf":false,"btc200":true}}: kayıp süzgecini kapat, BTC 200 kapısını aç); varsayılan COM_DEF
+  if(cfg&&cfg.masa&&typeof cfg.masa==='object') Object.assign(E.COM_DEF,cfg.masa);
   const timers=[]; let ws=null, wsKey=null, stopping=false;
   // yapay zekâ masası (src/llmdesk.js, istemci src/llm.js): model/uç config.json → llm (Selim ile ortak), masa bütçesi config.json → desk_ai; görüşler logs/llm-*.jsonl, özet status.json → desk_ai
   if(cfg&&cfg.desk_ai) E.lmdSetCfg(cfg.desk_ai);

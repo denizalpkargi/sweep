@@ -52,7 +52,7 @@ if(require.main===module&&mode==='sample'){
   for(const d of data){ const k=E.K(d.k15), d1=E.K(d.k1d); let n=0;
     for(let i=3500;i<k.length-40;i+=step){ let inp; try{ inp=inputsAt(k,i,d1,btc,d.sym); }catch(e){ continue; }
       let A; try{ A=E.analyze(inp.f,inp.s); }catch(e){ if(!n) console.error(d.sym,e.message); continue; }
-      for(const dir of ["long","short"]){ const c=E.committee(A,dir,inp.c24,{sym:d.sym,raw:true}); const pre=c.pre||c.agents;
+      for(const dir of ["long","short"]){ const c=E.committee(A,dir,inp.c24,{sym:d.sym,raw:true,lf:false}); const pre=c.pre||c.agents;
         const plan=c.plan||{sd:c.feat.sd,rr2:c.feat.runR,holdH:null}; const sim=simBot(k,i,dir,plan,cfg);
         S.push({sym:d.sym,t:k[i].t,dir,veto:c.veto?1:0,sd:+plan.sd.toFixed(4),rr2:plan.rr2,score:c.score,yes:c.yes,dec:c.decision,
           a:Object.fromEntries(pre.map(x=>[x.id,[+(+x.v).toFixed(3),+(+x.c).toFixed(3),x.abst?1:0]])),R:+sim.R.toFixed(3),how:sim.how,y:fcY(k,i,dir),stage:c.feat.stage,kz:c.feat.kz?1:0,trend:c.feat.trend}); }
