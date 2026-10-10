@@ -116,4 +116,5 @@ function reportOz(OZ){
   md+=`Rastgele taban: aynı kararlardan rastgele %10 atmak ortalamayı beklenen değerde değiştirmez; süzgecin değeri = "kalan" − "hepsi".\n`;
   md=md.replace(/%(\d+)\.(\d)/g,'%$1,$2'); fs.writeFileSync(path.join(__dirname,'test46-ozan-suzgec'+SUF+'-report.md'),md); console.log(md);
 }
-main().catch(e=>{ console.error(e); process.exit(1); });
+if(require.main===module) main().catch(e=>{ console.error(e); process.exit(1); });
+module.exports={ENT,seq,loadAll,loadOzan,F1,F2};
