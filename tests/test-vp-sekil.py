@@ -24,9 +24,12 @@ import json, os, sys, math, time, numpy as np, pandas as pd
 arg = lambda k, d: sys.argv[sys.argv.index('--'+k)+1] if '--'+k in sys.argv else d
 HERE = os.path.dirname(os.path.abspath(__file__))
 SELF = '--selftest' in sys.argv
+PH = int(arg('period', 24))  # profil dönemi (saat): 24 = UTC günü; 8 = Asya/Londra/New York oturumu (00/08/16 UTC); 4 = 4 saatlik pencere
 D = arg('arch', os.path.join(HERE, 'data', 'arch')); FROM = arg('from', '2020-06'); TOP = int(arg('top', 30))
-OUT = arg('out', os.path.join(HERE, 'vp-sekil-report.md')); T0 = time.time()
-NB = 48; COST = 0.0016; HZ = [1, 3, 5]; DAYMS = 86400000; BAR = 900000
+OUT = arg('out', os.path.join(HERE, 'vp-sekil-report.md' if PH == 24 else f'vp-sekil-{PH}h-report.md')); T0 = time.time()
+NB = 48 if PH >= 24 else 24; SEP = NB//4; SMW = 5 if NB >= 48 else 3
+COST = 0.0016; MAKER = 0.0004; HZ = [1, 3, 5]; DAYMS = 86400000; BAR = 900000; PMS = PH*3600000; BPP = PH*4
+MINB = round(BPP*90/96); MAXDEAD = max(1, BPP//24)
 
 def selftest_data(root):
     rng = np.random.RandomState(1); os.makedirs(os.path.join(root, '15m'), exist_ok=True); os.makedirs(os.path.join(root, 'funding'), exist_ok=True)
@@ -41,7 +44,7 @@ def selftest_data(root):
     json.dump({'months': months}, open(os.path.join(root, 'universe.json'), 'w'))
 
 if SELF:
-    D = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'vp-sekil-selftest'); selftest_data(D); FROM = '2022-01'; OUT = os.path.join(D, 'report.md')
+    D = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'vp-sekil-selftest'); selftest_data(D); FROM = '2022-01'; OUT = os.path.join(D, f'report-{PH}.md')
 
 U = json.load(open(os.path.join(D, 'universe.json')))['months']; months = sorted(m for m in U if m >= FROM)
 uni = {m: set(U[m][:TOP]) for m in months}
@@ -67,12 +70,12 @@ def value_area(v):
 
 def shape_of(v):
     poc, dn, up = value_area(v); p = (poc+0.5)/NB; val = dn/NB; vah = (up+1)/NB
-    sm = np.convolve(v, np.ones(5)/5, mode='same'); pk = [i for i in range(1, NB-1) if sm[i] > sm[i-1] and sm[i] >= sm[i+1]]
+    sm = np.convolve(v, np.ones(SMW)/SMW, mode='same'); pk = [i for i in range(1, NB-1) if sm[i] > sm[i-1] and sm[i] >= sm[i+1]]
     isB = False
     if len(pk) >= 2:
         pk = sorted(pk, key=lambda i: -sm[i]); top = pk[0]
         for o in pk[1:]:
-            if abs(o - top) >= 12 and sm[o] >= 0.5*sm[top]:
+            if abs(o - top) >= SEP and sm[o] >= 0.5*sm[top]:
                 lo_, hi_ = min(o, top), max(o, top)
                 if sm[lo_:hi_+1].min() <= 0.5*sm[o]: isB = True
                 break
@@ -92,7 +95,7 @@ for s in syms:
     o, h, l, c, v, q = (k[:, j] for j in range(1, 7))
     vw = np.where((v > 0) & (q > 0), q/np.maximum(v, 1e-12), c); vw = np.where((vw >= l) & (vw <= h), vw, c)
     dead = v <= 0
-    day = ot // DAYMS; ud, di = np.unique(day, return_inverse=True); nd = len(ud)
+    day = ot // PMS; ud, di = np.unique(day, return_inverse=True); nd = len(ud)
     cnt = np.bincount(di, minlength=nd)
     dlo = np.full(nd, np.inf); np.minimum.at(dlo, di, l); dhi = np.full(nd, -np.inf); np.maximum.at(dhi, di, h)
     first = np.full(nd, len(k)); np.minimum.at(first, di, np.arange(len(k))); last = np.full(nd, -1); np.maximum.at(last, di, np.arange(len(k)))
@@ -106,18 +109,20 @@ for s in syms:
         o_ = np.argsort(ft); ft = ft[o_]; fcum = np.r_[0, np.cumsum(fr[o_])]
     else: ft = np.array([0], dtype=np.int64); fcum = np.zeros(2)
     fsum = lambda t1, t2: fcum[np.searchsorted(ft, t2, 'right')] - fcum[np.searchsorted(ft, t1, 'right')]
-    mon = pd.to_datetime(ud*DAYMS, unit='ms').strftime('%Y-%m')
+    mon = pd.to_datetime(ud*PMS, unit='ms').strftime('%Y-%m')
     for i in range(20, nd - 6):
-        if mon[i] not in uni or s not in uni[mon[i]] or ud[i]*DAYMS < tFrom: continue
-        if cnt[i] < 90 or ddead[i] > 4 or not np.isfinite(atr[i]) or atr[i] <= 0 or dq[i] <= 0: continue
-        if any(ud[i+j] != ud[i]+j or cnt[i+j] < 90 for j in range(1, 6)): continue
+        if mon[i] not in uni or s not in uni[mon[i]] or ud[i]*PMS < tFrom: continue
+        if cnt[i] < MINB or ddead[i] > MAXDEAD or not np.isfinite(atr[i]) or atr[i] <= 0 or dq[i] <= 0: continue
+        if any(ud[i+j] != ud[i]+j or cnt[i+j] < MINB for j in range(1, 6)): continue
         sh, p, val, vah = shape_of(prof[i])
         e = first[i+1]; ent = vw[e]; a = atr[i]
-        row = dict(sym=s, t=int(ud[i]*DAYMS), sh=sh, p=p, val=val, vah=vah, up=float(dC[i] > sma20[i]), dret=(dC[i]-dO[i])/a, dirday=1.0 if dC[i] > dO[i] else -1.0,
+        row = dict(sym=s, t=int(ud[i]*PMS), sh=sh, p=p, val=val, vah=vah, up=float(dC[i] > sma20[i]), dret=(dC[i]-dO[i])/a, dirday=1.0 if dC[i] > dO[i] else -1.0,
                    atrp=a/ent, distlo=(ent-dlo[i])/a, disthi=(dhi[i]-ent)/a)
         for H in HZ:
             x = last[i+H]; g = vw[x]/ent - 1; fu = fsum(ot[e], ot[x])
             row[f'L{H}'] = (g - COST - fu)*100; row[f'S{H}'] = (-g - COST + fu)*100
+        xq = e + 3; g = vw[xq]/ent - 1; fu = fsum(ot[e], ot[xq])  # hızlı işlem: 1 saat (4 mum) sonra çık
+        row['LQ'] = (g - COST - fu)*100; row['SQ'] = (-g - COST + fu)*100
         x3 = last[i+3]
         row['tlo3'] = float(l[e:x3+1].min() <= dlo[i]); row['thi3'] = float(h[e:x3+1].max() >= dhi[i])
         row['tlo1'] = float(l[e:last[i+1]+1].min() <= dlo[i]); row['thi1'] = float(h[e:last[i+1]+1].max() >= dhi[i])
@@ -130,8 +135,17 @@ for s in syms:
             else: out = vw[x3]; jx = x3
             fu = fsum(ot[e], ot[jx])
             row[nm] = d*(out - ent)/a - COST*ent/a - d*fu*ent/a
+            # hızlı kâr al: stop 0,5 ATR, hedef 0,5 ATR, en çok bir dönem; taker ve maker maliyetle
+            stp = ent - d*0.5*a; tgt = ent + d*0.5*a; x1 = last[i+1]; L_, H_ = l[e:x1+1], h[e:x1+1]
+            hs = (L_ <= stp) if d > 0 else (H_ >= stp); ht = (H_ >= tgt) if d > 0 else (L_ <= tgt)
+            js = int(np.argmax(hs)) if hs.any() else 10**9; jt = int(np.argmax(ht)) if ht.any() else 10**9
+            if js <= jt and js < 10**9: out = stp; jx = e + js
+            elif jt < 10**9: out = tgt; jx = e + jt
+            else: out = vw[x1]; jx = x1
+            fu = fsum(ot[e], ot[jx]); gross = d*(out - ent)/(0.5*a) - d*fu*ent/(0.5*a)
+            row[nm.replace('R', 'K')] = gross - COST*ent/(0.5*a); row[nm.replace('R', 'M')] = gross - MAKER*ent/(0.5*a)
         ROWS.append(row)
-    print(f'{s}: {nd} gün, toplam {len(ROWS)} satır ({time.time()-T0:.0f} sn)', flush=True)
+    print(f'{s}: {nd} dönem, toplam {len(ROWS)} satır ({time.time()-T0:.0f} sn)', flush=True)
 
 df = pd.DataFrame(ROWS)
 if df.empty: sys.exit('veri yok')
@@ -139,7 +153,7 @@ df['date'] = pd.to_datetime(df.t, unit='ms'); tmid = df.t.min() + (df.t.max() - 
 PER = [('tümü', df.t >= 0), ('1. yarı', df.t < tmid), ('2. yarı', df.t >= tmid), ('son 12 ay', df.t >= t12)]
 # eşlenmiş taban: gün getirisi (ATR) onluğunda tüm günlerin ortalaması
 df['dq'] = pd.qcut(df.dret, 10, labels=False, duplicates='drop')
-for col in ['L1', 'S1', 'L3', 'S3', 'L5', 'S5', 'RL', 'RS']:
+for col in ['L1', 'S1', 'L3', 'S3', 'L5', 'S5', 'RL', 'RS', 'LQ', 'SQ', 'KL', 'KS', 'ML', 'MS']:
     df['m_'+col] = df.groupby('dq')[col].transform('mean')
 def tstat(sub, col):
     g = sub.groupby('t')[col].mean()
@@ -155,23 +169,19 @@ HYP = [
     ('D → günün yönünde (kontrol)', lambda x: x.sh == 'D', 0),
     ('D → günün tersine (denge, kontrol)', lambda x: x.sh == 'D', 2),
 ]
-def take(sub, d, col):
-    if d == 1: return sub['L'+col] if col != 'R' else sub['RL']
-    if d == -1: return sub['S'+col] if col != 'R' else sub['RS']
-    dd = sub.dirday if d == 0 else -sub.dirday
-    a = sub['L'+col] if col != 'R' else sub['RL']; b = sub['S'+col] if col != 'R' else sub['RS']
-    return pd.Series(np.where(dd > 0, a, b), index=sub.index)
-def mtake(sub, d, col):
-    a = sub['m_RL'] if col == 'R' else sub['m_L'+col]; b = sub['m_RS'] if col == 'R' else sub['m_S'+col]
+def cols(col): return (col+'L', col+'S') if col in ('R', 'K', 'M') else ('L'+col, 'S'+col)
+def take(sub, d, col, pre=''):
+    a, b = (sub[pre+x] for x in cols(col))
     if d == 1: return a
     if d == -1: return b
     dd = sub.dirday if d == 0 else -sub.dirday
     return pd.Series(np.where(dd > 0, a, b), index=sub.index)
+def mtake(sub, d, col): return take(sub, d, col, 'm_')
 L = []
 w = L.append
 w('# Hacim profili şekilleri (D, P, b, B) — arşiv testi\n')
 w(f'Üretim: {time.strftime("%Y-%m-%d %H:%M")} UTC · `python3 tests/test-vp-sekil.py{" --selftest" if SELF else ""}` · {df.sym.nunique()} coin, {len(df):,} coin-günü, {df.date.min():%Y-%m-%d} → {df.date.max():%Y-%m-%d}, ayın ilk {TOP} coini · {time.time()-T0:.0f} sn\n')
-w('Tanımlar ve eşikler veriye bakmadan sabitlendi (betiğin başı). Getiri: ertesi günün ilk 15 dk VWAP\'ı → H gün sonra son 15 dk VWAP\'ı, basit getiri − %0,16 − fonlama. R: stop 1 ATR, hedef 2 ATR, 3 gün. "Eşlenmiş fark" = getiri − aynı gün-getirisi onluğundaki tüm günlerin aynı yöndeki ortalaması (şeklin, günün kendi hareketinden fazlasını söyleyip söylemediği). t gün kümeli: her gün coinlerin ortalaması, günler eşit ağırlıklı; tablodaki ortalama ise coin-günü ağırlıklı, kalın kuyruklu birkaç gün ikisinin işaretini ayırabilir (ilk koşuda P → long 1g +0,10 % ama t −1,3).\n')
+w('Tanımlar ve eşikler veriye bakmadan sabitlendi (betiğin başı). Getiri: ertesi günün ilk 15 dk VWAP\'ı → H gün sonra son 15 dk VWAP\'ı, basit getiri − %0,16 − fonlama. R: stop 1 ATR, hedef 2 ATR, 3 gün. "Eşlenmiş fark" = getiri − aynı gün-getirisi onluğundaki tüm günlerin aynı yöndeki ortalaması (şeklin, günün kendi hareketinden fazlasını söyleyip söylemediği). t gün kümeli: her gün coinlerin ortalaması, günler eşit ağırlıklı; tablodaki ortalama ise coin-günü ağırlıklı, kalın kuyruklu birkaç gün ikisinin işaretini ayırabilir (ilk günlük koşuda P → long 1 gün +0,10 % ama t −1,3).\n')
 w('## Şekil dağılımı\n')
 w('| şekil | pay | ort. POC yeri | yükselişte pay | gün getirisi (ATR) |\n|---|---|---|---|---|')
 for sh in ['P', 'b', 'D', 'B', 'diğer']:
@@ -212,6 +222,19 @@ for hn, f, d in HYP:
         sub = df[(df.yil == y) & f(df)]
         cells.append('–' if len(sub) < 20 else f'{(take(sub, d, "3") - mtake(sub, d, "3")).mean():+.2f} ({len(sub)})')
     w(f'| {hn} | ' + ' | '.join(cells) + ' |')
+w('\n## Hızlı işlem (kısa vadeli, küçük kâr al)\n')
+w('1 sa: girişten 4 mum sonra VWAP\'ta çık, taker %0,16. Hızlı R: stop 0,5 ATR, hedef 0,5 ATR (1:1), en çok bir dönem, R = 0,5 ATR; taker %0,16 ve maker %0,04 (limitle giriş-çıkış, dolum garantisi yok, ters seçilim hariç). Eşlenmiş fark maker R üzerinde.\n')
+w('| hipotez | dönem | n | 1 sa % (t) | hızlı R taker | hızlı R maker (t) | kazanma | eşlenmiş fark maker R (t) |\n|---|---|---|---|---|---|---|---|')
+for hn, f, d in HYP:
+    for nm, m in PER:
+        sub = df[m & f(df)]
+        if len(sub) < 20: continue
+        rq, rk, rm = take(sub, d, 'Q'), take(sub, d, 'K'), take(sub, d, 'M')
+        tmp = sub.assign(rq=rq, rm=rm, em=rm - mtake(sub, d, 'M'))
+        w(f'| {hn} | {nm} | {len(sub):,} | {rq.mean():+.3f} ({tstat(tmp, "rq"):+.1f}) | {rk.mean():+.3f} | {rm.mean():+.3f} ({tstat(tmp, "rm"):+.1f}) | %{100*(rm > 0).mean():.0f} | {tmp.em.mean():+.3f} ({tstat(tmp, "em"):+.1f}) |')
+w('\n| taban (tüm dönemler) | long hızlı R maker | short hızlı R maker | long 1 sa % | short 1 sa % |\n|---|---|---|---|---|')
+for nm, m in PER:
+    x = df[m]; w(f'| {nm} | {x.ML.mean():+.3f} | {x.MS.mean():+.3f} | {x.LQ.mean():+.3f} | {x.SQ.mean():+.3f} |')
 w('\n## Geçme ölçütü (önceden yazıldı)\n')
 w('Bir hipotez aday sayılır: 3 gün getirisi maliyet ve fonlama sonrası iki yarıda ve son 12 ayda artı, eşlenmiş fark iki yarıda artı ve tümünde t ≥ 2, R iki yarıda artı. Kuyruk ziyareti: dokunma oranı iki yarıda beklenenin ≥ 3 puan üstü.\n')
 for hn, f, d in HYP:
@@ -225,5 +248,21 @@ for hn, f, d in HYP:
     sub = df[f(df)]; tm = tstat(sub.assign(e3=take(sub, d, '3') - mtake(sub, d, '3')), 'e3') if len(sub) > 20 else float('nan')
     ok = ok and tm >= 2
     w(f'- **{hn}**: {"ADAY" if ok else "geçmedi"} (eşlenmiş fark t {tm:+.1f}; ' + '; '.join(msg) + ')')
+w('\nHızlı işlem ölçütü (önceden yazıldı): maker hızlı R iki yarıda ve son 12 ayda artı, eşlenmiş fark iki yarıda artı ve tümünde t ≥ 2.\n')
+for hn, f, d in HYP:
+    ok = True; msg = []
+    for nm, m in PER[1:]:
+        sub = df[m & f(df)]
+        if len(sub) < 20: ok = False; continue
+        rm = take(sub, d, 'M'); em = rm - mtake(sub, d, 'M')
+        if rm.mean() <= 0 or (nm != 'son 12 ay' and em.mean() <= 0): ok = False
+        msg.append(f'{nm}: R {rm.mean():+.3f}, fark {em.mean():+.3f}')
+    sub = df[f(df)]; tm = tstat(sub.assign(em=take(sub, d, 'M') - mtake(sub, d, 'M')), 'em')
+    ok = ok and tm >= 2
+    w(f'- **{hn}** (hızlı): {"ADAY" if ok else "geçmedi"} (t {tm:+.1f}; ' + '; '.join(msg) + ')')
+if PH < 24:
+    import re
+    L = [re.sub(r'\b([135])g\b', lambda m_: f'{int(m_.group(1))*PH} sa', x).replace('ertesi günün', 'sonraki dönemin').replace('tüm günler', 'tüm dönemler').replace('gün getirisi', 'dönem getirisi').replace('H gün sonra', 'H dönem sonra').replace('3 gün.', '3 dönem.').replace('coin-günü', 'coin-dönemi').replace('günün kendi', 'dönemin kendi') for x in L]
+    L.insert(1, f'**Dönem: {PH} saat** (profil {PH} saatlik pencereden, {NB} satır; "1/3/5" = 1/3/5 dönem; yükseliş = kapanış son 20 dönemin ortalamasının üstünde).\n')
 open(OUT, 'w').write('\n'.join(L) + '\n')
 print('rapor:', OUT, f'({time.time()-T0:.0f} sn)')
