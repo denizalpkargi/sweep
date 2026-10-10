@@ -350,6 +350,10 @@ function askDesk(A, t, c24, opts){
 /* ---------- Kâğıt pozisyon için tek fiyat adımı (ui.js botOnPrice ve headless/ ortak) ----------
    p.hi/p.lo, p.stage ve p.stop'u günceller; uygulanacak kapanışları sırayla döndürür: {part,price,k,t,taker,final} ya da {k:"move",t}.
    İz süren stop ilk riskle (p.risk0) ölçülür: hedef 1'den sonra stop girişe çekildiği için |giriş−stop| sıfır olur, onunla ölçmek stopu tepeye yapıştırır. */
+/* Kayma ölçümü (10 Ekim 2026, arastirma/dongu/2026-10-10-r-kaldiraclari.md test C): market dolumda o anki bookTicker yarı makası (kesir) ve
+   işlem fiyatının orta fiyattan uzaklığı; kâğıt botun %0,03 kayma varsayımını gerçek defterle kıyaslamak için işlem kaydına yazılır. */
+const bookHalf=b=>b&&b.a>0&&b.b>0&&b.a>=b.b?+((b.a-b.b)/(b.a+b.b)).toFixed(6):null;
+const bookRec=(b,px)=>{ const hs=bookHalf(b); if(hs==null) return null; const mid=(b.a+b.b)/2; return {hs,dm:px>0?+((px-mid)/mid).toFixed(6):null}; };
 function paperStep(p, px, now, cfg){
   const isL=p.dir==="long"; const out=[]; p.hi=Math.max(p.hi,px); p.lo=Math.min(p.lo,px);
   const risk=p.risk0||Math.abs(p.entry-(p.stop0||p.stop));
