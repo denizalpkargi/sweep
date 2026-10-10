@@ -5,7 +5,7 @@
   "description": "SWEEP · Likidite Terminali — Binance USDⓈ-M vadeli için AMD / likidite süpürmesi / emir akışı analiz terminali ve kâğıt bot",
   "scripts": {
     "build": "node src/build.js",
-    "test": "npm run build && node tests/dom-scenario.js && node tests/headless-scenario.js && node tests/research-node.js && node tests/auditor-test.js && node tests/goal-test.js && node tests/trend-test.js && node tests/dip-test.js && node tests/turtle-test.js && node tests/vp-test.js && node tests/forecast-test.js && node tests/masa-test.js && node tests/desk-new-test.js && node tests/factor-test.js && node tests/wsdata-test.js && node tests/llm-test.js",
+    "test": "npm run build && node tests/dom-scenario.js && node tests/headless-scenario.js && node tests/research-node.js && node tests/auditor-test.js && node tests/goal-test.js && node tests/trend-test.js && node tests/dip-test.js && node tests/turtle-test.js && node tests/kovner-test.js && node tests/vp-test.js && node tests/forecast-test.js && node tests/masa-test.js && node tests/desk-new-test.js && node tests/factor-test.js && node tests/wsdata-test.js && node tests/llm-test.js && node tests/rank-test.js",
     "lab:record": "node tests/record-leaders.js",
     "lab:real": "node tests/research-node.js --real",
     "shot": "npm run build && node tests/screenshot.js",

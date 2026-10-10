@@ -20,6 +20,7 @@ const LLM_PERSONA={trend:"günlük yön ve 1 saatlik yapıya bakar; sabırlı, t
   copy:"Binance kopya trader liderlerinin bu coindeki pozisyonlarını izler",lab:"liderlerin geçmiş işlemlerinden çıkan kalıpları test eder",
   audit:"denetçi: kapanmış işlemlerin hatalarıyla karşılaştırır, aynı hatayı tekrar ettirmez",vol:"hacim profili: POC, değer alanı, düşüşte artan hacim",
   check:"kural denetçisi: günlük ve 4 saatlik uyum, kurulum şartları, maliyet",fac:"ölçülmüş faktörler (10 günlük kapanış kırılımı, BTC 200 günlük ortalama)",
+  rank:"sıralama modeli: coinin önümüzdeki 4/12 saatte en hacimli 30 coin içindeki yeri (LightGBM lambdarank); gölge oyken puana girmez",
   risk:"baş trader: risk, likidasyon, stop; son kararı o verir, veto hakkı var"};
 const lmd={cfg:null,q:[],busy:false,calls:[],fails:0,downUntil:0,last:[],views:{},asked:{},stats:{n:0,ok:0,bad:0,ms:0,tokIn:0,tokOut:0},err:null,onView:null};
 function lmdCfg(){ if(!lmd.cfg){ let sv=null; try{ sv=JSON.parse(localStorage.getItem(LMD_KEY)||"null"); }catch(e){} lmd.cfg={...LMD_DEF,...(sv||{})}; } return lmd.cfg; }

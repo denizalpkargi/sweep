@@ -63,7 +63,7 @@ function relaunchLater(why){
    8 Ekim 2026: Windows SWEEP'i gece zorla sonlandırdı, Chromium localStorage veritabanını sıfırladı; açılışta bot 100 $'dan ve kapalı başladı.
    Artık sayfanın kayıtları (st-*, rp-*; hesap ve LLM anahtarı hariç) dakikada bir dosyaya yazılır (önce .tmp, sonra yeniden adlandırma; önceki state.prev.json).
    Açılışta preload.js sorar: İndirilenler'de, masaüstünde ya da state klasöründe sweep-geri-yukle*.json varsa onu uygular (dosya .uygulandi olur);
-   yoksa st-bot kaydı hiç yoksa (veritabanı sıfırlanmış) son yedeği uygular. Kullanıcının elle sıfırladığı bot (st-bot var) ezilmez. */
+   yoksa st-bot kaydı hiç yoksa (veritabanı sıfırlanmış) ya da yedekteki botun son fiyat zamanı (lastTick) kayıttakinden 2 dk'dan yeniyse (9 Ekim 2026: veritabanı eski hâline dönmüştü) son yedeği uygular. Kullanıcının elle sıfırladığı bot (st-bot var) ezilmez. */
 const SECRET=new Set(['st-acct','st-llm-key']);
 const stateDir=()=>{ const d=path.join(app.getPath('userData'),'state'); fs.mkdirSync(d,{recursive:true}); return d; };
 function readJson(f){ try{ const o=JSON.parse(fs.readFileSync(f,'utf8')); return o&&typeof o==='object'?o:null; }catch(e){ return null; } }
@@ -81,6 +81,11 @@ ipcMain.on('sweep-restore',(e,q)=>{
       if(data){ out={data,from:f}; log('geri yükleme dosyası uygulanıyor:',f,Object.keys(data).length,'kayıt'); } else log('geri yükleme dosyası okunamadı:',f); }
     else if(q&&q.hasBot===false){
       for(const n of ['state.json','state.prev.json']){ const data=cleanData(readJson(path.join(stateDir(),n))); if(data){ out={data,from:n}; log('kayıt veritabanı boş açıldı (st-bot yok); son yedek uygulanıyor:',n,Object.keys(data).length,'kayıt'); break; } }
+    }
+    else if(q&&q.hasBot){
+      // kayıt eski bir hâle dönmüşse (yedekteki bot fiyatı 2 dk'dan daha yeni görmüş) yedeği uygula
+      const data=cleanData(readJson(path.join(stateDir(),'state.json'))); let bt=0; try{ bt=+JSON.parse(data['st-bot']).lastTick||0; }catch(_){}
+      if(data&&bt>(+q.botTick||0)+120e3){ out={data,from:'state.json'}; log('kayıt yedekten eski açıldı (son fiyat',new Date(+q.botTick||0).toISOString(),'< yedek',new Date(bt).toISOString()+'); yedek uygulanıyor:',Object.keys(data).length,'kayıt'); }
     }
   }catch(err){ logErr('sweep-restore',err); }
   e.returnValue=out;
