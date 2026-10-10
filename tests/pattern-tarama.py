@@ -189,6 +189,9 @@ for kind, lab in [('A1', 'fiyat 24 sa'), ('A2', 'fiyat 72 sa'), ('A3', 'fiyat+ha
     mineM = i + 1 + 24 < iSplit; Cc = kmeans(X[mineM], KCL); lab_ = assign(X, Cc)
     code = np.full((S, T), -1, np.int64); code[a, i] = lab_
     REP_A = mine_codes(code, KCL, [4, 24], 'A ' + lab, lab)
+    for r in REP_A:  # kümenin ortalama şekli: birikimli yol (8 nokta) ve toplam hareket (RMS birimi)
+        cp = np.cumsum(Cc[int(r['ad'].split('#')[1])][:24]); pts = cp[np.linspace(0, 23, 8).astype(int)]; lo_, hi_ = min(pts.min(), 0), max(pts.max(), 0)
+        r['ad'] += ' ' + ''.join('▁▂▃▄▅▆▇█'[int(round(7*(v - lo_)/(hi_ - lo_ + 1e-9)))] for v in pts) + f' ({cp[-1]:+.1f})'
     table(REP_A, f'A · şekil kümeleri · {lab}')
     if kind == 'A2': continue
     # benzer geçmiş
@@ -235,17 +238,18 @@ def seq_codes(step, nseq, sdwin, hourMod):
 # karar mumu: 4 sa mumunun son saati (açılış saati %4 == 3), gün mumunun son saati (23)
 hod = ((TT // HR) % 24).astype(np.int64)
 c4 = seq_codes(4, 5, 60, int(np.nonzero(hod % 4 == 3)[0][0] % 4)); B4 = mine_codes(c4, 243, [4, 24], 'B 4 sa dizi', '4 sa dizi')
-table(B4, 'B · 4 sa sembol dizileri (son 5 mum, ↓ → ↑)')
-cD = seq_codes(24, 4, 30, int(np.nonzero(hod == 23)[0][0] % 24)); BD = mine_codes(cD, 81, [24, 120], 'B günlük dizi', 'günlük dizi')
-table(BD, 'B · günlük sembol dizileri (son 4 gün)')
-CODES_B = {'4 sa': c4, 'gün': cD}
-
 def decode(k, n):
     s = ''
     for _ in range(n): s = '↓→↑'[k % 3] + s; k //= 3
-    return s
-for rows, n in [(B4, 5), (BD, 4)]:
-    for r in rows: r['ad'] = r['ad'].split('#')[0] + decode(int(r['ad'].split('#')[1]), n)
+    return s[::-1]  # kodun en anlamlı hanesi en yeni mum; eskiden yeniye yaz
+for r in B4: r['ad'] = '4 sa ' + decode(int(r['ad'].split('#')[1]), 5)
+table(B4, 'B · 4 sa sembol dizileri (son 5 mum eskiden yeniye; ↓ aşağı, → yatay, ↑ yukarı, ±0,5 σ)')
+cD = seq_codes(24, 4, 30, int(np.nonzero(hod == 23)[0][0] % 24)); BD = mine_codes(cD, 81, [24, 120], 'B günlük dizi', 'günlük dizi')
+for r in BD: r['ad'] = 'gün ' + decode(int(r['ad'].split('#')[1]), 4)
+table(BD, 'B · günlük sembol dizileri (son 4 gün)')
+CODES_B = {'4 sa': c4, 'gün': cD}
+
+
 
 # ---------- C) takvim ----------
 dow = ((TT // (24*HR) + 3) % 7).astype(np.int64)  # 0 = pazartesi
