@@ -1,4 +1,4 @@
-# Kayıp süzgeci (10 Ekim 2026): masanın hiç açmaması gereken kararları geçmiş veriyle bulur ve örneklem dışında sınar.
+# Kayıp süzgeci (10 Ekim 2026; long yok yerine "long yalnız BTC 24 saatte düşmüşken", kullanıcı "long açmamak çok keskin" dedi): masanın hiç açmaması gereken kararları geçmiş veriyle bulur ve örneklem dışında sınar.
 # Kullanıcı karar kartında "Kayıp süzgeci"ni seçti. Girdi: tests/masa-archive.js örnekleri (samples-*.jsonl; arşiv /mnt/project-files/veri-arsivi/samples.tar.gz).
 # Karar kümesi bugünkü giriş kuralı (veto yok, puan ≥ 0,35, evet ≥ 3). Üç bölüm:
 #   1) İleriye yürüyen seçim: 6 ayda bir, yalnız önceki veriyle açgözlü "uyarsa girme" kuralları (en çok 4, her biri kalan R'yi ≥0,01 artırır, ≥%40 kalır),
@@ -66,13 +66,20 @@ for name,base in (('kapısız',np.zeros(len(df),bool)),('BTC 200 kapısı açık
 # ---- 2) sabit kurallar yıl yıl ----
 r7=df.r7d.values; Y=df.yr.values; yrs=sorted(set(Y))
 print('\n== sabit kurallar (atlanan R / kalan − taban, yıl yıl) ==')
-for name,sk in (('BTC 200 kapısı',GATE),('long yok',L),('7 gün trende karşı (r7d<0)',r7<0),('long ve 24 sa > %8 (pompa)',L&(df.r24>0.08).values),('long ve 24 sa aralığın tepesi (>0,9)',L&(df.pos24>0.9).values),('BTC SMA200 yönde > %40',(df.bs200>0.4).values),('long yok + r7d<0',L|(r7<0))):
+for name,sk in (('BTC 200 kapısı',GATE),('long yok',L),('7 gün trende karşı (r7d<0)',r7<0),('long ve 24 sa > %8 (pompa)',L&(df.r24>0.08).values),('long ve 24 sa aralığın tepesi (>0,9)',L&(df.pos24>0.9).values),('BTC SMA200 yönde > %40',(df.bs200>0.4).values),('long yok + r7d<0',L|(r7<0)),('long yalnız BTC 24 sa ≤ 0',L&~(df.b24<=0).values),('long BTC24≤0 + r7d<0 (seçilen)',(L&~(df.b24<=0).values)|(r7<0))):
     print(f"{name:38s} atlanan %{100*sk.mean():.0f} {R[sk].mean():+.3f}R kalan {R[~sk].mean():+.3f}R | "+' '.join(f"{y}:{R[(Y==y)&~sk].mean()-R[Y==y].mean():+.3f}" for y in yrs))
 # ---- 3) senaryolar bugünkü masaya karşı ----
 mid=np.median(T); last=T>=T.max()-365*864e5; days=(T.max()-T.min())/864e5
 print('\n== senaryolar (bugünkü masa = BTC 200 kapısı) ==')
-for name,sk in (('kapı + r7d<0',GATE|(r7<0)),('kapı + long yok',GATE|L),('kapı + long yok + r7d<0',GATE|L|(r7<0)),('kapısız r7d<0',r7<0),('kapısız long yok + r7d<0 (seçilen)',L|(r7<0))):
+for name,sk in (('kapı + r7d<0',GATE|(r7<0)),('kapı + long yok',GATE|L),('kapı + long yok + r7d<0',GATE|L|(r7<0)),('kapısız r7d<0',r7<0),('kapısız long yok + r7d<0',L|(r7<0)),('kapısız long BTC24≤0 + r7d<0 (seçilen)',(L&~(df.b24<=0).values)|(r7<0))):
     out=[]
     for sel,lab in ((T<mid,'1. yarı'),(T>=mid,'2. yarı'),(last,'son 12 ay'),(np.ones(len(T),bool),'tümü')):
         ra,na,rb,nb,dd,se=boot(sel,GATE,sk); out.append(f"{lab} {ra:+.3f}→{rb:+.3f} ({dd:+.3f}, t {dd/se:.1f})")
     print(f"{name:36s} günde {(~sk).sum()/days:.1f} karar | "+' · '.join(out))
+# ---- 4) long ayrımı: BTC 24 sa eşiği ----
+print('\n== long yalnız BTC 24 sa ≤ eşik (long R, yıllar) ==')
+b24=df.b24.values
+for c in (None,0.01,0.005,0.0,-0.005):
+    k=L if c is None else L&(b24<=c)
+    print(f"{'tüm long' if c is None else f'BTC 24 sa ≤ {100*c:+.1f}%':18s} long %{100*k.sum()/L.sum():.0f} {R[k].mean():+.3f} | yarı {R[k&(T<mid)].mean():+.3f}/{R[k&(T>=mid)].mean():+.3f} son 12 ay {R[k&last].mean():+.3f} | "+' '.join(f"{y}:{R[k&(Y==y)].mean():+.2f}" for y in yrs))
+print(f"{'short':18s} {R[~L].mean():+.3f} | yarı {R[~L&(T<mid)].mean():+.3f}/{R[~L&(T>=mid)].mean():+.3f} son 12 ay {R[~L&last].mean():+.3f}")

@@ -25,20 +25,21 @@ const DESK=[
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1.1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 // eşik, asgari evet ve katsayılar tests/backtest-masa.js ile seçildi (6 Ekim 2026, 24 coin × 6 ay, 169 bin toplantı); v: ayar sürümü (comMigrate)
-const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{noLong:true,r7dMin:0}};
+const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{longBtc24Max:0,r7dMin:0}};
 // 10 Ekim 2026, kayıp süzgeci (kullanıcı karar kartında "Kayıp süzgeci"; arastirma/kayip-suzgeci/kayip-suzgeci-2026-10-10.md): masa-archive örnekleri,
-// 319 coin, 2020-06 → 2026-10, eşiği geçen 134 bin karar. lf.noLong = long açma (long kararlar −0,14R, short −0,08R; her yıl long daha kötü);
-// lf.r7dMin = coinin 7 günlük getirisi (işlem yönünde) bundan küçükse girme (7 günlük trende karşı −0,15R, kalan −0,10R; her yıl iyi). İkisi birlikte, BTC 200 kapısı
-// kapalı: −0,116R → −0,068R (yarılar +0,050 / +0,047, t 2,7 / 2,3; son 12 ay +0,013, t 0,8); ileriye yürüyen seçimde örneklem dışı +0,029R (t 2,9). Kalanlar hâlâ eksi:
+// 319 coin, 2020-06 → 2026-10, eşiği geçen 134 bin karar. lf.longBtc24Max = long yalnız BTC son 24 saatte bundan az yükseldiyse (0: BTC düşmüşken);
+// BTC 24 sa yükselişteyken longlar −0,160R, düşüşteyken −0,076R (shortlarla aynı, −0,079R; her yıl daha iyi). Kullanıcı "long açmamak çok keskin" dedi, önceki
+// "long yok" kuralının yerine geçti. lf.r7dMin = coinin 7 günlük getirisi (işlem yönünde) bundan küçükse girme (7 günlük trende karşı −0,15R, kalan −0,10R; her yıl iyi).
+// İkisi birlikte, BTC 200 kapısı kapalı: −0,116R → −0,069R (yarılar +0,046 / +0,049, t 3,2 / 2,8; son 12 ay +0,015, t 1,2). Kalanlar hâlâ eksi:
 // süzgeç kaybı azaltır, kenar yaratmaz. BTC 200 kapısı aynı veride kaybı azaltmadı (−0,009R, 7 yılın 5'inde kötü), varsayılanı kapandı. lf:false süzgeci kapatır.
-// 7 Ekim 2026 (arastirma/gun-incelemesi-2026-10-07.md, kullanıcı "devam"): stopMult = plan stopu masanın hesapladığı stopun bu katı, $ risk aynı (boy küçülür);
-// 6 ayda 24 coinde −0,040R → −0,011R (iki yarıda da iyi). btc200 = Arda'nın kapısı: long yalnız BTC günlük 200 ortalamanın üstünde, short yalnız altında (−0,040 → −0,020R).
-// BTC'nin günlük SMA200'üne göre fiyatın yeri (oran); veri yoksa null (geriye dönük testte btcCache yok → kapı kapalı)
 function btc200Rel(){ const d=(typeof btcCache!=="undefined"&&btcCache)?btcCache.d:null; if(!d||d.length<202) return null; const now=Date.now(); const closed=d.filter(x=>x.t+864e5<=now); if(closed.length<200) return null; const sma=closed.slice(-200).reduce((a,x)=>a+x.c,0)/200; return d[d.length-1].c/sma-1; }
 // stop uzaklığına göre en yüksek güvenli kaldıraç: stop, likidasyon mesafesinin %60'ını geçmesin (Can'ın vetosuyla aynı ölçü)
 // coinin son 7 kapanmış günlük getirisi (log, yönsüz); masa-archive.js feats().r7d ile aynı ölçü. Veri yoksa null (süzgeç çalışmaz).
 function r7dOf(A){ const d=A&&A.src&&A.src.k1d, k=A&&A.src&&A.src.k15L; if(!d||!k||!k.length) return null; const last=k[k.length-1], now=last.t+9e5, px=isFinite(A.px)?A.px:last.c;
   const day0=Math.floor(now/864e5)*864e5; const cl=d.filter(c=>c.t<day0); if(cl.length<8||!(px>0)||!(cl[cl.length-8].c>0)) return null; return Math.log(px/cl[cl.length-8].c); }
+// BTC'nin son 24 saatlik getirisi (log), kapanmış 15 dk mumlarla; masa-archive.js feats().b24 ile aynı ölçü. Veri yoksa null.
+function btc24Of(A){ const b=A&&A.src&&A.src.btc15, k=A&&A.src&&A.src.k15L; if(!b||!b.length) return null; const now=k&&k.length?k[k.length-1].t+9e5:Date.now();
+  const cl=b.filter(c=>c.t+9e5<=now); if(cl.length<97) return null; const a=cl[cl.length-1].c, z=cl[cl.length-97].c; return a>0&&z>0?Math.log(a/z):null; }
 function levFor(sd,max){ max=max||20; let l=max; while(l>1&&sd>liqDist(l)*0.6) l--; return l; }
 /* ---------- İkna turu ----------
    Her üye, diğerlerinin güvenle ağırlıklı görüşünü (Σ w·c·v / Σ w·c) dinler. Güveni düşük olan çok, yüksek olan az değişir:
@@ -130,8 +131,9 @@ function committee(A, dir, c24, opts){
   const cap=liqDist(20)*0.6; const pump=isL?c24>15:c24<-15; const fundBad=isL?A.fund>0.001:A.fund<-0.001;
   let veto=null; if(sd>cap) veto=`oynaklık 20x stopuna sığmıyor (${fx(sd*100,1)}%)`; else if(pump) veto=`24 saatte ${pct(c24)}: kovalama`; else if(fundBad) veto=`fonlama aşırı (${fx(A.fund*100,3)}%)`;
   const b200=opts.btc200?btc200Rel():null; if(!veto&&b200!=null&&(isL?b200<0:b200>0)){ veto=`Arda: BTC günlük 200 ortalamanın ${b200<0?"altında":"üstünde"} (${pct(b200*100)}), ${D} yok`; say("macro","açılış",`BTC 200 günlük ortalamanın ${b200<0?"altında":"üstünde"} (${pct(b200*100)}). Bu rejimde ${D} açmıyoruz; 6 aylık testte kapı iki yarıda da kaybı azalttı.`); }
-  const lf=opts.lf; if(!veto&&lf){ if(isL&&lf.noLong){ veto="kayıp süzgeci: long açmıyoruz"; say("risk","açılış","Kayıp süzgeci: 2020'den beri masanın long kararları shortlardan her yıl daha kötü (−0,14R / −0,08R). Long açmıyoruz."); }
-    else if(lf.r7dMin!=null){ const r7=r7dOf(A); if(r7!=null&&sg*r7<lf.r7dMin){ veto=`kayıp süzgeci: 7 günlük trend karşı (${pct(r7*100)})`; say("risk","açılış",`Coin 7 günde ${pct(r7*100)}; ${D} bu trende karşı. Geçmişte bu kararlar −0,15R yazdı, girmiyoruz.`); } } }
+  const lf=opts.lf; if(!veto&&lf){ const b24=isL&&lf.longBtc24Max!=null?btc24Of(A):null;
+    if(b24!=null&&b24>lf.longBtc24Max){ veto=`kayıp süzgeci: BTC 24 saatte ${pct(b24*100)}, long yok`; say("risk","açılış",`BTC son 24 saatte ${pct(b24*100)}. BTC yükselirken açtığımız longlar 2020'den beri −0,16R yazdı, düştüğü günlerdeki longlar −0,08R; long için BTC'nin geri çekilmesini bekliyoruz.`); }
+    if(!veto&&lf.r7dMin!=null){ const r7=r7dOf(A); if(r7!=null&&sg*r7<lf.r7dMin){ veto=`kayıp süzgeci: 7 günlük trend karşı (${pct(r7*100)})`; say("risk","açılış",`Coin 7 günde ${pct(r7*100)}; ${D} bu trende karşı. Geçmişte bu kararlar −0,15R yazdı, girmiyoruz.`); } } }
   let rv=veto?-1:0.6; if(!veto){ if(isL&&A.distrib) rv-=0.4; if(!isL&&A.accum) rv-=0.4; if(isL?A.fund>0.0005:A.fund<-0.0005) rv-=0.2; if(isL&&A.climax) rv-=0.2; if(!isL&&A.capit) rv-=0.2; }
   if(typeof AUD!=="undefined"&&AUD&&AUD.summary){ const S=AUD.summary; say("audit","açılış",`Kayıtta ${S.n} kapanmış işlem: kazanma %${Math.round(S.wr*100)}, ortalama ${S.avg>=0?"+":""}${fx(S.avg,2)}R.${AUD.lessons.length?" Çıkardığımız dersler: "+AUD.lessons.map(l=>l.t.toLowerCase()).join(", ")+".":" Henüz kesin bir ders yok."} Tartışmada kurulumu bunlarla karşılaştıracağım.`); }
   set("risk",rv,0.8,veto?"VETO: "+veto:`stop ${fx(sd*100,2)}% · 20x'e sığar · fonlama ${fx(A.fund*100,4)}%`);
