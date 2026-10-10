@@ -25,13 +25,15 @@ const DESK=[
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1.1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 // eşik, asgari evet ve katsayılar tests/backtest-masa.js ile seçildi (6 Ekim 2026, 24 coin × 6 ay, 169 bin toplantı); v: ayar sürümü (comMigrate)
-const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{longBtc24Max:0,r7dMin:0}};
+const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{longBtc24Max:null,r7dMin:0}};
 // 10 Ekim 2026, kayıp süzgeci (kullanıcı karar kartında "Kayıp süzgeci"; arastirma/kayip-suzgeci/kayip-suzgeci-2026-10-10.md): masa-archive örnekleri,
 // 319 coin, 2020-06 → 2026-10, eşiği geçen 134 bin karar. lf.longBtc24Max = long yalnız BTC son 24 saatte bundan az yükseldiyse (0: BTC düşmüşken);
 // BTC 24 sa yükselişteyken longlar −0,160R, düşüşteyken −0,076R (shortlarla aynı, −0,079R; her yıl daha iyi). Kullanıcı "long açmamak çok keskin" dedi, önceki
 // "long yok" kuralının yerine geçti. lf.r7dMin = coinin 7 günlük getirisi (işlem yönünde) bundan küçükse girme (7 günlük trende karşı −0,15R, kalan −0,10R; her yıl iyi).
 // İkisi birlikte, BTC 200 kapısı kapalı: −0,116R → −0,069R (yarılar +0,046 / +0,049, t 3,2 / 2,8; son 12 ay +0,015, t 1,2). Kalanlar hâlâ eksi:
 // süzgeç kaybı azaltır, kenar yaratmaz. BTC 200 kapısı aynı veride kaybı azaltmadı (−0,009R, 7 yılın 5'inde kötü), varsayılanı kapandı. lf:false süzgeci kapatır.
+// 10 Ekim 2026 akşamı: zaman stopu hatası düzeltilmiş simBot'la (PR #36; 24 coin, 6 ay, 30.646 giriş) BTC 24 sa kuralı yalnız ilk yarıda tuttu (−0,105R / +0,057R),
+// Hyperliquid'de 35.928 başka trader işleminde ve canlı 71 işlemde de tutmadı → varsayılan kapalı (longBtc24Max:null). 7 gün kuralı düzeltilmiş simde iki yarıda kötü tarafta (−0,128 / −0,009R), açık kaldı.
 function btc200Rel(){ const d=(typeof btcCache!=="undefined"&&btcCache)?btcCache.d:null; if(!d||d.length<202) return null; const now=Date.now(); const closed=d.filter(x=>x.t+864e5<=now); if(closed.length<200) return null; const sma=closed.slice(-200).reduce((a,x)=>a+x.c,0)/200; return d[d.length-1].c/sma-1; }
 // stop uzaklığına göre en yüksek güvenli kaldıraç: stop, likidasyon mesafesinin %60'ını geçmesin (Can'ın vetosuyla aynı ölçü)
 // coinin son 7 kapanmış günlük getirisi (log, yönsüz); masa-archive.js feats().r7d ile aynı ölçü. Veri yoksa null (süzgeç çalışmaz).
