@@ -45,7 +45,7 @@ for(const s of syms){
   for(let i=3500;i<k.length-40;i+=STEP){ const m=new Date(k[i].t).toISOString().slice(0,7); if(!monthsOf[s].has(m)) continue;
     let inp,A,F; try{ inp=inputsAt(k,i,d1,btc,s); A=E.analyze(inp.f,inp.s); F=feats(k,i,d1,fund); }catch(e){ if(!n) console.error(s,e.message); continue; }
     const f4=(k[i+16].c-k[i].c)/F.atr;
-    for(const dir of ['long','short']){ const sg=dir==='long'?1:-1; let c; try{ c=E.committee(A,dir,inp.c24,{sym:s,raw:true}); }catch(e){ continue; }
+    for(const dir of ['long','short']){ const sg=dir==='long'?1:-1; let c; try{ c=E.committee(A,dir,inp.c24,{sym:s,raw:true,lf:false}); }catch(e){ continue; }
       const pre=c.pre||c.agents; const plan=c.plan||{sd:c.feat.sd,rr2:c.feat.runR,holdH:null}; const sim=simBot(k,i,dir,plan,cfg);
       const x={}; for(const key in F){ if(key==='atr'||key==='dc') continue; x[key]=r4(SIGNED.includes(key)&&F[key]!=null?sg*F[key]:F[key]); }
       W.write(JSON.stringify({sym:s,t:k[i].t,dir,veto:c.veto?1:0,score:r4(c.score),yes:c.yes,sd:r4(plan.sd),a:Object.fromEntries(pre.map(z=>[z.id,[r4(+z.v),r4(+z.c),z.abst?1:0]])),

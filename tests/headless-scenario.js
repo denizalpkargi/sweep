@@ -8,7 +8,8 @@ const readJsonl=f=>fs.existsSync(f)?fs.readFileSync(f,'utf8').trim().split('\n')
 (async()=>{
   const day=new Date().toISOString().slice(0,10);
   // 0. tur (varsayılan ayarlar): aşamalı giriş · aynı yönde ikinci long 15 dk aralık kuralına takılmalı; 200 $'a ulaşınca masa her şeyi kapatıp kilitlemeli
-  { const d0=fs.mkdtempSync(path.join(os.tmpdir(),'sweep-headless0-')); const r0=await main({dir:d0,minVol:1e6,every:300000,votes:'deep',once:true,quiet:true},{fetch:mock.fetch,WebSocket:null}); const b0=r0.B.bot;
+  { const d0=fs.mkdtempSync(path.join(os.tmpdir(),'sweep-headless0-')); fs.writeFileSync(path.join(d0,'config.json'),JSON.stringify({masa:{lf:false,btc200:true}})); // senaryo long ister: kayıp süzgeci kapalı, eski BTC 200 kapısı açık (süzgeç kovner-test.js'te sınanır)
+    const r0=await main({dir:d0,minVol:1e6,every:300000,votes:'deep',once:true,quiet:true},{fetch:mock.fetch,WebSocket:null}); const b0=r0.B.bot;
     const ev0=readJsonl(path.join(d0,'logs',`events-${day}.jsonl`));
     ok(b0.positions.length===1&&b0.positions[0].sym==='ENAUSDT','aşamalı girişte tek long beklenirdi: '+b0.positions.map(p=>p.sym).join(','));
     ok(ev0.some(e=>e.type==='stages'&&e.sym==='NEARUSDT'&&!e.ok&&e.stages.some(s=>s.k==='korelasyon'&&s.st==='fail')),'NEAR korelasyon aşamasında kalmadı');
@@ -19,7 +20,7 @@ const readJsonl=f=>fs.existsSync(f)?fs.readFileSync(f,'utf8').trim().split('\n')
     fs.rmSync(d0,{recursive:true,force:true}); }
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'sweep-headless-')); const logs=path.join(dir,'logs');
   // aşağıdaki akış iki long ister: aynı yön aralığı kapalı
-  fs.writeFileSync(path.join(dir,'config.json'),JSON.stringify({dirGapMin:0}));
+  fs.writeFileSync(path.join(dir,'config.json'),JSON.stringify({dirGapMin:0,masa:{lf:false,btc200:true}}));
   const opts={dir,minVol:1e6,every:300000,votes:'deep',once:true,quiet:true};
   // 1. tur: tarama ve giriş
   const r1=await main(opts,{fetch:mock.fetch,WebSocket:null}); const B=r1.B, bot=B.bot;
