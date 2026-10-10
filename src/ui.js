@@ -566,14 +566,14 @@ function botLivePx(sym){ const now=Date.now();
   return NaN; }
 function botOpenMarket(x,es){
   const cfg=bot.cfg; const isL=x.dir==="long"; const px=botLivePx(x.sym); if(!(px>0)){ botLog("skip",x.sym,"Taze fiyat yok (akış ve ticker 30 sn'den eski): market giriş yapılmadı."); return false; } if(!(x.sd>0)) return false;
-  const sd=x.sd; const stop=isL?px*(1-sd):px*(1+sd), t1=isL?px*(1+1.5*sd):px*(1-1.5*sd), t2=isL?px*(1+3*sd):px*(1-3*sd);
+  const sd=x.sd; const h24=!!(x.com&&x.com.plan&&x.com.plan.h24); const stop=isL?px*(1-sd):px*(1+sd), t1=h24?null:isL?px*(1+1.5*sd):px*(1-1.5*sd), t2=h24?null:isL?px*(1+3*sd):px*(1-3*sd);
   const pl=x.com&&x.com.plan; const lev=Math.min(cfg.lev||20,pl&&pl.lev||99); const risk=es?es.riskUsd:bot.bal*cfg.risk; const notional=risk/sd; const margin=notional/lev;
   if(margin+botMarginUsed()>bot.bal*0.95){ bot._noMargin={need:margin,free:Math.max(0,bot.bal*0.95-botMarginUsed())}; return false; }
   const fill=isL?px*(1+cfg.slip):px*(1-cfg.slip); const qty=notional/fill; const fee=notional*cfg.feeTaker; bot.bal-=fee; botDay().opens++;
   const votes=x.com.agents.map(a=>`${a.name||a.k} ${a.v>0?"+":""}${fx(a.v,1)}`);
   bot.positions.push({sym:x.sym,dir:x.dir,model:"KOMİTE",grade:x.grade,agents:x.com.agents,talk:x.com.talk,entry:fill,stop,t1,t2,rr1:1.5,rr2:x.com.plan?x.com.plan.rr2:3,lev,notional,margin,risk,risk0:Math.abs(fill-stop),stop0:stop,qty,qty0:qty,fees:fee,openT:Date.now(),expiresAt:Date.now()+((x.com.plan&&x.com.plan.holdH)||cfg.holdH)*3600e3,stage:"open",hi:fill,lo:fill,realized:0,score:x.score,yes:x.yes,votes,
-    entry0:fill,stages:es?es.stages:null,warn:es?es.warn:0,quality:es?es.grade:null,mode:es?es.gs.mode:null,freed:!!x.freed,decs:[],xs:[],labHold:!!(x.com.plan&&x.com.plan.holdH)});
-  botLog("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · Can'ın kararı · puan ${ptsT(x.score)} · ${x.yes}/${DESK.length} evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · 1,5R ${fmtP(t1)} · 3R ${fmtP(t2)} · ${lev}x · pozisyon ${fmtB(notional)} · teminat ${fmtB(margin)} · risk ${fmtB(risk)}${es?` · not ${es.grade}${x.freed?" · yer açılarak":""}`:""}. Oylar: ${votes.join(", ")}.${es?" Aşamalar: "+stagesTxt(es):""}`);
+    entry0:fill,stages:es?es.stages:null,warn:es?es.warn:0,quality:es?es.grade:null,mode:es?es.gs.mode:null,freed:!!x.freed,decs:[],xs:[],labHold:!!(x.com.plan&&x.com.plan.holdH&&!h24),h24,bk0:bookRec(bot.book[x.sym],px),bkx:[]});
+  botLog("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · Can'ın kararı · puan ${ptsT(x.score)} · ${x.yes}/${DESK.length} evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · ${h24?`hedef yok, ${x.com.plan.holdH} saat sonra çıkış`:`1,5R ${fmtP(t1)} · 3R ${fmtP(t2)}`} · ${lev}x · pozisyon ${fmtB(notional)} · teminat ${fmtB(margin)} · risk ${fmtB(risk)}${es?` · not ${es.grade}${x.freed?" · yer açılarak":""}`:""}. Oylar: ${votes.join(", ")}.${es?" Aşamalar: "+stagesTxt(es):""}`);
   botSave(); botWsSync(); return true;
 }
 /* --- karar döngüsü: tarama bitince ve her dakika --- */
@@ -642,7 +642,7 @@ function botOnPrice(sym,px,T){
     bot.positions.push({...o,entry:fill,qty,qty0:qty,risk0:Math.abs(fill-o.stop),stop0:o.stop,fees:fee,openT:T||now,expiresAt:now+cfg.holdH*3600e3,stage:"open",hi:fill,lo:fill,realized:0});
     botLog("fill",o.sym,`Limit doldu ${fmtP(fill)} · ${o.dir==="long"?"LONG":"SHORT"} ${o.lev}x · ${fmtB(o.notional)} · komisyon ${fmtB(fee)}.`); botSave(); }
   for(const p of [...bot.positions]){ if(p.sym!==sym) continue; const isL=p.dir==="long";
-    const close=(part,price,why,taker)=>{ const q=p.qty*part; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*(taker?cfg.feeTaker:cfg.feeMaker); bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty-=q; (p.exits=p.exits||[]).push(why.k); deskFill(p,why.k,price,q,now); botLog(why.k,p.sym,`${why.t} ${fmtP(price)} · %${Math.round(part*100)} kapandı · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); };
+    const close=(part,price,why,taker)=>{ const q=p.qty*part; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*(taker?cfg.feeTaker:cfg.feeMaker); bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty-=q; (p.exits=p.exits||[]).push(why.k); if(taker){ const hs=bookHalf(bot.book[p.sym]); if(hs!=null) (p.bkx=p.bkx||[]).push(hs); } deskFill(p,why.k,price,q,now); botLog(why.k,p.sym,`${why.t} ${fmtP(price)} · %${Math.round(part*100)} kapandı · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); };
     const acts=paperStep(p,px,now,cfg); let fin=false;
     for(const a of acts){ if(a.k==="move"){ botLog("move",p.sym,a.t); continue; } close(a.part,a.price,{k:a.k,t:a.t},a.taker); if(a.final){ fin=true; break; } }
     if(fin) botClosePos(p); else if(acts.length) botSave();
@@ -703,7 +703,7 @@ function botClosePos(p){
   const rec={sym:p.sym,dir:p.dir,model:p.model,grade:p.grade,lev:p.lev,entry:p.entry,openT:p.openT,closeT:Date.now(),pnl:p.realized,fees:p.fees,risk:p.risk,r,score:p.score,exits:p.exits||[],offline:p.openT<BOOT_T&&Date.now()-BOOT_T<180e3,
     mfe:r0>0?+((isL?p.hi-p.entry:p.entry-p.lo)/r0).toFixed(2):NaN,mae:r0>0?+((isL?p.entry-p.lo:p.hi-p.entry)/r0).toFixed(2):NaN,
     snap:p.agents?{v:Object.fromEntries(p.agents.map(a=>[a.id,a.v])),sd:r0/p.entry,score:p.score,yes:p.yes!=null?p.yes:p.agents.filter(a=>a.v>0.15).length,warn:p.warn||0,quality:p.quality||null,mode:p.mode||null}:undefined,
-    decs:p.decs&&p.decs.length?p.decs:undefined,xs:p.xs&&p.xs.length?p.xs:undefined,r0,freed:!!p.freed};
+    decs:p.decs&&p.decs.length?p.decs:undefined,xs:p.xs&&p.xs.length?p.xs:undefined,r0,freed:!!p.freed,bk0:p.bk0||undefined,bkx:p.bkx&&p.bkx.length?p.bkx:undefined};
   bot.trades.push(rec); if(p.realized<0) botDay().losses++; bot.cool[p.sym]=Date.now()+bot.cfg.cooldownMin*60e3;
   botLog("close",p.sym,`İşlem kapandı: ${p.realized>=0?"+":""}${fmtB(p.realized)} (${r>=0?"+":""}${fx(r,2)}R) · bakiye ${fmtB(bot.bal)} · ROI ${pct((bot.bal/bot.start-1)*100,1)}.`);
   bot.positions=bot.positions.filter(x=>x!==p); bot.eq.push({t:Date.now(),v:bot.bal}); if(bot.eq.length>4000) bot.eq=bot.eq.slice(-2000); botAudit(rec); if(bot.bal>=botGoal().goal&&!bot.goalHit){ bot.goalHit=Date.now(); botLog("goal","",`Hedef tamam: bakiye ${fmtB(bot.bal)}. Bot korumalı modda (risk yarıya) devam ediyor.`); } botSave(); botWsSync();
@@ -918,7 +918,7 @@ async function botPoll(){
   finally{ bot._polling=false; }
 }
 /* --- traderların pozisyon yönetimi: her 2 dakikada bir, her açık kâğıt pozisyon için masa yeniden toplanır; Can analistlere danışıp ekler, küçültür, erken kapatır --- */
-function botCloseAt(p,part,price,why,taker){ const cfg=bot.cfg; const isL=p.dir==="long"; const q=p.qty*part; if(!(q>0)) return 0; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*(taker?cfg.feeTaker:cfg.feeMaker); bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty-=q; (p.exits=p.exits||[]).push(why.k); deskFill(p,why.dec||why.k,price,q,Date.now()); p.notional=p.qty*p.entry; p.margin=p.notional/p.lev; botLog(why.k,p.sym,`${why.t} ${fmtP(price)} · %${Math.round(part*100)} kapandı · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); if(p.qty<=1e-12||part>=1){ p.qty=0; botClosePos(p); } return pnl-fee; }
+function botCloseAt(p,part,price,why,taker){ const cfg=bot.cfg; const isL=p.dir==="long"; const q=p.qty*part; if(!(q>0)) return 0; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*(taker?cfg.feeTaker:cfg.feeMaker); bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty-=q; (p.exits=p.exits||[]).push(why.k); if(taker){ const hs=bookHalf(bot.book[p.sym]); if(hs!=null) (p.bkx=p.bkx||[]).push(hs); } deskFill(p,why.dec||why.k,price,q,Date.now()); p.notional=p.qty*p.entry; p.margin=p.notional/p.lev; botLog(why.k,p.sym,`${why.t} ${fmtP(price)} · %${Math.round(part*100)} kapandı · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); if(p.qty<=1e-12||part>=1){ p.qty=0; botClosePos(p); } return pnl-fee; }
 async function botManage(){
   if(bot._managing&&Date.now()-(bot._manT||0)>5*60e3){ console.warn("SWEEP · pozisyon toplantısı 5 dk'dır bitmedi, kilit açılıyor"); bot._managing=false; }
   if(!bot.on||bot.cfg.mode!=="komite"||!bot.positions.length||bot._managing) return; bot._managing=true; const run=bot._manT=Date.now();
@@ -945,7 +945,7 @@ async function botManage(){
         
         const lp=(typeof ld!=="undefined"&&ld.profile)?` Tolga: liderlerin %${Math.round((ld.profile.addRate||0)*100)}'i kazanan pozisyona ekliyor.`:""; say("Baran",`hedef 1 alındı, masa hâlâ tut diyor (puan ${pts(rv.score)}); yarım boy ekliyorum.`+lp); say("Can",`Onay: ekleme bir kez, yarım boy. Ortalama giriş ${fmtP(p.entry)}, stop ${p.stop!==stop0?fmtP(stop0)+" → ":""}${fmtP(p.stop)}.`); botLog("add",p.sym,`Ekleme ${fmtP(fill)} · ${fmtB(addNotional)} · toplam ${fmtB(p.notional)} · teminat ${fmtB(p.margin)}.`); botSave(); continue; }
     }
-    if(rv.verdict==="tut"&&!p.heldNoted){ p.heldNoted=true; say("Can",`masa tut diyor (tutma puanı ${pts(rv.hold)}, ${rv.views.filter(a=>a.w&&a.v>0.15).length}/${rv.views.filter(a=>a.w).length} destek). Plan aynen: stop ${fmtP(p.stop)}, hedef ${fmtP(p.t1)} / ${fmtP(p.t2)}.`); }
+    if(rv.verdict==="tut"&&!p.heldNoted){ p.heldNoted=true; say("Can",`masa tut diyor (tutma puanı ${pts(rv.hold)}, ${rv.views.filter(a=>a.w&&a.v>0.15).length}/${rv.views.filter(a=>a.w).length} destek). Plan aynen: stop ${fmtP(p.stop)}, ${p.h24?"hedef yok, 24 saat dolunca çıkış":`hedef ${fmtP(p.t1)} / ${fmtP(p.t2)}`}.`); }
   } } finally{ if(bot._manT===run) bot._managing=false; }
 }
 /* --- Trend sepeti (src/trend.js): Masa'dan ayrı sanal bakiye, günde bir dengeleme, 5 dk'da bir işaretleme --- */

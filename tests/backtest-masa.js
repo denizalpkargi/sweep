@@ -37,8 +37,10 @@ function simBot(k,i,dir,plan,cfg){
   const isL=dir==="long"; const e0=k[i].c, entry=isL?e0*(1+cfg.slip):e0*(1-cfg.slip); const sd=plan.sd;
   const stop=isL?entry*(1-sd):entry*(1+sd), risk=Math.abs(entry-stop); const p={dir,entry,stop,t1:isL?entry+1.5*risk:entry-1.5*risk,t2:isL?entry+plan.rr2*risk:entry-plan.rr2*risk,risk0:risk,stop0:stop,stage:"open",hi:entry,lo:entry,expiresAt:k[i].t+M15+(plan.holdH||cfg.holdH)*3600e3};
   let qty=1, pnl=-entry*cfg.feeTaker; const hold=(plan.holdH||cfg.holdH)*4+1;
-  for(let j=i+1;j<Math.min(k.length,i+1+hold);j++){ const c=k[j]; const seq=isL?[c.l,c.h,c.c]:[c.h,c.l,c.c];
-    for(let z=0;z<3;z++){ const now=z===2?c.t+M15:c.t+1; const out=E.paperStep(p,seq[z],now,cfg);
+  for(let j=i+1;j<Math.min(k.length,i+1+hold);j++){ const c=k[j]; const seq=isL?[c.o,c.l,c.h,c.c]:[c.o,c.h,c.l,c.c];
+    // 10 Ekim 2026: mumun ilk fiyatı açılış. Önceden ilk fiyat long'da dip (short'ta tepe) idi; zaman stopu bir sonraki mumun ilk
+    // fiyatında tetiklendiği için çıkış o mumun en kötü fiyatından yapılıyordu (24 coin 6 ayda işlem başı ≈ −0,065R yanlılık).
+    for(let z=0;z<4;z++){ const now=z===3?c.t+M15:c.t+1+z; const out=E.paperStep(p,seq[z],now,cfg);
       for(const o of out){ if(o.part==null) continue; const q=o.final?qty:Math.min(qty,qty*o.part); const px=o.price; pnl+=q*(isL?px-entry:entry-px)-q*px*(o.taker?cfg.feeTaker:cfg.feeMaker); qty-=q; if(o.final||qty<=1e-9) return {R:pnl/risk,end:j,how:o.k}; } } }
   const c=k[Math.min(k.length-1,i+hold)]; pnl+=qty*(isL?c.c-entry:entry-c.c)-qty*c.c*cfg.feeTaker; return {R:pnl/risk,end:i+hold,how:"son"}; }
 function fcY(k,i,dir){ const atr=E.atrAt(k,i+1,14); const px=k[i].c, isL=dir==="long"; const up=isL?px+atr:px-atr, dn=isL?px-atr:px+atr;
@@ -50,7 +52,7 @@ if(require.main===module&&mode==='sample'){
   for(const d of data){ const k=E.K(d.k15), d1=E.K(d.k1d); let n=0;
     for(let i=3500;i<k.length-40;i+=step){ let inp; try{ inp=inputsAt(k,i,d1,btc,d.sym); }catch(e){ continue; }
       let A; try{ A=E.analyze(inp.f,inp.s); }catch(e){ if(!n) console.error(d.sym,e.message); continue; }
-      for(const dir of ["long","short"]){ const c=E.committee(A,dir,inp.c24,{sym:d.sym,raw:true}); const pre=c.pre||c.agents;
+      for(const dir of ["long","short"]){ const c=E.committee(A,dir,inp.c24,{sym:d.sym,raw:true,lf:false,l24:false}); const pre=c.pre||c.agents;
         const plan=c.plan||{sd:c.feat.sd,rr2:c.feat.runR,holdH:null}; const sim=simBot(k,i,dir,plan,cfg);
         S.push({sym:d.sym,t:k[i].t,dir,veto:c.veto?1:0,sd:+plan.sd.toFixed(4),rr2:plan.rr2,score:c.score,yes:c.yes,dec:c.decision,
           a:Object.fromEntries(pre.map(x=>[x.id,[+(+x.v).toFixed(3),+(+x.c).toFixed(3),x.abst?1:0]])),R:+sim.R.toFixed(3),how:sim.how,y:fcY(k,i,dir),stage:c.feat.stage,kz:c.feat.kz?1:0,trend:c.feat.trend}); }

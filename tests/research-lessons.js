@@ -21,7 +21,7 @@ function sample(sh,nsh){
     for(let i=3500;i<k.length-40;i+=4){ let inp; try{ inp=inputsAt(k,i,d1,btc,d.sym); }catch(e){ continue; }
       let A; try{ A=E.analyze(inp.f,inp.s); }catch(e){ continue; }
       const t=k[i].t+M15, px=k[i].c; let ctx=null;
-      for(const dir of ["long","short"]){ let c; try{ c=E.committee(A,dir,inp.c24,{sym:d.sym,raw:true}); }catch(e){ continue; }
+      for(const dir of ["long","short"]){ let c; try{ c=E.committee(A,dir,inp.c24,{sym:d.sym,raw:true,lf:false}); }catch(e){ continue; }
         if(c.veto||!c.plan||c.score<0.30) continue;
         if(!ctx){ const w=k.slice(i-95,i+1), hi=Math.max(...w.map(x=>x.h)), lo=Math.min(...w.map(x=>x.l)); const dc=d1.filter(x=>x.t+864e5<=t).map(x=>x.c);
           const bi=idx(btc,k[i].t), bc=btc[bi].c, bdc=btcD.filter(x=>x.t+864e5<=t).map(x=>x.c); const a15=E.atrAt(k,i+1,14)/px;

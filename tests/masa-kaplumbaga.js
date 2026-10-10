@@ -18,7 +18,7 @@ const out=[]; let miss=0; const dir=DIR>0?'long':'short';
 for(const s in bySym){ const f15=path.join(ARCH,'15m',s+'.csv'); if(!fs.existsSync(f15)){ miss+=bySym[s].length; continue; }
   const k=E.K(csvK(f15)), d1=E.K(csvK(path.join(ARCH,'1d',s+'.csv'))); if(E.setPoolCache) E.setPoolCache(new Map());
   for(const x of bySym[s]){ const i=lb(k,x[1]-M15); if(i<3500||k[i].t!==x[1]-M15){ miss++; continue; }
-    try{ const inp=inputsAt(k,i,d1,btc,s); const A=E.analyze(inp.f,inp.s); const c=E.committee(A,dir,inp.c24,{sym:s,raw:true});
+    try{ const inp=inputsAt(k,i,d1,btc,s); const A=E.analyze(inp.f,inp.s); const c=E.committee(A,dir,inp.c24,{sym:s,raw:true,lf:false});
       const ag=c.agents||c.pre; out.push({s,t:x[1],R:x[3],score:c.score,yes:c.yes,veto:c.veto?1:0,v:Object.fromEntries(ag.filter(a=>!a.abst).map(a=>[a.id,+a.v]))}); }catch(e){ miss++; } } }
 out.sort((a,b)=>a.t-b.t); const MID=out[out.length>>1].t, L24=out[out.length-1].t-730*864e5;
 const st=a=>a.length?{n:a.length,R:a.reduce((p,x)=>p+x.R,0)/a.length,win:a.filter(x=>x.R>0).length/a.length}:{n:0,R:NaN,win:NaN};
