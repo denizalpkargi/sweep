@@ -171,7 +171,7 @@ L = []
 w = L.append
 w('# Hacim profili şekilleri (D, P, b, B) — arşiv testi\n')
 w(f'Üretim: {time.strftime("%Y-%m-%d %H:%M")} UTC · `python3 tests/test-vp-sekil.py{" --selftest" if SELF else ""}` · {df.sym.nunique()} coin, {len(df):,} coin-günü, {df.date.min():%Y-%m-%d} → {df.date.max():%Y-%m-%d}, ayın ilk {TOP} coini · {time.time()-T0:.0f} sn\n')
-w('Tanımlar ve eşikler veriye bakmadan sabitlendi (betiğin başı). Getiri: ertesi günün ilk 15 dk VWAP\'ı → H gün sonra son 15 dk VWAP\'ı, basit getiri − %0,16 − fonlama. R: stop 1 ATR, hedef 2 ATR, 3 gün. "Eşlenmiş fark" = getiri − aynı gün-getirisi onluğundaki tüm günlerin aynı yöndeki ortalaması (şeklin, günün kendi hareketinden fazlasını söyleyip söylemediği). t gün kümeli.\n')
+w('Tanımlar ve eşikler veriye bakmadan sabitlendi (betiğin başı). Getiri: ertesi günün ilk 15 dk VWAP\'ı → H gün sonra son 15 dk VWAP\'ı, basit getiri − %0,16 − fonlama. R: stop 1 ATR, hedef 2 ATR, 3 gün. "Eşlenmiş fark" = getiri − aynı gün-getirisi onluğundaki tüm günlerin aynı yöndeki ortalaması (şeklin, günün kendi hareketinden fazlasını söyleyip söylemediği). t gün kümeli: her gün coinlerin ortalaması, günler eşit ağırlıklı; tablodaki ortalama ise coin-günü ağırlıklı, kalın kuyruklu birkaç gün ikisinin işaretini ayırabilir (ilk koşuda P → long 1g +0,10 % ama t −1,3).\n')
 w('## Şekil dağılımı\n')
 w('| şekil | pay | ort. POC yeri | yükselişte pay | gün getirisi (ATR) |\n|---|---|---|---|---|')
 for sh in ['P', 'b', 'D', 'B', 'diğer']:
