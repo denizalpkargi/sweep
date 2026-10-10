@@ -38,7 +38,7 @@ ok(Math.abs(s5.trades[0].x-cat*(1-s5.cfg.slip))<1e-9,'felaket dolumu stop fiyat�
 // en çok pozisyon
 let s6=E.ttNew({maxPos:2}); const data={BTCUSDT:btc}; const syms=['A','B','C']; for(const k of syms) data[k]=A; E.ttClose(s6,data,syms,{A:105,B:105,C:105},T0+260*DAY);
 ok(Object.keys(s6.pos).length===2,'en çok pozisyon sınırı');
-// oynaklıkla boy (test #50): nominal = volTv × bakiye ÷ σ60
+// oynaklıkla boy (test #53): nominal = volTv × bakiye ÷ σ60
 const Av=A.map((b,i)=>i<259?{...b,c:100+(i%2?1:-1)}:b); let s7=E.ttNew({size:'vol',volTv:0.04}); E.ttClose(s7,{BTCUSDT:btc,X:Av},['X'],px,T0+260*DAY);
 { const v=E.ttVol(Av,Av.length-1,60), q=s7.pos.X; ok(q&&v>0&&Math.abs(q.qty*q.e-Math.min(0.04*100/v,2*100))<1e-6,'oynaklıkla boy'); }
 // TradFi listesi
@@ -82,7 +82,7 @@ if(process.argv.includes('--replay')){
       console.log(`tekrar oynatma (canlı kod) ${nm}: ${r.n} işlem, ort. ${r.R.toFixed(2)}R, 1. yarı ${r.h1}, 2. yarı ${r.h2}, son 24 ay ${r.l24}, 100 $ → ${r.eq.toFixed(0)} $, yıllık %${(r.cagr*100).toFixed(0)}, en büyük düşüş %${(r.mdd*100).toFixed(0)}, Sharpe ${fx(r.all.sh)}`);
       L.push(`| ${nm} | ${r.n} | ${fx(r.R)} | ${r.h1} / ${r.h2} | ${r.l24} | ${pc(r.cagr)} | ${fx(r.all.sh)} | −${(100*r.mdd).toFixed(0)}% | ${fx(r.cagr/r.mdd)} | ${pc(r.a.cagr)} / ${fx(r.a.sh)} / −${(100*r.a.dd).toFixed(0)}% | ${pc(r.b.cagr)} / ${fx(r.b.sh)} / −${(100*r.b.dd).toFixed(0)}% | ${pc(r.l.cagr)} / ${fx(r.l.sh)} / −${(100*r.l.dd).toFixed(0)}% |`);
       LY.push(`| ${nm} | `+Y.map(y=>pc(r.by[y]-1)).join(' | ')+' |'); }
-    if(process.argv.includes('--variants')) fs.writeFileSync(path.join(__dirname,'test50-kaplumbaga-boy-report.md'),['# Test #50 · Kaplumbağa sepeti: oynaklıkla boy (canlı kod, arşiv)',`Evren her ay hacimce ilk ${TOP} (TradFi hariç, delist dahil), 2020-06 → ${new Date(t1).toISOString().slice(0,10)}, en çok 10 pozisyon, nominal ≤ 2x, maliyet taker %0,05 + kayma %0,03 + fonlama. "oynaklık x": nominal = x × özkaynak ÷ σ60 (yıllık); 0,04 ≈ bugünkü ortalama boy. Stoplar ve çıkışlar aynı; R her işlemde 2N stopa göre.`,'',...L,'','## Yıl yıl','',...LY].join('\n')+'\n');
+    if(process.argv.includes('--variants')) fs.writeFileSync(path.join(__dirname,'test53-kaplumbaga-boy-report.md'),['# Test #53 · Kaplumbağa sepeti: oynaklıkla boy (canlı kod, arşiv)',`Evren her ay hacimce ilk ${TOP} (TradFi hariç, delist dahil), 2020-06 → ${new Date(t1).toISOString().slice(0,10)}, en çok 10 pozisyon, nominal ≤ 2x, maliyet taker %0,05 + kayma %0,03 + fonlama. "oynaklık x": nominal = x × özkaynak ÷ σ60 (yıllık); 0,04 ≈ bugünkü ortalama boy. Stoplar ve çıkışlar aynı; R her işlemde 2N stopa göre.`,'',...L,'','## Yıl yıl','',...LY].join('\n')+'\n');
     console.log('araştırma (research-daily-wide.js, %0,5/10/2x): 801 işlem, +0,94R, yarılar +1,52 / +0,54, son 24 ay +0,36, yıllık +%25, düşüş −%31');
   }
 }
