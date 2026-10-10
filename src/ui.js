@@ -1161,7 +1161,8 @@ function askHtml(r){
     tile("Stop",isFinite(r.sl)?fmtP(r.sl):"yok",isFinite(r.stopPct)?`%${fx(r.stopPct*100,2)} · ${fx(r.slAtr,2)} ATR · ROE ${fx(r.roeSl,0)}%`:"masanın önerisi "+fmtP(r.deskStop),isFinite(r.sl)?"down":"warn"),
     tile("Hedef",isFinite(r.tp)?fmtP(r.tp):"yok",isFinite(r.rr)?`${fx(r.rr,2)}R · komisyon ${fx(r.costR,2)}R · ROE +${fx(r.roeTp,0)}%`:"masa: 1,5R "+fmtP(r.deskT1),isFinite(r.tp)?"up":""),
     tile("Likidasyon",fmtP(r.liq),`${r.liqGiven?"":"tahmini · "}%${fx(r.liqPct*100,2)} · ${fx(r.liqAtr,1)} ATR uzakta`,r.liqAtr<1.5?"down":r.liqAtr<3?"warn":""),
-    tile("Pozisyon",`${r.lev}x ${r.iso?"izole":"cross"}`,isFinite(r.notional)?`büyüklük ${fmtB(r.notional)}${isFinite(r.lossUsd)?" · stopta −"+fmtB(r.lossUsd):""}${isFinite(r.riskPct)?" (%"+fx(r.riskPct*100,1)+")":""}`:`başabaş ${fmtP(r.be)} · ATR %${fx(r.atrPct,2)}`)];
+    tile("Pozisyon",`${r.lev}x ${r.iso?"izole":"cross"}`,isFinite(r.notional)?`büyüklük ${fmtB(r.notional)}${isFinite(r.lossUsd)?" · stopta −"+fmtB(r.lossUsd):""}${isFinite(r.riskPct)?" (%"+fx(r.riskPct*100,1)+")":""}`:`başabaş ${fmtP(r.be)} · ATR %${fx(r.atrPct,2)}`),
+    tile("Günlük oynaklık",isFinite(r.dayMed)?"%"+fx(r.dayMed*100,1):"—",isFinite(r.dayMed)?`ortanca gün · ${r.liqDays}/10 gün likidasyonu vururdu · en çok ${r.levSafe}x${r.ageD<30?` · ${r.ageD} günlük coin`:""}`:"günlük veri yok",isFinite(r.dayMed)?(r.liqDays>=2||r.liqPct<r.dayMed?"down":r.liqDays||r.liqPct<2*r.dayMed?"warn":"up"):"")];
   const notes=[...r.red.map(t=>["down","●",t]),...r.warn.map(t=>["warn","●",t]),...r.ok.map(t=>["up","✓",t])];
   const chips=r.agents.map(a=>`<span class="chip ${a.v>0.15?"up":a.v<-0.15?"down":"neutral"} sm" title="${esc(a.txt)}">${esc(a.name)} ${a.v>0?"+":""}${fx(a.v,1)}</span>`).join(" ");
   const yes=r.agents.filter(a=>a.v>0.15).length, no=r.agents.filter(a=>a.v<-0.15).length;

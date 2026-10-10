@@ -301,10 +301,29 @@ function askDesk(A, t, c24, opts){
   const liqPassed=isL?px<=liq:px>=liq;
   // stop likidasyondan önce gelmeli; arada en az 0,5 ATR pay olmalı (likidasyon fiyatı mark ile hesaplanır, fitil kayabilir)
   let slLiqAtr=NaN; if(slOk){ slLiqAtr=sg*(sl-liq)/atr; if(slLiqAtr<=0) red.push(`Likidasyon (${fmtP(liq)}) stoptan (${fmtP(sl)}) önce geliyor: stop hiç çalışmaz, pozisyon likide olur. Kaldıracı düşür ya da stopu ${fmtP(isL?liq+0.5*atr:liq-0.5*atr)} ${isL?"üstüne":"altına"} çek.`); else if(slLiqAtr<0.5) warn.push(`Stop ile likidasyon arasında yalnızca ${fx(slLiqAtr,2)} ATR var; sert bir fitil stopu atlayıp likidasyona gidebilir.`); }
-  else if(!isFinite(sl)) warn.push(`Stop yok. Bu kaldıraçta tek koruma likidasyon (${fmtP(liq)}, girişten ${pc(liqEntryPct)} uzakta).`);
+  else if(!isFinite(sl)) red.push(`Stop yok. Bu kaldıraçta tek koruma likidasyon (${fmtP(liq)}, girişten ${pc(liqEntryPct)} uzakta). Stopsuz kaldıraçlı işlem açma; TP/SL'den Stop Market koy.`);
   if(t.open&&liqPassed) red.push("Girilen likidasyon fiyatı şu anki fiyatın ötesinde; değerleri kontrol et.");
   else if(liqAtr<1.5) red.push(`Likidasyon şu anki fiyattan ${fx(liqAtr,1)} ATR (${pc(liqPct)}) uzakta; sıradan bir 15 dk mumu yeter.`);
   else if(liqAtr<3) warn.push(`Likidasyon ${fx(liqAtr,1)} ATR uzakta; tek dalga yeter.`);
+  /* Gerçek işlem kalkanı (10 Ekim 2026, US: 10x cross, likidasyon %10 uzakta, coin günde %30 oynuyordu; ATR notu 15 dk ölçtüğü için bunu göstermedi).
+     Günlük ölçü: kapanmış son 10 günün ortanca aralığı, açılıştan pozisyon aleyhine en büyük hareketin likidasyon mesafesini geçtiği gün sayısı, coinin yaşı. */
+  const kd=(A.src&&A.src.k1d)||[]; const dl=kd.slice(-11,-1); const ageD=kd.length; const newCoin=ageD>0&&ageD<30;
+  const dayR=dl.map(d=>(d.h-d.l)/d.o).sort((a,b)=>a-b); const dayMed=dayR.length>=5?dayR[dayR.length>>1]:NaN;
+  const liqDays=dl.filter(d=>(isL?(d.o-d.l)/d.o:(d.h-d.o)/d.o)>=liqPct).length;
+  const levSafe=isFinite(dayMed)?Math.max(1,Math.floor(1/(2*dayMed+0.005))):NaN; // izole: likidasyon en az iki ortanca gün uzakta
+  if(isFinite(dayMed)&&!liqPassed){
+    const tail=`; son ${dl.length} günün ${liqDays} tanesinde gün içi ${isL?"düşüş":"yükseliş"} bu mesafeyi geçti.`;
+    if(liqPct<dayMed||liqDays>=2) red.push(`Likidasyon ${pc(liqPct)} uzakta, bu coinin ortanca günlük aralığı ${pc(dayMed)}: sıradan bir gün yeter${tail}`);
+    else if(liqPct<2*dayMed||liqDays) warn.push(`Likidasyon ${pc(liqPct)} uzakta, ortanca günlük aralık ${pc(dayMed)}: sert bir gün yeter${tail}`);
+    else ok.push(`Likidasyon ${pc(liqPct)} uzakta, ortanca günlük aralığın (${pc(dayMed)}) iki katından fazla.`);
+    if(dayMed>=0.15) red.push(`Çok oynak coin: ortanca günlük aralık ${pc(dayMed)}. Likidasyonun iki gün uzakta kalması için kaldıraç en çok ${levSafe}x (izole)${lev>levSafe?`; ${lev}x bunun ${fx(lev/levSafe,1)} katı`:""}.`);
+    else if(lev>levSafe) warn.push(`Bu coinin oynaklığında (günde ${pc(dayMed)}) likidasyonun iki gün uzakta kalması için kaldıraç en çok ${levSafe}x (izole).`);
+  }
+  if(newCoin) red.push(`Coinin ${ageD} günlük geçmişi var: yeni listelenen coinlerde oynaklık ve likidite güvenilmez, destek/direnç oturmamıştır.`);
+  // pompadan sonra long / çöküşten sonra short (10 Ekim US: girişten önceki gün %100 pompa); kapanmış son 4 günün dibinden/tepesinden
+  const d4=kd.slice(-5,-1); const pump4=d4.length>=4?d4[3].c/Math.min(...d4.map(d=>d.l))-1:NaN, dump4=d4.length>=4?d4[3].c/Math.max(...d4.map(d=>d.h))-1:NaN;
+  if(isL&&pump4>0.5) (lev>3?red:warn).push(`Son 4 günde dipten ${pc(pump4)} yükselmiş; pompadan sonra long, geri verilirse girişin çok altına iner.`);
+  if(!isL&&dump4<-0.35) (lev>3?red:warn).push(`Son 4 günde tepeden ${pc(-dump4)} düşmüş; çöküşten sonra short, sert tepki yükselişi gelebilir.`);
   if(slOk){
     if(stopPct<RS_CFG.floorStop) warn.push(`Stop %${fx(stopPct*100,2)}: testte %1,5 altı stoplar eksiydi (gürültü stopu); komisyon+kayma ${fx(costR,2)}R yer.`);
     else ok.push(`Stop %${fx(stopPct*100,2)}, %1,5 tabanının üstünde.`);
@@ -320,6 +339,10 @@ function askDesk(A, t, c24, opts){
   if(!iso) warn.push(liqGiven?"Cross: likidasyon fiyatı cüzdandaki diğer pozisyonlarla ve bakiyeyle kayar; zarar tüm bakiyeye yayılır.":"Cross: likidasyonu girmedin, izole varsayımıyla tahmin edildi; gerçek değer bakiyeye göre daha uzak olabilir ama zarar tüm bakiyeye yayılır.");
   else if(!liqGiven) warn.push(`Likidasyon girilmedi; ${lev}x izole için tahmin ${fmtP(liq)}.`);
   let notional=NaN, lossUsd=NaN, riskPct=NaN; if(isFinite(size)){ notional=size*lev; if(slOk){ lossUsd=notional*(stopPct+fee); if(isFinite(bal)){ riskPct=lossUsd/bal; if(riskPct>BOT_CFG_DEF.risk*1.5) red.push(`Stop olursa ${fx(lossUsd,2)} $ gider, bakiyenin yüzde ${fx(riskPct*100,1)} kadarı; bot işlem başına yüzde ${fx(BOT_CFG_DEF.risk*100,0)} riske eder.`); else if(riskPct>BOT_CFG_DEF.risk) warn.push(`Stop olursa bakiyenin yüzde ${fx(riskPct*100,1)} kadarı gider; bot yüzde ${fx(BOT_CFG_DEF.risk*100,0)} ile sınırlar.`); else ok.push(`Stop olursa bakiyenin yüzde ${fx(riskPct*100,1)} kadarı gider (bot sınırı yüzde ${fx(BOT_CFG_DEF.risk*100,0)}).`); } } }
+  // bakiyenin bot riski (yüzde 3) kadarını stopta kaybettiren boy: büyüklük = bakiye × risk ÷ (stop % + maliyet)
+  let sizeFor=null; if(slOk&&isFinite(bal)){ const n=bal*BOT_CFG_DEF.risk/(stopPct+fee); sizeFor={notional:n,margin:n/lev,qty:n/entry,riskUsd:bal*BOT_CFG_DEF.risk};
+    const txt=`Bakiyenin yüzde ${fx(BOT_CFG_DEF.risk*100,0)} kadarı riskle boy: büyüklük ${fx(n,0)} $, ${lev}x ile teminat ${fx(n/lev,2)} $, ≈ ${fx(n/entry,0)} adet; stopta ≈ ${fx(sizeFor.riskUsd,2)} $ gider.`;
+    if(isFinite(notional)&&notional>n*1.5) red.push(`${txt} Seninki bunun ${fx(notional/n,1)} katı.`); else if(isFinite(notional)&&notional>n*1.05) warn.push(`${txt} Seninki bunun ${fx(notional/n,1)} katı.`); else ok.push(txt); }
   const roeSl=slOk?-(stopPct+fee)*lev*100:NaN, roeTp=tpOk?(Math.abs(tp-entry)/entry-fee)*lev*100:NaN;
   const pnlPct=sg*(px/entry-1)*100; const be=isL?entry*(1+fee):entry*(1-fee);
   /* ---- masa ---- */
@@ -345,7 +368,7 @@ function askDesk(A, t, c24, opts){
   if(red.length) why.push(red.length+" kırmızı risk notu");
   const canSay=`${verdict}. ${why.join(" · ")}.${isFinite(deskStop)?` Benim stopum ${fmtP(deskStop)} (${deskStopWhy})${slOk?`, seninki ${fmtP(sl)}`:""}.`:""}`;
   return {sym:t.sym,dir,open:!!t.open,verdict,kind,canSay,score,oppScore,oppDecision,decision,veto,yes,agents,talk,lines,red,warn,ok,
-    px,entry,sl:slOk?sl:NaN,tp:tpOk?tp:NaN,lev,iso,liq,liqGiven,liqPct,liqAtr,slLiqAtr,stopPct,slAtr,rr,costR,roeSl,roeTp,pnlPct,roeNow:pnlPct*lev,be,atrPct:atr/px*100,notional,lossUsd,riskPct,deskStop,deskStopWhy,deskT1,deskT2,c24,t:Date.now()};
+    px,entry,sl:slOk?sl:NaN,tp:tpOk?tp:NaN,lev,iso,liq,liqGiven,liqPct,liqAtr,slLiqAtr,stopPct,slAtr,rr,costR,roeSl,roeTp,pnlPct,roeNow:pnlPct*lev,be,atrPct:atr/px*100,notional,lossUsd,riskPct,dayMed,liqDays,ageD,levSafe,sizeFor,deskStop,deskStopWhy,deskT1,deskT2,c24,t:Date.now()};
 }
 /* ---------- Kâğıt pozisyon için tek fiyat adımı (ui.js botOnPrice ve headless/ ortak) ----------
    p.hi/p.lo, p.stage ve p.stop'u günceller; uygulanacak kapanışları sırayla döndürür: {part,price,k,t,taker,final} ya da {k:"move",t}.
