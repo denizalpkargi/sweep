@@ -16,3 +16,6 @@ tests/hl/*.json
 tests/hl/*.jsonl
 tests/hl/*.csv
 tests/hl/*.txt
+
+# FRED API anahtarı (yalnız kullanıcının bilgisayarında)
+.fred-key
