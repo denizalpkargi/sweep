@@ -1,0 +1,32 @@
+{
+ "at": "2026-10-10T16:16:45.293Z",
+ "sources": {
+  "stooq": {
+   "spx": {
+    "hata": "HTTP 403"
+   },
+   "ndq": {
+    "hata": "HTTP 403"
+   },
+   "vix": {
+    "hata": "HTTP 403"
+   },
+   "gold": {
+    "hata": "HTTP 403"
+   },
+   "dxy": {
+    "hata": "HTTP 403"
+   },
+   "us10y": {
+    "hata": "HTTP 403"
+   },
+   "usdtry": {
+    "hata": "HTTP 403"
+   },
+   "oil": {
+    "hata": "HTTP 403"
+   },
+   "sn": 11
+  }
+ }
+}
