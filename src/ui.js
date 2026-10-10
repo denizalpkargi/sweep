@@ -552,15 +552,22 @@ function botCandidatesCommittee(){
     for(const dir of ["long","short"]){ const c=r.com[dir]; if(!c) continue;
       const held=botHas(r.s), cool=bot.cool[r.s]&&now<bot.cool[r.s];
       const go=!!c.plan&&c.score>=botThr()&&c.yes>=botMinYes()&&!c.veto&&!held&&!cool;
-      out.push({sym:r.s,dir,model:"KOMİTE",grade:c.score>=0.5?"A":c.score>=bot.cfg.threshold?"B":"C",kz:null,entry:bot.px[r.s]||r.px,sd:c.plan?c.plan.sd:NaN,stop:c.plan?c.plan.stop:NaN,t1:c.plan?c.plan.t1:NaN,t2:c.plan?c.plan.t2:NaN,rr1:1.5,rr2:3,com:c,go,held,cool:!!cool,score:c.score,yes:c.yes,veto:c.veto});
+      out.push({sym:r.s,dir,model:"KOMİTE",grade:c.score>=0.5?"A":c.score>=bot.cfg.threshold?"B":"C",kz:null,entry:botLivePx(r.s)||r.px,sd:c.plan?c.plan.sd:NaN,stop:c.plan?c.plan.stop:NaN,t1:c.plan?c.plan.t1:NaN,t2:c.plan?c.plan.t2:NaN,rr1:1.5,rr2:3,com:c,go,held,cool:!!cool,score:c.score,yes:c.yes,veto:c.veto});
     }
   }
   return out.sort((a,b)=>b.score-a.score);
 }
+/* market giriş fiyatı yalnız taze olmalı (9 Ekim 2026, JUP: bot.px'te saatler önceki fiyat kalmıştı; 0,3804'ten girildi, ilk canlı fiyat 0,3744 stopu 1,4 sn'de vurdu, −13,07 $).
+   Sıra: bu coinin işlem akışı (≤60 sn) → tüm coin ticker akışı (≤30 sn) → mark fiyat akışı (≤30 sn); hiçbiri yoksa giriş yok. */
+function botLivePx(sym){ const now=Date.now();
+  if(bot.px[sym]>0&&bot.pxT&&now-(bot.pxT[sym]||0)<=60e3) return bot.px[sym];
+  try{ const t=wsd.tick[sym]; if(t&&now-wsd.tickT<=30e3&&+t.lastPrice>0) return +t.lastPrice; }catch(e){}
+  try{ const m=wsd.mark[sym]; if(m&&now-wsd.markT<=30e3&&+m.markPrice>0) return +m.markPrice; }catch(e){}
+  return NaN; }
 function botOpenMarket(x,es){
-  const cfg=bot.cfg; const isL=x.dir==="long"; const px=bot.px[x.sym]||x.entry; if(!(px>0)||!(x.sd>0)) return false;
+  const cfg=bot.cfg; const isL=x.dir==="long"; const px=botLivePx(x.sym); if(!(px>0)){ botLog("skip",x.sym,"Taze fiyat yok (akış ve ticker 30 sn'den eski): market giriş yapılmadı."); return false; } if(!(x.sd>0)) return false;
   const sd=x.sd; const stop=isL?px*(1-sd):px*(1+sd), t1=isL?px*(1+1.5*sd):px*(1-1.5*sd), t2=isL?px*(1+3*sd):px*(1-3*sd);
-  const lev=cfg.lev||20; const risk=es?es.riskUsd:bot.bal*cfg.risk; const notional=risk/sd; const margin=notional/lev;
+  const pl=x.com&&x.com.plan; const lev=Math.min(cfg.lev||20,pl&&pl.lev||99); const risk=es?es.riskUsd:bot.bal*cfg.risk; const notional=risk/sd; const margin=notional/lev;
   if(margin+botMarginUsed()>bot.bal*0.95){ bot._noMargin={need:margin,free:Math.max(0,bot.bal*0.95-botMarginUsed())}; return false; }
   const fill=isL?px*(1+cfg.slip):px*(1-cfg.slip); const qty=notional/fill; const fee=notional*cfg.feeTaker; bot.bal-=fee; botDay().opens++;
   const votes=x.com.agents.map(a=>`${a.name||a.k} ${a.v>0?"+":""}${fx(a.v,1)}`);
@@ -627,7 +634,7 @@ function botWsSync(){
 }
 function botFunding(sym,rate){ for(const p of bot.positions){ if(p.sym!==sym) continue; const fee=p.notional*rate*(p.dir==="long"?1:-1); bot.bal-=fee; p.fees+=fee; botLog("fund",p.sym,`Fonlama ${fx(rate*100,4)}% → ${fee>=0?"ödendi":"alındı"} ${fmtB(Math.abs(fee))}.`); } }
 function botOnPrice(sym,px,T){
-  if(!(px>0)) return; bot.px[sym]=px; bot.lastTick=Date.now(); const cfg=bot.cfg; const now=Date.now();
+  if(!(px>0)) return; bot.px[sym]=px; (bot.pxT||(bot.pxT={}))[sym]=Date.now(); bot.lastTick=Date.now(); const cfg=bot.cfg; const now=Date.now();
   for(const o of [...bot.orders]){ if(o.sym!==sym) continue; const isL=o.dir==="long"; if(!(isL? px<=o.entry : px>=o.entry)) continue;
     bot.orders=bot.orders.filter(x=>x!==o);
     if(isL? px<=o.stop : px>=o.stop){ botLog("cancel",o.sym,`Fiyat stop seviyesine giriş olmadan geldi; emir iptal.`); botWsSync(); continue; }
@@ -687,7 +694,7 @@ function renderRoom(){
   const veto=sel.veto; const pctArc=clamp((score+1)/2,0,1); const circ=2*Math.PI*34; const decision=veto?"VETO":sel.go?"GİRİŞ":score>=thr?"EŞİKTE":"BEKLE"; const dcol=veto?"var(--short)":sel.go?"var(--long)":"var(--ink-2)";
   const center=`<circle cx="${cx}" cy="${cy}" r="40" fill="var(--bg-2, #111822)" stroke="${dcol}" stroke-width="2"/><circle cx="${cx}" cy="${cy}" r="34" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="6"/><circle cx="${cx}" cy="${cy}" r="34" fill="none" stroke="${score>=thr?"var(--long)":"var(--ink-2)"}" stroke-width="6" stroke-dasharray="${(circ*pctArc).toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90 ${cx} ${cy})"/><text x="${cx}" y="${cy-2}" text-anchor="middle" font-size="15" font-weight="800" fill="var(--ink)">${score>=0?"+":""}${pts(score)}</text><text x="${cx}" y="${cy+14}" text-anchor="middle" font-size="10" font-weight="700" fill="${dcol}">${decision}</text>${veto?`<text x="${cx}" y="${cy+58}" text-anchor="middle" font-size="10.5" fill="var(--short)">${esc(veto)}</text>`:""}`;
   const act=ag.filter(a=>!a.abst&&a.w!==0), yes=act.filter(a=>a.v>0.15).length, no=act.filter(a=>a.v<-0.15).length;
-  const list=ag.map(a=>`<div style="display:flex;gap:8px;align-items:baseline;font-size:11.5px;margin:2px 0"><span style="min-width:150px;font-weight:700;color:${col(a.v)}">${esc(a.name||a.k)} <span class="muted" style="font-weight:400">${esc(a.role||"")}</span></span><span class="num" style="min-width:36px">${a.abst?"—":(a.v>0?"+":"")+fx(a.v,1)}</span><span class="muted" style="min-width:52px">${a.abst?"çekimser":"güven "+fx(a.c,1)}</span><span class="muted" style="min-width:44px">${a.abst?"":"× "+fx(a.w,2)}</span><span class="muted">${a.v0!=null&&Math.abs(a.v0-a.v)>=0.05?`<b>ikna: ${a.v0>0?"+":""}${fx(a.v0,1)} → ${a.v>0?"+":""}${fx(a.v,1)}</b> · `:""}${esc(a.txt)}</span></div>`).join("");
+  const list=ag.map(a=>`<div style="display:flex;gap:8px;align-items:baseline;font-size:11.5px;margin:2px 0"><span style="min-width:150px;font-weight:700;color:${col(a.v)}">${esc(a.name||a.k)} <span class="muted" style="font-weight:400">${esc(a.role||"")}</span></span><span class="num" style="min-width:36px">${a.abst&&!a.shadow?"—":(a.v>0?"+":"")+fx(a.v,1)}</span><span class="muted" style="min-width:52px">${a.shadow?"gölge oy":a.abst?"çekimser":"güven "+fx(a.c,1)}</span><span class="muted" style="min-width:44px">${a.abst?"":"× "+fx(a.w,2)}</span><span class="muted">${a.v0!=null&&Math.abs(a.v0-a.v)>=0.05?`<b>ikna: ${a.v0>0?"+":""}${fx(a.v0,1)} → ${a.v>0?"+":""}${fx(a.v,1)}</b> · `:""}${esc(a.txt)}</span></div>`).join("");
   return `<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:4px"><h4 style="margin:0">Masa</h4><select id="botRoomSel">${opts.map(o=>`<option value="${o.key}" ${o.key===sel.key?"selected":""}>${esc(o.label)}</option>`).join("")}</select><span class="muted" style="font-size:11.5px">${yes} evet · ${no} hayır · ${ag.length-act.length} çekimser · eşik ${pts(thr)} · en az ${botMinYes()} evet gerekli</span></div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start"><svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:420px;height:auto" role="img" aria-label="Komite odası">${lines}${conf}${nodes}${center}</svg><div>${list}<p class="muted" style="font-size:11px;margin:6px 0 0">Daire boyu ve çerçeve = güven; renk ve dolgu = oy; çizgi kalınlığı = karara katkı (ağırlık × oy × güven); turuncu kesikli çizgi = çelişki. Merkez: ağırlıklı puan ve Can'ın kararı. Oylar ikna turu sonrası değerler; ağırlıklar (× katsayı) geriye dönük testten. Verisi olmayan üye çekimserdir, puana girmez.</p></div></div>${stagesHtml(sel.stages,sel.decs)}${talkHtml(sel.talk)}</div>`;
 }
@@ -702,7 +709,7 @@ function botClosePos(p){
   bot.positions=bot.positions.filter(x=>x!==p); bot.eq.push({t:Date.now(),v:bot.bal}); if(bot.eq.length>4000) bot.eq=bot.eq.slice(-2000); botAudit(rec); if(bot.bal>=botGoal().goal&&!bot.goalHit){ bot.goalHit=Date.now(); botLog("goal","",`Hedef tamam: bakiye ${fmtB(bot.bal)}. Bot korumalı modda (risk yarıya) devam ediyor.`); } botSave(); botWsSync();
   if(bot.on) setTimeout(()=>botDecide("tick"),500);
 }
-function botStart(){ if(bot.on) return; bot.on=true; if(!bot.startT) bot.startT=Date.now(); const c=bot.cfg; botLog("sys","",c.mode==="komite"?`Bot başladı · KOMİTE modu · sanal ${fmtB(bot.bal)} · risk %${fx(c.risk*100,1)}–%${fx(Math.max(c.risk,c.riskMax||0)*100,1)} (masanın güvenine göre) · ${c.lev}x sabit · aynı anda ${c.maxPos} pozisyon · eşik ${pts(c.threshold)}, ${c.minYes}/${DESK.length} oy · zaman stopu ${c.holdH} sa · hedef %100 ROI.`:`Bot başladı · KAPI modu · sanal ${fmtB(bot.bal)} · risk %${c.risk*100} · en fazla ${c.maxLev}x · ${c.strict?"yüksek tutarlılık kuralları":"serbest kurallar"} · Kurulum 2 ${c.useBR?"açık":"kapalı"} · Kurulum 3 ${c.useRS!==false?"açık":"kapalı"}.`); botWsSync(); if(!scan.rows.length&&!scan.running) runScan(); else botDecide("scan"); botSave(); }
+function botStart(){ if(bot.on) return; bot.on=true; if(!bot.startT) bot.startT=Date.now(); const c=bot.cfg; botLog("sys","",c.mode==="komite"?`Bot başladı · KOMİTE modu · sanal ${fmtB(bot.bal)} · risk %${fx(c.risk*100,1)}–%${fx(Math.max(c.risk,c.riskMax||0)*100,1)} (masanın güvenine göre) · ${c.lev}x en çok (stop genişse kaldıraç düşer, likidasyon stoptan önce gelmesin) · aynı anda ${c.maxPos} pozisyon · eşik ${pts(c.threshold)}, ${c.minYes}/${DESK.length} oy · zaman stopu ${c.holdH} sa · hedef %100 ROI.`:`Bot başladı · KAPI modu · sanal ${fmtB(bot.bal)} · risk %${c.risk*100} · en fazla ${c.maxLev}x · ${c.strict?"yüksek tutarlılık kuralları":"serbest kurallar"} · Kurulum 2 ${c.useBR?"açık":"kapalı"} · Kurulum 3 ${c.useRS!==false?"açık":"kapalı"}.`); botWsSync(); if(!scan.rows.length&&!scan.running) runScan(); else botDecide("scan"); botSave(); }
 function botStop(){ bot.on=false; botLog("sys","","Bot durduruldu (açık pozisyonlar ve emirler korunur; başlatınca devam eder)."); botSave(); }
 function botReset(){ if(bot.positions.length||bot.orders.length){ if(!confirm(`${bot.positions.length} açık pozisyon ve ${bot.orders.length} emir var. Hepsi silinip bakiye 100 $'a dönsün mü?`)) return; } Object.assign(bot,{on:false,startT:null,bal:100,start:100,positions:[],orders:[],trades:[],log:[],eq:[],day:{key:null,opens:0,losses:0},px:{},cool:{},lastVotes:[],goalHit:null,peak:100,goalMode:null}); botSave(); renderBot(); }
 function botCloseAll(){ for(const p of [...bot.positions]){ const px=bot.px[p.sym]; if(!px) continue; const isL=p.dir==="long"; const price=isL?px*(1-bot.cfg.slip):px*(1+bot.cfg.slip); const q=p.qty; const pnl=(isL?(price-p.entry):(p.entry-price))*q; const fee=q*price*bot.cfg.feeTaker; bot.bal+=pnl-fee; p.realized+=pnl-fee; p.fees+=fee; p.qty=0; botLog("close",p.sym,`Elle kapatıldı ${fmtP(price)} · ${pnl-fee>=0?"+":""}${fmtB(pnl-fee)}.`); botClosePos(p); } bot.orders=[]; botSave(); botWsSync(); renderBot(); }
@@ -795,7 +802,7 @@ function renderLeaders(){
 const tlHM=t=>new Date(t).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
 /* --- açık pozisyon toplantısının son hali: 13 üyenin pozisyon görüşü ve (varsa) yapay zekâ masasının konuşması --- */
 function botRevRow(p){ const rv=p.lastReview; if(!rv||!rv.views) return ""; const L=rv.llm;
-  const chips=rv.views.map(a=>`<span class="chip ${a.abst?"neutral":a.v>0.15?"up":a.v<-0.15?"down":"neutral"} sm" title="${esc((a.act||"")+": "+(a.txt||""))}">${esc(a.name)} ${a.abst?"—":(a.act&&a.act!=="tut"?esc(a.act):(a.v>0?"+":"")+fx(a.v,1))}</span>`).join(" ");
+  const chips=rv.views.map(a=>`<span class="chip ${a.abst?"neutral":a.v>0.15?"up":a.v<-0.15?"down":"neutral"} sm" title="${esc((a.act||"")+": "+(a.txt||""))}">${esc(a.name)} ${a.abst&&!a.sh?"—":(a.sh?"gölge ":"")+(a.act&&a.act!=="tut"?esc(a.act):(a.v>0?"+":"")+fx(a.v,1))}</span>`).join(" ");
   const ai=L?`<div style="font-size:11.5px;margin-top:4px"><b>Yapay zekâ masası</b> <span class="muted">(${esc(L.model)}, ${Math.round(L.ms/1000)} sn, ${tlHM(L.t)})</span>: <b>${esc(L.dec.act.toUpperCase())}</b> · ${esc(L.dec.why)}<details><summary class="muted" style="cursor:pointer">konuşma</summary>${lmdLines(L).map(l=>`<div style="display:flex;gap:6px;margin:2px 0"><b style="min-width:52px;color:${DESK_COL[l.id]||"var(--ink)"}">${esc(l.who)}</b><span>${esc(l.text)}</span></div>`).join("")}</details></div>`:"";
   return `<tr><td colspan="9" style="padding:2px 8px 8px;font-size:11.5px"><span class="muted">Masa ${tlHM(rv.t)}: <b>${esc(String(rv.verdict).toUpperCase())}</b> · tutma ${ptsT(rv.hold)} · ${rv.rNow>=0?"+":""}${fx(rv.rNow,2)}R</span> ${chips}${ai}</td></tr>`; }
 /* --- Yapay zekâ masası kartı (src/llmdesk.js; model ayarı src/llm.js, Araştırma sekmesinde Selim ile ortak) --- */
@@ -885,11 +892,11 @@ function renderBot(){
   const audit=renderAudit();
   const tr=bot.trades.slice(-12).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b> ${chip(t.dir==="long"?"up sm":"down sm",t.dir==="long"?"L":"S")} <span class="muted">${t.model} ${t.grade} ${t.lev}x</span></td><td class="num">${fmtP(t.entry)}</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="num ${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${fx(t.r,2)}R</td></tr>`).join("");
   const lg=bot.log.slice(-40).reverse().map(l=>`<div class="tp ${{fill:"buy",tp1:"buy",tp2:"buy",stop:"sell",time:"",desk:"",audit:"",goal:"buy",add:"buy",cancel:"",skip:"",order:"",close:"",sys:"",move:"",fund:""}[l.type]||""}" style="grid-template-columns:110px 70px 1fr"><span class="when">${new Date(l.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><span class="k ${{fill:"up",tp1:"up",tp2:"up",close:"",stop:"down",time:"warn",desk:"cyan",audit:"warn",goal:"up",add:"up",cancel:"warn",skip:"muted",order:"cyan",sys:"muted",move:"cyan",fund:"muted"}[l.type]||""}">${{fill:"DOLDU",tp1:"HEDEF 1",tp2:"HEDEF 2",stop:"STOP",time:"ZAMAN",desk:"MASA",audit:"DENETÇİ",goal:"HEDEF",add:"EKLEME",cancel:"İPTAL",skip:"BEKLE",order:"EMİR",close:"KAPANDI",sys:"SİSTEM",move:"STOP↑",fund:"FONLAMA"}[l.type]||l.type}</span><span>${l.sym?"<b>"+l.sym.replace("USDT","")+"</b> · ":""}${l.text}</span></div>`).join("");
-  el.innerHTML=head+room+renderForecast()+renderLmd()+audit+(c.mode==="komite"?renderLeaders():"")+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`+renderTurtle()+renderTrend()+renderDip();
+  el.innerHTML=head+room+renderForecast()+renderLmd()+audit+(c.mode==="komite"?renderLeaders():"")+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`+renderTurtle()+renderTrend()+renderDip()+renderKov();
   $("botTgl").addEventListener("click",()=>{ bot.on?botStop():botStart(); renderBot(); }); $("botCsv").addEventListener("click",botCsv); $("botReset").addEventListener("click",botReset); $("botCloseAll").addEventListener("click",botCloseAll);
   $("botMode").addEventListener("change",e=>{ bot.cfg.mode=e.target.value; botSave(); });
   const rs=$("botRoomSel"); if(rs) rs.addEventListener("change",e=>{ bot.roomSel=e.target.value; renderBot(); });
-  trendBind(); dipBind(); ttBind(); lmdBind();
+  trendBind(); dipBind(); ttBind(); kovBind(); lmdBind();
   const lr=$("ldRefresh"); if(lr) lr.addEventListener("click",()=>{ ldRefresh(true); });
   const num=(id,key,f)=>{ const n=$(id); if(n) n.addEventListener("change",e=>{ const v=+e.target.value; if(isFinite(v)){ bot.cfg[key]=f?f(v):v; botSave(); } }); };
   num("botRisk","risk",v=>clamp(v,0.5,25)/100); num("botRiskMax","riskMax",v=>clamp(v,0.5,25)/100);num("botLev","lev",v=>clamp(Math.round(v),1,50)); num("botMaxPos","maxPos",v=>clamp(Math.round(v),1,10)); num("botThr","threshold",v=>clamp(v,0,SCORE_MAX)/SCORE_MAX); num("botMinYes","minYes",v=>clamp(Math.round(v),1,DESK.length)); num("botHold","holdH",v=>clamp(Math.round(v),1,72)); num("botMaxOpens","maxOpens",v=>clamp(Math.round(v),1,50)); num("botMaxLosses","maxLosses",v=>clamp(Math.round(v),1,50)); num("botGoal","goal",v=>clamp(v,110,100000)); num("botSameDir","maxSameDir",v=>clamp(Math.round(v),1,10)); num("botBeR","beR",v=>clamp(v,0,3));
@@ -922,7 +929,7 @@ async function botManage(){
     const rv=positionReview(A,posCtx(p,botLiqPx(p)),[],c24,{sym:p.sym});
     const rNow=rv.rNow, peakR=rv.peakR, held=rv.held; const medHold=(typeof ld!=="undefined"&&ld.profile&&isFinite(ld.profile.medHold))?ld.profile.medHold:bot.cfg.holdH/2;
     const against=rv.views.filter(a=>a.w&&a.v<-0.15).map(a=>a.name).join(", ")||"kimse"; const say=(who,t)=>botLog("desk",p.sym,`${who}: ${t}`);
-    p.lastReview={t:Date.now(),verdict:rv.verdict,hold:rv.hold,score:rv.score,oppScore:rv.oppScore,rNow:+rNow.toFixed(2),views:rv.views.map(x=>({id:x.id,name:x.name,v:x.v,c:x.c,act:x.act,abst:x.abst,txt:x.txt})),llm:p.lastReview&&p.lastReview.llm};
+    p.lastReview={t:Date.now(),verdict:rv.verdict,hold:rv.hold,score:rv.score,oppScore:rv.oppScore,rNow:+rNow.toFixed(2),views:rv.views.map(x=>({id:x.id,name:x.name,v:x.v,c:x.c,act:x.act,abst:x.abst,txt:x.txt,...(x.sh?{sh:true}:{})})),llm:p.lastReview&&p.lastReview.llm};
     fcPosNote(p.id,p.sym,p.dir,A,rv); lmdPosAsk(p,rv,A,c24);
     const taker=isL?px*(1-bot.cfg.slip):px*(1+bot.cfg.slip);
     // dinamik hedef/stop (goal.js): başabaş, dirence göre hedef 1, koşucuyu uzat/kısalt, yapısal stop, 200 $'a taşıyan hedef 1'de tamamı
@@ -1031,6 +1038,35 @@ function ttBind(){
   const r=$("ttReset"); if(r) r.addEventListener("click",()=>{ if(Object.keys(tt.s.pos).length&&!confirm("Kaplumbağa sepetindeki pozisyonlar silinip bakiye 100 $'a dönsün mü?")) return; tt.s=ttNew({on:tt.s.cfg.on}); ttSave(tt.s); renderBot(); });
 }
 setTimeout(()=>{ if(tt.s.cfg.on) ttRun({}); },16000); setInterval(()=>{ if(tt.s.cfg.on) ttRun({}); },5*60e3);
+/* --- Sıkışma sepeti (src/kovner.js, Bruce Kovner): dar aralıktan günlük kapanışla kırılım, kapanış stopu; ayrı sanal bakiye --- */
+const kov={s:kovLoad(),busy:false,err:null,px:{}};
+async function kovRun(){ if(kov.busy||!kov.s.cfg.on) return; kov.busy=true;
+  try{ const r=await kovTick(kov.s,Date.now()); kov.px=r.px; kov.err=null; kovSave(kov.s); if(r.evs.length&&ui.drawerTab==="bot") renderBot(); }
+  catch(e){ kov.err=e.message; } finally{ kov.busy=false; } }
+function renderKov(){
+  const s=kov.s, c=s.cfg, sm=kovSummary(s,kov.px), sq=s.sq||{};
+  const rows=c.syms.map(k=>{ const p=s.pos[k], q=sq[k]; const px=kov.px[k]||(p&&p.px); const pnl=p&&px?p.qty*(px-p.e):0;
+    const st=p?'<span class="up">açık</span>':q&&q.rank<=c.pct?`<span class="up">sıkışık</span> · kırılım ${fmtP(q.lv)} üstü kapanış`:'<span class="muted">bekle</span>';
+    return `<tr><td><b>${k.replace("USDT","")}</b></td><td>${st}</td><td class="num">${q?"%"+Math.round(q.rank*100):"—"}</td><td class="num">${p?fmtP(p.e):"—"}</td><td class="num down">${p?fmtP(p.stop0)+" kapanış":"—"}</td><td class="num">${p?fmtP(p.trail):"—"}</td><td class="num ${pnl>=0?"up":"down"}">${p?(pnl>=0?"+":"")+fx(pnl,2)+" $":"—"}</td></tr>`; }).join("");
+  const tr=s.trades.slice(-8).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b></td><td class="num">${fmtP(t.e)} → ${fmtP(t.x)}</td><td class="num ${t.R>=0?"up":"down"}">${t.R>=0?"+":""}${fx(t.R,2)}R</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="muted">${esc(t.why)}</td></tr>`).join("");
+  return `<details class="card" style="margin-bottom:10px;padding:10px" ${s.trades.length||Object.keys(s.pos).length?"open":""}><summary style="cursor:pointer"><b>Sıkışma sepeti (Kovner)</b> <span class="muted" style="font-size:12px">· dar aralıktan günlük kırılım · ayrı sanal bakiye · ${c.on?'<span class="up">● açık</span>':"● kapalı"}</span></summary>
+  <p class="muted" style="font-size:12px;margin:6px 0">Son ${c.win} günün aralığı son ${c.look} günün en dar %${Math.round(c.pct*100)}'sindeyken günlük kapanış ${c.win} günün tepesini geçerse ertesi gün long. Stop ${c.win} günün dibi, yalnız günlük kapanışla (fitil saymaz); gün içi felaket stopu stop uzaklığının ${c.cat} katı; kapanış ${c.trailN} günün dibinin altına inince çık. İşlem başı özkaynağın %${fx(c.risk*100,1)}'i risk. 2020–2026 testi (BTC·ETH·SOL·BNB, maliyet dahil): 128 işlem, kazanma %39, ort. +1,70R, iki yarı +2,45 / +0,93R, son 2 yıl +0,51R, en büyük düşüş %15. Küçük coinlerde son yıl +0,06R, tutmadı.</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><button type="button" class="${c.on?"":"primary"}" id="kovTgl">${c.on?"Durdur":"Başlat"}</button><button type="button" class="ghost" id="kovReset">Sıfırla</button>
+    <span class="muted" style="font-size:11.5px">${kov.err?'<span class="down">'+esc(kov.err)+"</span> · ":""}${s.day?"son gün kapanışı "+s.day:"henüz çalışmadı"}</span></div>
+  <div class="plan" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:8px">
+    <div class="pv"><b>Özkaynak</b><span class="${sm.eq>=s.start?"up":"down"}">${fx(sm.eq,2)} $</span><small>${pct(sm.roi,1)} · başlangıç ${fmtB(s.start)}</small></div>
+    <div class="pv"><b>İşlem</b><span>${sm.n?"%"+Math.round(sm.wr*100)+" kazanma":"—"}</span><small>${sm.n} işlem${sm.n?` · ort. ${sm.avgR>=0?"+":""}${fx(sm.avgR,2)}R`:""}</small></div>
+    <div class="pv"><b>Zirveden</b><span class="${sm.dd>0.15?"down":""}">−%${fx(sm.dd*100,1)}</span><small>zirve ${fmtB(s.peak)}</small></div>
+    <div class="pv"><b>Açık</b><span>${sm.open}</span><small>${fmtB(sm.gross)} nominal · ${c.exLev}x cross teminat ${fmtB(sm.margin)} · maliyet ${fx(sm.fees+sm.funding,2)} $</small></div>
+  </div>
+  <table class="t" style="margin-bottom:8px"><thead><tr><th>Coin</th><th>Durum</th><th>Aralık sırası</th><th>Giriş</th><th>Stop</th><th>${c.trailN} gün dibi</th><th>PnL</th></tr></thead><tbody>${rows}</tbody></table>
+  ${tr?`<table class="t"><thead><tr><th>Kapanış</th><th>Coin</th><th>Fiyat</th><th>R</th><th>PnL</th><th>Neden</th></tr></thead><tbody>${tr}</tbody></table>`:""}</details>`;
+}
+function kovBind(){
+  const t=$("kovTgl"); if(t) t.addEventListener("click",()=>{ kov.s.cfg.on=!kov.s.cfg.on; kovSave(kov.s); if(kov.s.cfg.on) kovRun(); renderBot(); });
+  const r=$("kovReset"); if(r) r.addEventListener("click",()=>{ if(Object.keys(kov.s.pos).length&&!confirm("Sıkışma sepetindeki pozisyonlar silinip bakiye 100 $'a dönsün mü?")) return; const on=kov.s.cfg.on; kov.s=kovNew({on}); kovSave(kov.s); renderBot(); });
+}
+setTimeout(()=>{ if(kov.s.cfg.on) kovRun(); },16000); setInterval(()=>{ if(kov.s.cfg.on) kovRun(); },5*60e3);
 setTimeout(()=>{ if(dip.s.cfg.on) dipRun(); },12000); setInterval(()=>{ if(dip.s.cfg.on) dipRun(); },5*60e3);
 setTimeout(()=>{ if(trend.s.cfg.on) trendRun({}); },8000); setInterval(()=>{ if(trend.s.cfg.on) trendRun({}); },5*60e3);
 setInterval(()=>{ botManage().then(()=>{ bot.manErr=null; },e=>{ const m=String(e&&e.stack||e).slice(0,300); if(bot.manErr!==m) console.warn("SWEEP · pozisyon toplantısı hata: "+m); bot.manErr=m; }); },30000);
@@ -1125,7 +1161,8 @@ function askHtml(r){
     tile("Stop",isFinite(r.sl)?fmtP(r.sl):"yok",isFinite(r.stopPct)?`%${fx(r.stopPct*100,2)} · ${fx(r.slAtr,2)} ATR · ROE ${fx(r.roeSl,0)}%`:"masanın önerisi "+fmtP(r.deskStop),isFinite(r.sl)?"down":"warn"),
     tile("Hedef",isFinite(r.tp)?fmtP(r.tp):"yok",isFinite(r.rr)?`${fx(r.rr,2)}R · komisyon ${fx(r.costR,2)}R · ROE +${fx(r.roeTp,0)}%`:"masa: 1,5R "+fmtP(r.deskT1),isFinite(r.tp)?"up":""),
     tile("Likidasyon",fmtP(r.liq),`${r.liqGiven?"":"tahmini · "}%${fx(r.liqPct*100,2)} · ${fx(r.liqAtr,1)} ATR uzakta`,r.liqAtr<1.5?"down":r.liqAtr<3?"warn":""),
-    tile("Pozisyon",`${r.lev}x ${r.iso?"izole":"cross"}`,isFinite(r.notional)?`büyüklük ${fmtB(r.notional)}${isFinite(r.lossUsd)?" · stopta −"+fmtB(r.lossUsd):""}${isFinite(r.riskPct)?" (%"+fx(r.riskPct*100,1)+")":""}`:`başabaş ${fmtP(r.be)} · ATR %${fx(r.atrPct,2)}`)];
+    tile("Pozisyon",`${r.lev}x ${r.iso?"izole":"cross"}`,isFinite(r.notional)?`büyüklük ${fmtB(r.notional)}${isFinite(r.lossUsd)?" · stopta −"+fmtB(r.lossUsd):""}${isFinite(r.riskPct)?" (%"+fx(r.riskPct*100,1)+")":""}`:`başabaş ${fmtP(r.be)} · ATR %${fx(r.atrPct,2)}`),
+    tile("Günlük oynaklık",isFinite(r.dayMed)?"%"+fx(r.dayMed*100,1):"—",isFinite(r.dayMed)?`ortanca gün · ${r.liqDays}/10 gün likidasyonu vururdu · en çok ${r.levSafe}x${r.ageD<30?` · ${r.ageD} günlük coin`:""}`:"günlük veri yok",isFinite(r.dayMed)?(r.liqDays>=2||r.liqPct<r.dayMed?"down":r.liqDays||r.liqPct<2*r.dayMed?"warn":"up"):"")];
   const notes=[...r.red.map(t=>["down","●",t]),...r.warn.map(t=>["warn","●",t]),...r.ok.map(t=>["up","✓",t])];
   const chips=r.agents.map(a=>`<span class="chip ${a.v>0.15?"up":a.v<-0.15?"down":"neutral"} sm" title="${esc(a.txt)}">${esc(a.name)} ${a.v>0?"+":""}${fx(a.v,1)}</span>`).join(" ");
   const yes=r.agents.filter(a=>a.v>0.15).length, no=r.agents.filter(a=>a.v<-0.15).length;

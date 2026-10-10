@@ -1,0 +1,444 @@
+<title>Sinir Ağı Akışı</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Düzen: tek sütun; üstte canlı sahne (canvas) + yan açıklama paneli, altta eğitim şeması ve sonuç grafikleri. Ölçü aletleri gibi: koyu kadran, mono rakamlar. */
+:root{
+  --bg:#f6f5f1; --surface:#fcfcfb; --ink:#141412; --ink2:#52514e; --muted:#898781; --grid:#e1e0d9; --line:#c3c2b7; --ring:rgba(11,11,11,.10);
+  --c15:#4a3aa7; --ch:#eb6834; --ctab:#1baf7a; --up:#2a78d6; --down:#e34948; --warm:#eda100;
+  --stage:#0f1115; --stage-ink:#f3f2ec; --stage-muted:#8a8f99; --stage-grid:#1f232b;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){ --bg:#0d0d0d; --surface:#1a1a19; --ink:#f4f3ee; --ink2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --line:#383835; --ring:rgba(255,255,255,.10);
+  --c15:#9085e9; --ch:#d95926; --ctab:#199e70; --up:#3987e5; --down:#e66767; --warm:#c98500; color-scheme:dark } }
+:root[data-theme="dark"]{ --bg:#0d0d0d; --surface:#1a1a19; --ink:#f4f3ee; --ink2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --line:#383835; --ring:rgba(255,255,255,.10);
+  --c15:#9085e9; --ch:#d95926; --ctab:#199e70; --up:#3987e5; --down:#e66767; --warm:#c98500; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;margin:0;padding-block:28px 64px;padding-inline:clamp(16px,3vw,40px)}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1,h2,h3{text-wrap:balance;margin:0}
+h1{font-size:clamp(28px,4vw,42px);line-height:1.1;font-weight:700;letter-spacing:-.01em}
+h2{font-size:20px;font-weight:600;margin-bottom:6px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lede{color:var(--ink2);max-width:68ch;margin:0}
+.mono{font-family:var(--mono)}
+.num{font-variant-numeric:tabular-nums}
+header{display:flex;flex-direction:column;gap:8px}
+/* sahne */
+.stageCard{background:var(--stage);color:var(--stage-ink);border-radius:14px;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;box-shadow:0 1px 0 var(--ring) inset}
+@media (max-width:1180px){.stageCard{grid-template-columns:minmax(0,1fr)}}
+.stageMain{min-width:0}
+.stageWrap{overflow-x:auto;overflow-y:hidden;border-radius:8px;background:#0b0d11;min-width:0}
+canvas{display:block}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+button,.seg button{font:inherit;font-size:13px;color:var(--stage-ink);background:#1b1f27;border:1px solid #2a2f3a;border-radius:8px;padding:7px 12px;cursor:pointer}
+button:hover{background:#242935}
+button:focus-visible,.seg button:focus-visible{outline:2px solid var(--warm);outline-offset:2px}
+button[aria-pressed="true"]{background:#2d3442;border-color:#4a5468}
+.seg{display:inline-flex;border-radius:8px;overflow:hidden}
+.seg button{border-radius:0;border-right-width:0}
+.seg button:last-child{border-right-width:1px;border-radius:0 8px 8px 0}.seg button:first-child{border-radius:8px 0 0 8px}
+.ctlLabel{font-family:var(--mono);font-size:12px;color:var(--stage-muted);margin-left:4px}
+.scrollHint{display:none;margin:0 0 8px;font:12px var(--mono);color:var(--stage-muted)}
+@media (max-width:860px){.scrollHint{display:block}}
+aside.cap{display:flex;flex-direction:column;gap:10px;min-width:0}
+.stepList{display:flex;flex-wrap:wrap;gap:4px}
+.stepList span{font-family:var(--mono);font-size:11px;padding:3px 7px;border-radius:999px;border:1px solid #2a2f3a;color:var(--stage-muted)}
+.stepList span.on{color:var(--stage-ink);border-color:var(--warm);background:#2a2410}
+.stepList span.done{color:#b9bcc4}
+.capTitle{font-size:17px;font-weight:600;line-height:1.25}
+.capText{color:#c9ccd3;font-size:14px;margin:0}
+.live{font-family:var(--mono);font-size:12.5px;color:var(--stage-ink);background:#161a21;border-radius:8px;padding:10px 12px;min-height:72px;white-space:pre-line;line-height:1.55}
+.legend{display:flex;flex-wrap:wrap;gap:10px 14px;font-family:var(--mono);font-size:11.5px;color:var(--stage-muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.tally{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tally div{background:#161a21;border-radius:8px;padding:8px 10px}
+.tally b{display:block;font-family:var(--mono);font-size:18px;font-weight:500}
+.tally small{color:var(--stage-muted);font-size:11px}
+/* alt bölümler */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:18px 20px;min-width:0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:14px 16px}
+.tile b{display:block;font-size:26px;font-weight:600;line-height:1.1}
+.tile small{color:var(--ink2);display:block;margin-top:4px}
+.tile .src{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;display:block}
+figure{margin:0}
+figcaption{font-size:13px;color:var(--ink2);margin-top:8px}
+svg text{font-family:var(--mono);font-size:11px;fill:var(--ink2)}
+svg .axis{stroke:var(--line);stroke-width:1}
+svg .gridl{stroke:var(--grid);stroke-width:1}
+.chartLegend{display:flex;gap:14px;font-family:var(--mono);font-size:12px;color:var(--ink2);margin-bottom:6px;flex-wrap:wrap}
+.chartLegend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.tt{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:12px;padding:6px 8px;border-radius:6px;transform:translate(-50%,calc(-100% - 10px));white-space:nowrap;opacity:0;transition:opacity .12s}
+.tt.show{opacity:1}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--grid);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:600;color:var(--ink2);font-size:12.5px}
+.tableWrap{overflow-x:auto}
+ul.notes{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;color:var(--ink2)}
+ul.notes b{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){ .tt{transition:none} }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">SWEEP · Denklem 3 · sinir ağı v2</div>
+  <h1>Bir saatlik tahmin ağın içinden nasıl geçiyor</h1>
+  <p class="lede">Aşağıdaki sahne, araştırmada kullanılan iki kollu ağın bir coinin bir saatini işleyişini adım adım oynatır: 96 tane 15 dakikalık mum, 168 saatlik mum ve 194 tablo değişkeni içeri girer; evrişim, GRU ve MLP katmanlarından geçer; sonunda 1 saatlik ve 4 saatlik yön tahmini çıkar. Veriler bu sahne için üretilmiş örnek dizilerdir; ağırlıklar sabit ama rastgeledir, gerçek koşunun sayıları alttaki bölümde.</p>
+</header>
+
+<section class="stageCard" aria-label="Sinir ağı sahnesi">
+  <div class="stageMain">
+    <p class="scrollHint">Sahne telefonda yana kaydırılabilir.</p>
+    <div class="stageWrap" id="stageWrap"><canvas id="stage" width="1200" height="640" aria-label="Sinir ağının katmanları ve veri akışı animasyonu" role="img"></canvas></div>
+    <div class="controls">
+      <button id="btnPlay" aria-pressed="true">Duraklat</button>
+      <button id="btnPrev">◀ Önceki adım</button>
+      <button id="btnNext">Sonraki adım ▶</button>
+      <button id="btnNew">Yeni örnek</button>
+      <span class="ctlLabel">hız</span>
+      <span class="seg" role="group" aria-label="Hız">
+        <button data-speed="0.5">0,5×</button><button data-speed="1" aria-pressed="true">1×</button><button data-speed="2">2×</button>
+      </span>
+    </div>
+  </div>
+  <aside class="cap">
+    <div class="stepList" id="stepList"></div>
+    <div class="capTitle" id="capTitle">Girdi</div>
+    <p class="capText" id="capText"></p>
+    <div class="live" id="live"></div>
+    <div class="legend"><span><i style="background:var(--c15)"></i>15 dk kolu</span><span><i style="background:var(--ch)"></i>saatlik kol</span><span><i style="background:var(--ctab)"></i>tablo kolu</span><span><i style="background:var(--up)"></i>yukarı</span><span><i style="background:var(--down)"></i>aşağı</span></div>
+    <div class="tally"><div><b id="tN" class="num">0</b><small>örnek izlendi</small></div><div><b id="tHit" class="num">—</b><small>1 sa yön isabeti</small></div><div><b id="tIc" class="num">—</b><small>sıra ilişkisi (IC)</small></div></div>
+  </aside>
+</section>
+
+<section>
+  <h2>Gerçek koşunun boyutları</h2>
+  <div class="tiles">
+    <div class="tile"><b class="num">875 bin</b><small>saatlik gözlem, 2023-06 → 2026-10, ayın ilk 30 coini</small><span class="src">denklem.f32</span></div>
+    <div class="tile"><b class="num">194 + 672 + 504</b><small>girdi sayısı: tablo değişkeni + 96 mum × 7 kanal + 168 saat × 3 kanal</small><span class="src">denklem-nn.py v2</span></div>
+    <div class="tile"><b class="num">5</b><small>ileriye yürüyen test penceresi, her biri 6 ay; eğitim yalnız öncesi</small><span class="src">başlangıç 12. ay, adım 6</span></div>
+    <div class="tile"><b class="num">35 dk</b><small>toplam süre, 4 çekirdek, GPU yok; ağ başına 2 tur</small><span class="src">2.121 sn</span></div>
+  </div>
+</section>
+
+<section class="grid2">
+  <figure class="card">
+    <h2>İleriye yürüyen eğitim</h2>
+    <p class="lede" style="font-size:14px">Her satır bir deneme: ağ gri bölümde eğitilir, turuncu altı ayda sınanır. Sağdaki sayı o pencerede tablo+dizi ağının 1 saatlik IC'si.</p>
+    <svg id="wf" viewBox="0 0 560 190" width="100%" style="margin-top:10px;max-width:100%"></svg>
+    <figcaption>Pencereler arasında bir günlük boşluk bırakılır; test ayları eğitimde hiç görülmez.</figcaption>
+  </figure>
+  <figure class="card">
+    <h2>Dört model, aynı bölünmeler</h2>
+    <div class="chartLegend"><span><i style="background:var(--up)"></i>IC 1 saat</span><span><i style="background:var(--ch)"></i>IC 4 saat</span></div>
+    <svg id="icChart" viewBox="0 0 560 230" width="100%" style="max-width:100%"></svg>
+    <figcaption>IC: her saatte coinleri tahmine göre sıralayıp gerçek getiriyle Spearman ilişkisi, saatlerin ortalaması. 0 bilgi yok, 0,05 zayıf ama gerçek. Dört model de 0,02 bandında.</figcaption>
+  </figure>
+</section>
+
+<section class="card">
+  <h2>Pencere pencere sonuçlar</h2>
+  <div class="tableWrap"><table>
+    <thead><tr><th>Test penceresi</th><th>Eğitim satırı</th><th>Test satırı</th><th>Kayıp 1. tur → 2. tur</th><th>Ağ tablo 1 sa</th><th>Ağ tablo+dizi 1 sa</th><th>LightGBM 202 1 sa</th><th>LightGBM 127 1 sa</th><th>Ağ tablo+dizi 4 sa</th></tr></thead>
+    <tbody id="splitRows"></tbody>
+  </table></div>
+  <figcaption style="margin-top:10px">Kayıp, oynaklık birimindeki hedefin ortalama kare hatası; 1'in altı çünkü hedef ±5'e kırpılmış ve çoğu saat sıfıra yakın. İki tur arasındaki düşüş ezberlemeyi değil ortalamayı öğrenmeyi gösterir.</figcaption>
+</section>
+
+<section class="card">
+  <h2>Ne öğrendik</h2>
+  <ul class="notes">
+    <li><b>Ağ, ağaç modelini geçmedi.</b> Tablo girdili ağ ve LightGBM 1 saatte aynı yerde (0,017–0,021). 4 saatte ağ bir tık önde (0,019'a karşı 0,014–0,017).</li>
+    <li><b>Ham dizi kolu hiçbir şey katmadı.</b> 96 mumluk 15 dk dizisi ve 168 saatlik dizi eklenince IC 0,017'den 0,017'ye gitti. Tablo değişkenleri bu dizilerin özetini zaten taşıyor.</li>
+    <li><b>Para sadece maker dolumla çıkıyor.</b> Saat başı en güçlü 2 long + 2 short, maker maliyeti sonrası ağda işlem başı %0,02–0,06, LightGBM'de %0,08–0,16; taker maliyetiyle ikisi de sıfır ya da eksi.</li>
+    <li><b>Sahnedeki sayılar örnektir.</b> Yukarıdaki animasyonda tahmin ile gerçek arasındaki ilişki bilerek zayıf tutuldu; gerçek koşuda da öyle. Sayaçlar yüz örnekten sonra bile 0,05'in üstüne çıkmıyorsa bu, modelin değil piyasanın özelliği.</li>
+  </ul>
+</section>
+</div>
+<div class="tt" id="tt" role="tooltip"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = (v, d = 2) => (v < 0 ? '−' : '+') + Math.abs(v).toFixed(d).replace('.', ',');
+const fmtN = (v, d = 2) => v.toFixed(d).replace('.', ',');
+
+/* ---------- rastgele sayı ve sabit "ağırlıklar" ---------- */
+function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gauss(r) { let u = 0, v = 0; while (u === 0) u = r(); while (v === 0) v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+const WR = rng(20261009);
+const mk = (n, m, s = 0.8) => Array.from({ length: n }, () => Float32Array.from({ length: m }, () => gauss(WR) * s));
+const C1 = 16, C1H = 12, GN = 64, GNH = 48, NT = 194, M1 = 256, M2 = 128, HD = 128;
+const K1 = mk(C1, 5), K2 = mk(C1, 3 * C1, 0.35), K1H = mk(C1H, 5), K2H = mk(C1H, 3 * C1H, 0.35);
+const GW = mk(GN, C1, 0.5), GWH = mk(GNH, C1H, 0.5);
+const sparse = (n, m, k, s) => Array.from({ length: n }, () => ({ idx: Int32Array.from({ length: k }, () => Math.floor(WR() * m)), w: Float32Array.from({ length: k }, () => gauss(WR) * s) }));
+const W1 = sparse(M1, NT, 6, 0.5), W2 = sparse(M2, M1, 8, 0.45), WH = sparse(HD, GN + GNH + M2, 10, 0.4), WO = sparse(2, HD, 24, 0.3);
+const tanh = Math.tanh, relu = x => x > 0 ? x : 0;
+
+/* ---------- örnek üretimi ve ileri geçiş ---------- */
+function makeSample(seed) {
+  const r = rng(seed); const sd = 0.0035 * (0.6 + r() * 1.2); const trend = gauss(r) * 0.0005;
+  const N15 = 96 + 5; let p = 100 * (0.2 + r() * 3); const c = [], o = [], h = [], l = [], v = [], ret = new Float32Array(N15); let z = 0;
+  for (let i = 0; i < N15; i++) { const sdi = sd * (0.7 + 0.5 * Math.abs(z)); z = gauss(r); const rt = z * sdi + trend; ret[i] = rt / sd; o.push(p); p *= Math.exp(rt); c.push(p); h.push(Math.max(o[i], p) * (1 + Math.abs(gauss(r)) * sdi * 0.5)); l.push(Math.min(o[i], p) * (1 - Math.abs(gauss(r)) * sdi * 0.5)); v.push(Math.exp(gauss(r) * 0.45) * (0.6 + Math.abs(rt) / sd)); }
+  const NH = 168; let q = p; const hc = [], hv = [], hret = new Float32Array(NH); for (let i = 0; i < NH; i++) { const rt = gauss(r) * sd * 2 + trend * 4; hret[i] = rt / (sd * 2); q *= Math.exp(rt); hc.push(q); hv.push(Math.exp(gauss(r) * 0.4)); }
+  const tab = Float32Array.from({ length: NT }, () => Math.max(-3, Math.min(3, gauss(r))));
+  // 15 dk kolu
+  const a1 = Array.from({ length: C1 }, () => new Float32Array(96));
+  for (let ch = 0; ch < C1; ch++) for (let pz = 0; pz < 96; pz++) { let s = 0; for (let k = 0; k < 5; k++) { const j = pz - 2 + k; if (j >= 0 && j < 96) s += K1[ch][k] * ret[j]; } a1[ch][pz] = tanh(s); }
+  const pooled = a1.map(row => Float32Array.from({ length: 48 }, (_, i) => Math.max(row[2 * i], row[2 * i + 1])));
+  const a2 = Array.from({ length: C1 }, () => new Float32Array(48));
+  for (let ch = 0; ch < C1; ch++) for (let pz = 0; pz < 48; pz++) { let s = 0; for (let k = 0; k < 3; k++) { const j = pz - 1 + k; if (j < 0 || j >= 48) continue; for (let c2 = 0; c2 < C1; c2++) s += K2[ch][k * C1 + c2] * pooled[c2][j]; } a2[ch][pz] = relu(tanh(s)); }
+  const gHist = []; { let hcur = new Float32Array(GN); for (let t = 0; t < 48; t++) { const nx = new Float32Array(GN); for (let j = 0; j < GN; j++) { let s = 0; for (let c2 = 0; c2 < C1; c2++) s += GW[j][c2] * a2[c2][t]; const zg = 0.75 + 0.2 * tanh(s * 0.5); nx[j] = zg * hcur[j] + (1 - zg) * tanh(s); } hcur = nx; gHist.push(Float32Array.from(hcur)); } }
+  // saatlik kol
+  const b1 = Array.from({ length: C1H }, () => new Float32Array(NH));
+  for (let ch = 0; ch < C1H; ch++) for (let pz = 0; pz < NH; pz++) { let s = 0; for (let k = 0; k < 5; k++) { const j = pz - 2 + k; if (j >= 0 && j < NH) s += K1H[ch][k] * hret[j]; } b1[ch][pz] = tanh(s); }
+  const pooledH = b1.map(row => Float32Array.from({ length: 84 }, (_, i) => Math.max(row[2 * i], row[2 * i + 1])));
+  const b2 = Array.from({ length: C1H }, () => new Float32Array(84));
+  for (let ch = 0; ch < C1H; ch++) for (let pz = 0; pz < 84; pz++) { let s = 0; for (let k = 0; k < 3; k++) { const j = pz - 1 + k; if (j < 0 || j >= 84) continue; for (let c2 = 0; c2 < C1H; c2++) s += K2H[ch][k * C1H + c2] * pooledH[c2][j]; } b2[ch][pz] = relu(tanh(s)); }
+  const gHistH = []; { let hcur = new Float32Array(GNH); for (let t = 0; t < 84; t++) { const nx = new Float32Array(GNH); for (let j = 0; j < GNH; j++) { let s = 0; for (let c2 = 0; c2 < C1H; c2++) s += GWH[j][c2] * b2[c2][t]; const zg = 0.8 + 0.15 * tanh(s * 0.5); nx[j] = zg * hcur[j] + (1 - zg) * tanh(s); } hcur = nx; gHistH.push(Float32Array.from(hcur)); } }
+  // tablo kolu
+  const dense = (W, x) => Float32Array.from(W, u => { let s = 0; for (let i = 0; i < u.idx.length; i++) s += u.w[i] * x[u.idx[i]]; return relu(s); });
+  const m1 = dense(W1, tab), m2 = dense(W2, m1);
+  const concat = new Float32Array(GN + GNH + M2); concat.set(gHist[47], 0); concat.set(gHistH[83], GN); concat.set(m2, GN + GNH);
+  const hd = dense(WH, concat);
+  const out = Float32Array.from(WO, u => { let s = 0; for (let i = 0; i < u.idx.length; i++) s += u.w[i] * hd[u.idx[i]]; return tanh(s * 0.6) * 0.9; });
+  // gerçek: zayıf ilişki + gürültü (gerçek koşudaki IC 0,02 düzeyi)
+  const y = [0.12 * out[0] + gauss(r) * 0.75, 0.12 * out[1] + gauss(r) * 0.8];
+  return { sd, o, h, l, c, v, hc, hv, tab, a1, a2, gHist, b1, b2, gHistH, m1, m2, concat, hd, out, y };
+}
+
+/* ---------- sahne geometrisi ---------- */
+const W = 1200, H = 640;
+const G = {
+  in15: { x: 36, y: 50, w: 230, h: 142 }, inH: { x: 36, y: 242, w: 230, h: 150 }, inTab: { x: 36, y: 442, w: 230, h: 160 },
+  c1_15: { x: 318, y: 56, cw: 2.4, chh: 7.5, rows: C1, cols: 96 }, c2_15: { x: 318, y: 56, cw: 2.4, chh: 7.5, rows: C1, cols: 48 },
+  conv2_15: { x: 470, y: 56, cw: 2.6, chh: 7.5, rows: C1, cols: 48 },
+  c1_H: { x: 318, y: 262, cw: 1.4, chh: 9, rows: C1H, cols: 168 }, conv2_H: { x: 470, y: 262, cw: 1.5, chh: 9, rows: C1H, cols: 84 },
+  gru15: { x: 614, y: 60, w: 84, h: 120 }, gruH: { x: 614, y: 262, w: 84, h: 112 },
+  mlp1: { x: 318, y: 448, cols: 16, rows: 16, cs: 7.5 }, mlp2: { x: 470, y: 448, cols: 8, rows: 16, cs: 9 },
+  concat: { x: 770, y: 80, w: 22, h: 480 }, head: { x: 846, y: 160, cols: 8, rows: 16, cs: 10 },
+  out1: { x: 990, y: 232 }, out4: { x: 990, y: 420 }, read: { x: 1052, y: 150, w: 140 },
+};
+const STEPS = [
+  { id: 'girdi', name: 'Girdi', dur: 1900, text: 'Üç ayrı girdi aynı anda hazırlanır: son 24 saatin 96 tane 15 dakikalık mumu (getiri, hacim, taker payı, aralık, gövde, iki fitil), son 7 günün 168 saatlik mumu (getiri, hacim, aralık) ve o saat için hesaplanmış 194 tablo değişkeni. Hepsi coinin kendi oynaklığına bölünür; böylece BTC ile küçük bir coin aynı ölçekte girer.' },
+  { id: 'conv15', name: 'Evrişim · 15 dk', dur: 2800, text: '5 mumluk bir pencere diziyi soldan sağa tarar. 32 çekirdeğin her biri bir kalıp dedektörüdür (sahnede 16 tanesi çizili): "üç kırmızı mumdan sonra uzun alt fitil" gibi biçimleri her konumda puanlar. Çıktı, her kanal için 96 konumluk bir ısı haritasıdır.' },
+  { id: 'convH', name: 'Evrişim · saatlik', dur: 2400, text: 'Aynı işlem saatlik kolda: 5 saatlik pencere 168 saati tarar, 16 çekirdek (12\'si çizili) haftalık ölçekteki biçimleri puanlar. İki kol birbirinden bağımsız çalışır; birleşme sonda olur.' },
+  { id: 'pool', name: 'Havuzlama + 2. evrişim', dur: 2000, text: 'Her iki komşu konumun en büyüğü alınır (max-pool), dizi yarıya iner: 96 → 48 ve 168 → 84. Sonra ikinci evrişim üç komşu konumu ve tüm kanalları birlikte okur; artık tek mum değil, "kalıpların kalıbı" aranır. ReLU eksi değerleri sıfırlar, bu yüzden haritalar seyrekleşir.' },
+  { id: 'gru', name: 'GRU · zaman içinde bellek', dur: 3000, text: 'Tekrarlayan hücre diziyi baştan sona tek tek okur ve bir bellek vektörü taşır (15 dk kolunda 64, saatlik kolda 48 sayı). Güncelleme kapısı her adımda belleğin ne kadarını koruyacağına karar verir: eski bilgi solar, yeni bilgi eklenir. Dizinin sonundaki bellek o kolun özeti olur.' },
+  { id: 'mlp', name: 'Tablo kolu · MLP', dur: 2200, text: '194 tablo değişkeni iki tam bağlı katmandan geçer: 194 → 256 → 128. Her nöron girdilerin ağırlıklı toplamını alır, ReLU ile eksi kısmı kesilir. Gri hücreler o örnek için susan nöronlardır. Eğitimde her 10 nöronun biri rastgele kapatılır (dropout) ki ağ tek bir değişkene bel bağlamasın.' },
+  { id: 'concat', name: 'Birleştirme', dur: 1700, text: 'Üç özet uç uca eklenir: 64 + 48 + 128 = 240 sayı. Bu noktaya kadar kollar birbirini görmedi; etkileşimler (örneğin "haftalık trend yukarı ve son saatte satış baskısı") ancak bundan sonra öğrenilebilir.' },
+  { id: 'head', name: 'Başlık', dur: 1700, text: '240 → 128 → 2: son iki katman üç kolun bilgisini harmanlar ve iki sayı üretir. İkisi birlikte öğrenilir (çok görevli kayıp), çünkü 1 saatlik ve 4 saatlik hareket aynı nedenlerden beslenir.' },
+  { id: 'out', name: 'Tahmin ve gerçek', dur: 3000, text: 'Çıktı, sonraki 1 saat ve 4 saatteki VWAP getirisinin oynaklık birimindeki tahminidir. İbre işareti yönü, uzunluğu güveni gösterir. Kısa bir süre sonra gerçekleşen değer aynı kadrana düşer. Gerçek koşuda tahmin ile gerçek arasındaki sıra ilişkisi 0,02 dolayındadır; bu yüzden ibrelerin çoğu zaman yanılması beklenen durumdur.' },
+];
+const cv = $('#stage'), ctx = cv.getContext('2d'); let scale = 1;
+function resize() { const box = $('#stageWrap'); const cssW = Math.max(800, box.clientWidth); const cssH = cssW * H / W; cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px'; const dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr); scale = cssW * dpr / W; }
+addEventListener('resize', resize); resize();
+
+/* ---------- durum ---------- */
+const S = { step: 0, t0: performance.now(), hold: 0, playing: true, speed: 1, seed: 1, sample: null, seen: [], particles: [], emitted: new Set() };
+S.sample = makeSample(S.seed);
+function setStep(i, keepPlaying = true) { S.step = (i + STEPS.length) % STEPS.length; S.t0 = performance.now(); S.hold = 0; S.particles = []; S.emitted = new Set(); S.playing = keepPlaying; renderCaption(); }
+function newSample() { S.seed += 1; S.sample = makeSample(S.seed); setStep(0, S.playing); }
+function renderCaption() {
+  const st = STEPS[S.step]; $('#capTitle').textContent = `${S.step + 1} / ${STEPS.length} · ${st.name}`; $('#capText').textContent = st.text;
+  $('#stepList').innerHTML = STEPS.map((s, i) => `<span class="${i === S.step ? 'on' : i < S.step ? 'done' : ''}">${i + 1} ${s.name}</span>`).join('');
+}
+function tally() {
+  const n = S.seen.length; $('#tN').textContent = n;
+  if (!n) { $('#tHit').textContent = '—'; $('#tIc').textContent = '—'; return; }
+  const hit = S.seen.filter(s => Math.sign(s.p1) === Math.sign(s.y1)).length / n; $('#tHit').textContent = '%' + Math.round(hit * 100);
+  if (n < 5) { $('#tIc').textContent = 'n < 5'; return; }
+  const rank = a => { const ix = a.map((v, i) => i).sort((x, y) => a[x] - a[y]); const r = new Array(a.length); ix.forEach((k, j) => r[k] = j); return r; };
+  const rp = rank(S.seen.map(s => s.p1)), ry = rank(S.seen.map(s => s.y1)); const m = (n - 1) / 2; let c = 0, vx = 0, vy = 0; for (let i = 0; i < n; i++) { c += (rp[i] - m) * (ry[i] - m); vx += (rp[i] - m) ** 2; vy += (ry[i] - m) ** 2; }
+  $('#tIc').textContent = fmt(c / Math.sqrt(vx * vy), 2);
+}
+
+/* ---------- çizim yardımcıları ---------- */
+const ease = t => t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+const clamp01 = x => x < 0 ? 0 : x > 1 ? 1 : x;
+function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+let COL = {};
+function readColors() { COL = { c15: cssVar('--c15'), ch: cssVar('--ch'), ctab: cssVar('--ctab'), up: cssVar('--up'), down: cssVar('--down'), warm: cssVar('--warm'), ink: '#f3f2ec', muted: '#8a8f99', grid: '#1f232b', panel: '#12151b', dim: '#2a2f3a' }; }
+function label(t, x, y, opt = {}) { ctx.save(); ctx.font = `${opt.w || 400} ${opt.s || 11}px "IBM Plex Mono", ui-monospace, monospace`; ctx.fillStyle = opt.c || COL.muted; ctx.textAlign = opt.a || 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(t, x, y); ctx.restore(); }
+function panel(g, title, active) { ctx.fillStyle = COL.panel; ctx.strokeStyle = active ? COL.warm : COL.dim; ctx.lineWidth = active ? 1.5 : 1; roundRect(g.x, g.y, g.w, g.h, 6); ctx.fill(); ctx.stroke(); label(title, g.x + 8, g.y - 7, { c: active ? COL.ink : COL.muted }); }
+function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function heat(g, getv, color, visCols, alphaMul = 1) {
+  for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
+    const x = g.x + c * g.cw, y = g.y + r * g.chh; const v = c < visCols ? getv(r, c) : null;
+    if (v === null) { ctx.fillStyle = hexA('#ffffff', 0.035); } else if (v >= 0) ctx.fillStyle = hexA(color, (0.08 + 0.9 * Math.min(1, Math.abs(v))) * alphaMul); else ctx.fillStyle = hexA('#9aa3b2', (0.05 + 0.5 * Math.min(1, Math.abs(v))) * alphaMul);
+    ctx.fillRect(x, y, Math.max(1, g.cw - 0.6), g.chh - 1.2);
+  }
+}
+function grid(g, getv, color, visN, zeroColor) {
+  for (let i = 0; i < g.rows * g.cols; i++) { const r = Math.floor(i / g.cols), c = i % g.cols; const x = g.x + c * g.cs, y = g.y + r * g.cs; const v = i < visN ? getv(i) : null;
+    if (v === null) ctx.fillStyle = hexA('#ffffff', 0.035); else if (v <= 0.001) ctx.fillStyle = zeroColor || hexA('#9aa3b2', 0.18); else ctx.fillStyle = hexA(color, 0.15 + 0.85 * Math.min(1, v / 1.5));
+    ctx.fillRect(x, y, g.cs - 1.3, g.cs - 1.3); }
+}
+function candles(g, s, winFrom, winTo) {
+  const n = 96, pad = 8; const xs = i => g.x + pad + i * (g.w - 2 * pad) / n; const bw = (g.w - 2 * pad) / n * 0.7;
+  let hi = -1e9, lo = 1e9; for (let i = 0; i < n; i++) { hi = Math.max(hi, s.h[i]); lo = Math.min(lo, s.l[i]); } const top = g.y + 10, bot = g.y + g.h - 28; const ys = p => bot - (p - lo) / (hi - lo) * (bot - top);
+  const vmax = Math.max(...s.v.slice(0, n));
+  for (let i = 0; i < n; i++) { const up = s.c[i] >= s.o[i]; const inWin = i >= winFrom && i < winTo; const col = inWin ? COL.warm : (up ? COL.up : COL.down); ctx.strokeStyle = hexA(col, inWin ? 1 : 0.85); ctx.fillStyle = hexA(col, inWin ? 1 : 0.85); ctx.lineWidth = 1;
+    const x = xs(i) + bw / 2; ctx.beginPath(); ctx.moveTo(x, ys(s.h[i])); ctx.lineTo(x, ys(s.l[i])); ctx.stroke(); const y1 = ys(Math.max(s.o[i], s.c[i])), y2 = ys(Math.min(s.o[i], s.c[i])); ctx.fillRect(xs(i), y1, bw, Math.max(1, y2 - y1));
+    ctx.fillStyle = hexA(inWin ? COL.warm : '#9aa3b2', 0.45); const vh = s.v[i] / vmax * 14; ctx.fillRect(xs(i), g.y + g.h - 8 - vh, bw, vh); }
+  if (winTo > winFrom) { ctx.strokeStyle = hexA(COL.warm, 0.9); ctx.setLineDash([3, 3]); ctx.strokeRect(xs(winFrom) - 1, top - 4, xs(winTo) - xs(winFrom) + 1, bot - top + 8); ctx.setLineDash([]); }
+  label('96 × 15 dk · fiyat, hacim, taker, aralık, gövde, fitiller', g.x + 8, g.y + g.h + 14);
+}
+function hourly(g, s, winFrom, winTo) {
+  const n = 168, pad = 8; const xs = i => g.x + pad + i * (g.w - 2 * pad) / (n - 1); let hi = Math.max(...s.hc), lo = Math.min(...s.hc); const top = g.y + 12, bot = g.y + g.h - 30; const ys = p => bot - (p - lo) / (hi - lo) * (bot - top);
+  ctx.beginPath(); for (let i = 0; i < n; i++) i ? ctx.lineTo(xs(i), ys(s.hc[i])) : ctx.moveTo(xs(i), ys(s.hc[i])); ctx.strokeStyle = COL.ch; ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.lineTo(xs(n - 1), bot); ctx.lineTo(xs(0), bot); ctx.closePath(); ctx.fillStyle = hexA(COL.ch, 0.12); ctx.fill();
+  const vmax = Math.max(...s.hv); for (let i = 0; i < n; i++) { ctx.fillStyle = hexA(i >= winFrom && i < winTo ? COL.warm : '#9aa3b2', 0.4); const vh = s.hv[i] / vmax * 12; ctx.fillRect(xs(i) - 0.5, g.y + g.h - 8 - vh, 1.1, vh); }
+  if (winTo > winFrom) { ctx.strokeStyle = hexA(COL.warm, 0.9); ctx.setLineDash([3, 3]); ctx.strokeRect(xs(winFrom) - 1, top - 4, xs(winTo - 1) - xs(winFrom) + 2, bot - top + 8); ctx.setLineDash([]); }
+  label('168 × 1 sa · getiri, hacim, aralık', g.x + 8, g.y + g.h + 14);
+}
+function tabGrid(g, s, pulse) {
+  const cols = 18, rows = 11, cs = 12; const x0 = g.x + 10, y0 = g.y + 10;
+  for (let i = 0; i < NT; i++) { const r = Math.floor(i / cols), c = i % cols; const v = s.tab[i]; const a = 0.12 + 0.6 * Math.min(1, Math.abs(v) / 2.5); ctx.fillStyle = v >= 0 ? hexA(COL.ctab, a * pulse) : hexA('#9aa3b2', a * 0.8 * pulse); ctx.fillRect(x0 + c * cs, y0 + r * cs, cs - 1.5, cs - 1.5); }
+  label('194 tablo değişkeni · fiyat, hacim, OI, fonlama, derinlik, BTC, seans, takvim', g.x + 8, g.y + g.h + 14);
+}
+function gruBox(g, hist, prog, color, title, nCells, cols) {
+  ctx.fillStyle = COL.panel; ctx.strokeStyle = prog > 0 && prog < 1 ? COL.warm : COL.dim; ctx.lineWidth = 1.2; roundRect(g.x, g.y, g.w, g.h, 8); ctx.fill(); ctx.stroke(); label(title, g.x + 6, g.y - 7, { c: COL.ink });
+  const T = hist.length; const ti = Math.max(0, Math.min(T - 1, Math.floor(prog * T) - (prog >= 1 ? 1 : 0))); const hcur = prog <= 0 ? null : hist[ti]; const rows = nCells / cols; const cs = Math.min((g.w - 12) / cols, (g.h - 30) / rows);
+  for (let i = 0; i < nCells; i++) { const r = Math.floor(i / cols), c = i % cols; const v = hcur ? hcur[i] : null; ctx.fillStyle = v === null ? hexA('#ffffff', 0.05) : v >= 0 ? hexA(color, 0.15 + 0.85 * Math.min(1, Math.abs(v) * 1.6)) : hexA('#9aa3b2', 0.1 + 0.5 * Math.min(1, Math.abs(v) * 1.6)); ctx.fillRect(g.x + 6 + c * cs, g.y + 8 + r * cs, cs - 1.5, cs - 1.5); }
+  // kapı göstergesi
+  const bx = g.x + 6, by = g.y + g.h - 14, bw = g.w - 12; ctx.fillStyle = hexA('#ffffff', 0.08); ctx.fillRect(bx, by, bw, 6); ctx.fillStyle = color; ctx.fillRect(bx, by, bw * clamp01(prog), 6); label(prog > 0 ? `adım ${Math.min(T, Math.ceil(prog * T))}/${T}` : `bellek ${nCells}`, g.x + 6, g.y + g.h + 14);
+}
+function vector(g, vals, visFrac, segs) {
+  const n = vals.length; const ch = g.h / n; ctx.fillStyle = COL.panel; roundRect(g.x - 4, g.y - 4, g.w + 8, g.h + 8, 6); ctx.fill();
+  for (let i = 0; i < n; i++) { const seg = segs.find(s => i >= s.from && i < s.to); const vis = i < visFrac * n; const v = vals[i]; ctx.fillStyle = !vis ? hexA('#ffffff', 0.05) : v > 0.001 ? hexA(seg.color, 0.2 + 0.8 * Math.min(1, Math.abs(v) * 1.4)) : hexA('#9aa3b2', 0.2); ctx.fillRect(g.x, g.y + i * ch, g.w, Math.max(0.8, ch - 0.6)); }
+  segs.forEach(s => label(s.name, g.x + g.w + 8, g.y + (s.from + s.to) / 2 * ch + 4, { c: s.color }));
+}
+function gauge(c, val, actual, title, showActual, color) {
+  const R = 48; ctx.beginPath(); ctx.arc(c.x, c.y, R, Math.PI, 2 * Math.PI); ctx.strokeStyle = COL.dim; ctx.lineWidth = 8; ctx.stroke();
+  // sıfır çizgisi ve ölçek
+  for (const v of [-1, -0.5, 0, 0.5, 1]) { const a = Math.PI + (v + 1) / 2 * Math.PI; ctx.beginPath(); ctx.moveTo(c.x + Math.cos(a) * (R - 10), c.y + Math.sin(a) * (R - 10)); ctx.lineTo(c.x + Math.cos(a) * (R - 16), c.y + Math.sin(a) * (R - 16)); ctx.strokeStyle = COL.muted; ctx.lineWidth = 1; ctx.stroke(); label((v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toString().replace('.', ','), c.x + Math.cos(a) * (R - 26), c.y + Math.sin(a) * (R - 26) + 4, { a: 'center', s: 9 }); }
+  const arcTo = v => { const vv = Math.max(-1, Math.min(1, v)); const a0 = 1.5 * Math.PI, a1 = Math.PI + (vv + 1) / 2 * Math.PI; ctx.beginPath(); ctx.arc(c.x, c.y, R, Math.min(a0, a1), Math.max(a0, a1)); ctx.strokeStyle = vv >= 0 ? COL.up : COL.down; ctx.lineWidth = 8; ctx.stroke(); };
+  if (val !== null) { arcTo(val); const a = Math.PI + (Math.max(-1, Math.min(1, val)) + 1) / 2 * Math.PI; ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(c.x + Math.cos(a) * (R - 4), c.y + Math.sin(a) * (R - 4)); ctx.strokeStyle = COL.ink; ctx.lineWidth = 2; ctx.stroke(); ctx.beginPath(); ctx.arc(c.x, c.y, 4, 0, 7); ctx.fillStyle = COL.ink; ctx.fill(); }
+  if (showActual) { const a = Math.PI + (Math.max(-1, Math.min(1, actual)) + 1) / 2 * Math.PI; ctx.beginPath(); ctx.arc(c.x + Math.cos(a) * (R + 12), c.y + Math.sin(a) * (R + 12), 5, 0, 7); ctx.fillStyle = actual >= 0 ? COL.up : COL.down; ctx.fill(); ctx.strokeStyle = COL.ink; ctx.lineWidth = 1.2; ctx.stroke(); }
+  label(title, c.x, c.y + 18, { a: 'center', c: COL.ink, w: 500 });
+}
+/* parçacıklar */
+function emit(key, from, to, color, n, dur, spread = 0) {
+  if (S.emitted.has(key) || reduced) return; S.emitted.add(key); const now = performance.now();
+  for (let i = 0; i < n; i++) { const fy = from.y + (Math.random() - .5) * spread, ty = to.y + (Math.random() - .5) * spread; S.particles.push({ x0: from.x, y0: fy, x1: to.x, y1: ty, cx: (from.x + to.x) / 2 + (Math.random() - .5) * 30, cy: (fy + ty) / 2 + (Math.random() - .5) * 60, t0: now + i * (dur / n) / S.speed, life: 650 / S.speed, color }); }
+}
+function drawParticles(now) {
+  S.particles = S.particles.filter(p => now - p.t0 < p.life + 200);
+  for (const p of S.particles) { const u = (now - p.t0) / p.life; if (u < 0 || u > 1) continue; const e = ease(u); const q = (t) => { const a = 1 - t; return [a * a * p.x0 + 2 * a * t * p.cx + t * t * p.x1, a * a * p.y0 + 2 * a * t * p.cy + t * t * p.y1]; };
+    for (let k = 0; k < 4; k++) { const tt = Math.max(0, e - k * 0.045); const [x, y] = q(tt); ctx.beginPath(); ctx.arc(x, y, 2.6 - k * 0.5, 0, 7); ctx.fillStyle = hexA(p.color, 0.9 - k * 0.2); ctx.fill(); } }
+}
+function link(a, b, color, alpha) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.bezierCurveTo(a.x + 40, a.y, b.x - 40, b.y, b.x, b.y); ctx.strokeStyle = hexA(color, alpha); ctx.lineWidth = 1; ctx.stroke(); }
+
+/* ---------- ana çizim ---------- */
+function draw(now) {
+  const st = STEPS[S.step]; const el = (now - S.t0) * S.speed; let u = clamp01(el / st.dur); if (reduced) u = 1;
+  const s = S.sample; const k = S.step; const past = i => k > i, cur = i => k === i; const prog = i => past(i) ? 1 : cur(i) ? ease(u) : 0;
+  ctx.save(); ctx.setTransform(scale, 0, 0, scale, 0, 0); ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#0b0d11'; ctx.fillRect(0, 0, W, H);
+  // başlık çizgileri
+  label('GİRDİLER', 36, 18, { c: COL.muted, s: 10 }); label('EVRİŞİM 1', 318, 18, { s: 10 }); label('HAVUZ + EVRİŞİM 2', 470, 18, { s: 10 }); label('GRU / MLP', 614, 18, { s: 10 }); label('BİRLEŞTİRME 240', 781, 18, { s: 10, a: 'center' }); label('BAŞLIK 128', 846, 18, { s: 10 }); label('ÇIKTI 2', 950, 18, { s: 10 });
+  // bağlantı çizgileri (soluk)
+  const A = { in15: { x: 266, y: 121 }, c1_15: { x: 318, y: 116 }, c1_15r: { x: 318 + 96 * 2.4, y: 116 }, conv2_15: { x: 470, y: 116 }, conv2_15r: { x: 470 + 48 * 2.6, y: 116 }, gru15: { x: 614, y: 120 }, gru15r: { x: 698, y: 120 },
+    inH: { x: 266, y: 317 }, c1_H: { x: 318, y: 316 }, c1_Hr: { x: 318 + 168 * 1.4, y: 316 }, conv2_H: { x: 470, y: 316 }, conv2_Hr: { x: 470 + 84 * 1.5, y: 316 }, gruH: { x: 614, y: 318 }, gruHr: { x: 698, y: 318 },
+    inTab: { x: 266, y: 522 }, mlp1: { x: 318, y: 508 }, mlp1r: { x: 318 + 16 * 7.5, y: 508 }, mlp2: { x: 470, y: 520 }, mlp2r: { x: 470 + 8 * 9, y: 520 },
+    cat15: { x: 770, y: 80 + 480 * 32 / 240 }, catH: { x: 770, y: 80 + 480 * (64 + 24) / 240 }, catT: { x: 770, y: 80 + 480 * (112 + 64) / 240 }, catR: { x: 792, y: 320 }, head: { x: 846, y: 240 }, headR: { x: 926, y: 240 }, o1: { x: 990, y: 232 }, o4: { x: 990, y: 420 } };
+  const L = [[A.in15, A.c1_15, COL.c15, 0], [A.c1_15r, A.conv2_15, COL.c15, 3], [A.conv2_15r, A.gru15, COL.c15, 4], [A.gru15r, A.cat15, COL.c15, 6], [A.inH, A.c1_H, COL.ch, 0], [A.c1_Hr, A.conv2_H, COL.ch, 3], [A.conv2_Hr, A.gruH, COL.ch, 4], [A.gruHr, A.catH, COL.ch, 6], [A.inTab, A.mlp1, COL.ctab, 5], [A.mlp1r, A.mlp2, COL.ctab, 5], [A.mlp2r, A.catT, COL.ctab, 6], [A.catR, A.head, COL.warm, 7], [A.headR, A.o1, COL.warm, 7], [A.headR, A.o4, COL.warm, 7]];
+  for (const [a, b, c, stepOf] of L) link(a, b, c, past(stepOf) ? 0.45 : cur(stepOf) ? 0.8 : 0.14);
+  // girdiler
+  const p0 = prog(0);
+  panel(G.in15, '15 dk mumlar', cur(0) || cur(1)); panel(G.inH, 'saatlik mumlar', cur(0) || cur(2)); panel(G.inTab, 'tablo değişkenleri', cur(0) || cur(5));
+  const w15 = cur(1) ? Math.floor(ease(u) * 96) : -1; candles(G.in15, s, w15 >= 0 ? Math.max(0, w15 - 2) : 0, w15 >= 0 ? Math.min(96, w15 + 3) : 0);
+  const wH = cur(2) ? Math.floor(ease(u) * 168) : -1; hourly(G.inH, s, wH >= 0 ? Math.max(0, wH - 2) : 0, wH >= 0 ? Math.min(168, wH + 3) : 0);
+  tabGrid(G.inTab, s, cur(0) ? 0.5 + 0.5 * p0 : cur(5) ? 0.75 + 0.25 * Math.abs(Math.sin(now / 160)) : 1);
+  if (cur(0)) { const fade = p0; ctx.fillStyle = hexA('#0b0d11', 1 - fade); ctx.fillRect(G.in15.x, G.in15.y, G.in15.w, G.in15.h); ctx.fillRect(G.inH.x, G.inH.y, G.inH.w, G.inH.h); ctx.fillRect(G.inTab.x, G.inTab.y, G.inTab.w, G.inTab.h); }
+  // evrişim 1 haritaları
+  const vis15 = cur(1) ? Math.floor(ease(u) * 96) : past(1) ? 96 : 0; heat(G.c1_15, (r, c) => s.a1[r][c], COL.c15, vis15); label(`16 kanal × 96`, G.c1_15.x, G.c1_15.y + C1 * 7.5 + 14);
+  if (cur(1)) emit('conv15', A.in15, A.c1_15, COL.c15, 26, st.dur * 0.9, 90);
+  const visH = cur(2) ? Math.floor(ease(u) * 168) : past(2) ? 168 : 0; heat(G.c1_H, (r, c) => s.b1[r][c], COL.ch, visH); label(`12 kanal × 168`, G.c1_H.x, G.c1_H.y + C1H * 9 + 14);
+  if (cur(2)) emit('convH', A.inH, A.c1_H, COL.ch, 26, st.dur * 0.9, 90);
+  // havuz + evrişim 2
+  const p3 = prog(3); heat(G.conv2_15, (r, c) => s.a2[r][c], COL.c15, Math.floor(p3 * 48)); heat(G.conv2_H, (r, c) => s.b2[r][c], COL.ch, Math.floor(p3 * 84)); label('16 × 48 (ReLU)', G.conv2_15.x, G.conv2_15.y + C1 * 7.5 + 14); label('12 × 84 (ReLU)', G.conv2_H.x, G.conv2_H.y + C1H * 9 + 14);
+  if (cur(3)) { emit('pool15', A.c1_15r, A.conv2_15, COL.c15, 18, st.dur * 0.8, 100); emit('poolH', A.c1_Hr, A.conv2_H, COL.ch, 18, st.dur * 0.8, 90); }
+  if (cur(3)) { const xx = G.conv2_15.x + ease(u) * 48 * 2.6; ctx.fillStyle = hexA(COL.warm, 0.9); ctx.fillRect(xx, G.conv2_15.y - 4, 1.5, C1 * 7.5 + 6); const xh = G.conv2_H.x + ease(u) * 84 * 1.5; ctx.fillRect(xh, G.conv2_H.y - 4, 1.5, C1H * 9 + 6); }
+  // GRU
+  const p4 = prog(4); gruBox(G.gru15, s.gHist, p4, COL.c15, 'GRU 64', GN, 8); gruBox(G.gruH, s.gHistH, p4, COL.ch, 'GRU 48', GNH, 8);
+  if (cur(4)) { const xx = G.conv2_15.x + ease(u) * 48 * 2.6; ctx.fillStyle = hexA(COL.warm, 0.9); ctx.fillRect(xx, G.conv2_15.y - 4, 1.5, C1 * 7.5 + 6); const xh = G.conv2_H.x + ease(u) * 84 * 1.5; ctx.fillRect(xh, G.conv2_H.y - 4, 1.5, C1H * 9 + 6); emit('gru15', A.conv2_15r, A.gru15, COL.c15, 30, st.dur * 0.92, 80); emit('gruH', A.conv2_Hr, A.gruH, COL.ch, 30, st.dur * 0.92, 70); }
+  // MLP
+  const p5 = prog(5); grid(G.mlp1, i => s.m1[i], COL.ctab, Math.floor(clamp01(p5 * 1.6) * M1)); grid(G.mlp2, i => s.m2[i], COL.ctab, Math.floor(clamp01((p5 - 0.4) / 0.6) * M2)); label('256 (ReLU)', G.mlp1.x, G.mlp1.y + 16 * 7.5 + 14); label('128 (ReLU)', G.mlp2.x, G.mlp2.y + 16 * 9 + 14);
+  if (cur(5)) { emit('mlp1', A.inTab, A.mlp1, COL.ctab, 28, st.dur * 0.5, 110); if (u > 0.4) emit('mlp2', A.mlp1r, A.mlp2, COL.ctab, 22, st.dur * 0.45, 110); }
+  // birleştirme
+  const p6 = prog(6); vector(G.concat, s.concat, p6, [{ from: 0, to: GN, color: COL.c15, name: '64 · 15 dk' }, { from: GN, to: GN + GNH, color: COL.ch, name: '48 · saatlik' }, { from: GN + GNH, to: 240, color: COL.ctab, name: '128 · tablo' }]);
+  if (cur(6)) { emit('cat15', A.gru15r, A.cat15, COL.c15, 20, st.dur * 0.8, 60); emit('catH', A.gruHr, A.catH, COL.ch, 20, st.dur * 0.8, 60); emit('catT', A.mlp2r, A.catT, COL.ctab, 24, st.dur * 0.8, 100); }
+  // başlık
+  const p7 = prog(7); grid(G.head, i => s.hd[i], COL.warm, Math.floor(clamp01(p7 * 1.5) * HD)); label('128 (ReLU)', G.head.x, G.head.y + 16 * 10 + 14);
+  if (cur(7)) { emit('head', A.catR, A.head, COL.warm, 30, st.dur * 0.55, 200); if (u > 0.5) { emit('o1', A.headR, A.o1, COL.warm, 10, st.dur * 0.4, 40); emit('o4', A.headR, A.o4, COL.warm, 10, st.dur * 0.4, 40); } }
+  // çıktı
+  const p8 = prog(8); const v1 = past(8) || cur(8) ? s.out[0] * clamp01(p8 / 0.45) : null; const v4 = v1 === null ? null : s.out[1] * clamp01(p8 / 0.45); const showAct = p8 > 0.7;
+  // okuma paneli
+  const R = G.read; const sig1 = s.sd * 2 * 100, sig4 = s.sd * 4 * 100; const lines = [];
+  lines.push(['örnek', `#${S.seed}`], ['15 dk σ', `%${fmtN(s.sd * 100, 2)}`], ['1 sa σ', `%${fmtN(sig1, 2)}`]);
+  if (v1 !== null && p8 >= 0.45) { lines.push(['tahmin 1 sa', `${fmt(s.out[0], 2)} σ`], ['tahmin 4 sa', `${fmt(s.out[1], 2)} σ`], ['yön', s.out[0] >= 0 ? 'yukarı · long' : 'aşağı · short']); } else lines.push(['tahmin', 'hesaplanıyor…']);
+  if (showAct) { lines.push(['gerçek 1 sa', `${fmt(s.y[0], 2)} σ`], ['gerçek 4 sa', `${fmt(s.y[1], 2)} σ`], ['sonuç', Math.sign(s.y[0]) === Math.sign(s.out[0]) ? 'yön tuttu' : 'yön tutmadı']); }
+  ctx.fillStyle = COL.panel; roundRect(R.x, R.y, R.w, 40 + lines.length * 30, 8); ctx.fill(); label('OKUMA', R.x + 10, R.y + 18, { s: 10 });
+  lines.forEach((ln, i) => { label(ln[0], R.x + 10, R.y + 42 + i * 30, { s: 10 }); label(ln[1], R.x + 10, R.y + 57 + i * 30, { s: 11, c: ln[0].startsWith('gerçek') || ln[0] === 'sonuç' ? COL.warm : COL.ink, w: 500 }); });
+  gauge(G.out1, v1, s.y[0], 'sonraki 1 sa', showAct, COL.up); gauge(G.out4, v4, s.y[1], 'sonraki 4 sa', showAct, COL.up);
+  drawParticles(now);
+  ctx.restore();
+  // canlı satır
+  const live = $('#live'); let txt = '';
+  if (cur(0)) txt = `96 mum · ${fmtN(s.sd * 100, 2)}% 15 dk oynaklık\n168 saat · ${s.hc[167] >= s.hc[0] ? 'hafta yukarı' : 'hafta aşağı'} ${fmt((s.hc[167] / s.hc[0] - 1) * 100, 1)}%\n194 değişken · ${s.tab.filter(x => Math.abs(x) > 2).length} tanesi 2σ dışında`;
+  else if (cur(1)) { const pos = Math.min(95, Math.floor(ease(u) * 96)); let best = 0; for (let c = 1; c < C1; c++) if (Math.abs(s.a1[c][pos]) > Math.abs(s.a1[best][pos])) best = c; txt = `pencere ${pos + 1}/96 · mum ${pos - 1}…${pos + 3}\nen güçlü tepki: kanal ${best + 1} → ${fmt(s.a1[best][pos], 2)}\n32 çekirdek × 5 mum × 7 kanal = 1.120 ağırlık`; }
+  else if (cur(2)) { const pos = Math.min(167, Math.floor(ease(u) * 168)); let best = 0; for (let c = 1; c < C1H; c++) if (Math.abs(s.b1[c][pos]) > Math.abs(s.b1[best][pos])) best = c; txt = `pencere ${pos + 1}/168 · saat −${167 - pos}\nen güçlü tepki: kanal ${best + 1} → ${fmt(s.b1[best][pos], 2)}\n16 çekirdek × 5 saat × 3 kanal = 240 ağırlık`; }
+  else if (cur(3)) { const z15 = s.a2.reduce((a, r) => a + Array.from(r).filter(x => x <= 0.001).length, 0); txt = `96 → 48 ve 168 → 84 konum\nReLU sonrası susan hücre: 15 dk kolunda ${z15}/${16 * 48}\nikinci evrişim 3 komşu × 32 kanal okur`; }
+  else if (cur(4)) { const T = s.gHist.length, ti = Math.min(T - 1, Math.floor(ease(u) * T)); const hcur = s.gHist[ti]; const en = Math.sqrt(Array.from(hcur).reduce((a, x) => a + x * x, 0) / GN); txt = `15 dk kolu adım ${ti + 1}/${T} · bellek enerjisi ${fmtN(en, 2)}\nsaatlik kol adım ${Math.min(84, Math.floor(ease(u) * 84) + 1)}/84\nkapı: eski belleğin %75–95'i korunur, kalanı yenilenir`; }
+  else if (cur(5)) { const z1 = Array.from(s.m1).filter(x => x <= 0.001).length, z2 = Array.from(s.m2).filter(x => x <= 0.001).length; txt = `256 nörondan ${256 - z1} aktif, ${z1} susuyor\n128 nörondan ${128 - z2} aktif\nen güçlü girdi: değişken #${Array.from(s.tab).reduce((b, x, i, a) => Math.abs(x) > Math.abs(a[b]) ? i : b, 0) + 1}`; }
+  else if (cur(6)) txt = `64 + 48 + 128 = 240 sayı\n15 dk belleği ${fmtN(Math.sqrt(Array.from(s.gHist[47]).reduce((a, x) => a + x * x, 0) / GN), 2)} · saatlik ${fmtN(Math.sqrt(Array.from(s.gHistH[83]).reduce((a, x) => a + x * x, 0) / GNH), 2)}\ntablo kolu ${Array.from(s.m2).filter(x => x > 0.001).length}/128 aktif`;
+  else if (cur(7)) txt = `240 × 128 + 128 × 2 = 30.976 ağırlık\nkayıp: iki hedefin ortalama kare hatası\nçıkış doğrusaldır (sınıf değil, büyüklük)`;
+  else if (cur(8)) txt = showAct ? `tahmin ${fmt(s.out[0], 2)} σ (%${fmt(s.out[0] * sig1, 2)}) · gerçek ${fmt(s.y[0], 2)} σ (%${fmt(s.y[0] * sig1, 2)})\n${Math.sign(s.y[0]) === Math.sign(s.out[0]) ? 'yön tuttu' : 'yön tutmadı'} · ${Math.abs(s.y[0]) > 1 ? 'büyük hareket' : 'küçük hareket'}\nsaat başı 2 long + 2 short seçilir; eşik eğitim dağılımının %5 ucu` : `ibreler oturuyor…\n1 sa σ = %${fmtN(sig1, 2)} · 4 sa σ = %${fmtN(sig4, 2)}`;
+  if (live.textContent !== txt) live.textContent = txt;
+  // adım geçişi
+  if (u >= 1 && S.playing) { if (!S.hold) S.hold = now; if (now - S.hold > 500 / S.speed) { if (S.step === STEPS.length - 1) { S.seen.push({ p1: s.out[0], y1: s.y[0] }); tally(); newSample(); } else setStep(S.step + 1); } }
+}
+function loop(now) { draw(now); requestAnimationFrame(loop); }
+readColors(); renderCaption(); requestAnimationFrame(loop);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors); new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+/* ---------- kontroller ---------- */
+$('#btnPlay').addEventListener('click', e => { S.playing = !S.playing; if (S.playing) { S.t0 = performance.now() - (S.pausedEl || 0) / S.speed; } else S.pausedEl = (performance.now() - S.t0) * S.speed; e.currentTarget.textContent = S.playing ? 'Duraklat' : 'Oynat'; e.currentTarget.setAttribute('aria-pressed', S.playing); });
+$('#btnPrev').addEventListener('click', () => { setStep(S.step - 1, false); $('#btnPlay').textContent = 'Oynat'; $('#btnPlay').setAttribute('aria-pressed', 'false'); S.t0 = performance.now() - 1e6; });
+$('#btnNext').addEventListener('click', () => { setStep(S.step + 1, false); $('#btnPlay').textContent = 'Oynat'; $('#btnPlay').setAttribute('aria-pressed', 'false'); S.t0 = performance.now() - 1e6; });
+$('#btnNew').addEventListener('click', () => { newSample(); });
+document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => { S.speed = +b.dataset.speed; document.querySelectorAll('[data-speed]').forEach(x => x.setAttribute('aria-pressed', x === b)); S.t0 = performance.now(); }));
+if (reduced) { S.playing = false; $('#btnPlay').textContent = 'Oynat'; $('#btnPlay').setAttribute('aria-pressed', 'false'); }
+
+/* ---------- gerçek koşu: ileriye yürüyen şema ---------- */
+const SPLITS = [
+  { test: '2024-06', tr: 261059, te: 130850, l1: 0.7663, l2: 0.7104, a: 0.021, ad: 0.015, lg: 0.010, lo: 0.019, ad4: 0.011 },
+  { test: '2024-12', tr: 391909, te: 129328, l1: 0.7950, l2: 0.7241, a: 0.016, ad: 0.019, lg: 0.019, lo: 0.026, ad4: 0.028 },
+  { test: '2025-06', tr: 500000, te: 130638, l1: 0.7935, l2: 0.7271, a: 0.018, ad: 0.022, lg: 0.017, lo: 0.019, ad4: 0.020 },
+  { test: '2025-12', tr: 500000, te: 130743, l1: 0.7885, l2: 0.7315, a: 0.011, ad: 0.017, lg: 0.027, lo: 0.024, ad4: 0.015 },
+  { test: '2026-06', tr: 500000, te: 91661, l1: 0.7807, l2: 0.7378, a: 0.019, ad: 0.010, lg: 0.016, lo: 0.016, ad4: 0.023 },
+];
+{ const svg = $('#wf'); const m0 = 2023 * 12 + 5, m1 = 2026 * 12 + 9; const x = m => 70 + (m - m0) / (m1 - m0) * 420; const mi = s => +s.slice(0, 4) * 12 + (+s.slice(5, 7) - 1); let el = '';
+  for (let y = 2024; y <= 2026; y++) { const xx = x(y * 12); el += `<line class="gridl" x1="${xx}" y1="14" x2="${xx}" y2="150"/><text x="${xx}" y="166" text-anchor="middle">${y}</text>`; }
+  SPLITS.forEach((s, i) => { const y = 24 + i * 26; const ts = mi(s.test); el += `<text x="62" y="${y + 12}" text-anchor="end">${i + 1}</text><rect x="${x(m0)}" y="${y}" width="${x(ts) - x(m0) - 2}" height="16" rx="3" fill="var(--grid)"><title>eğitim ${s.tr.toLocaleString('tr-TR')} satır (en çok 500 bin örneklenir)</title></rect><rect x="${x(ts)}" y="${y}" width="${x(Math.min(m1, ts + 6)) - x(ts)}" height="16" rx="3" fill="var(--ch)"><title>test ${s.test} → +6 ay, ${s.te.toLocaleString('tr-TR')} satır</title></rect><text x="${x(Math.min(m1, ts + 6)) + 6}" y="${y + 12}" fill="var(--ink)">${fmt(s.ad, 3)}</text>`; });
+  el += `<text x="70" y="182" fill="var(--muted)">gri: eğitim · turuncu: test · sağ: IC 1 sa (tablo+dizi)</text>`; svg.innerHTML = el; }
+/* IC çubuk grafiği */
+{ const svg = $('#icChart'); const models = [['Ağ · tablo', 0.017, 0.019], ['Ağ · tablo+dizi', 0.017, 0.019], ['LightGBM · 202', 0.018, 0.017], ['LightGBM · 127', 0.021, 0.014]]; const x0 = 60, yb = 190, yt = 30, ymax = 0.025; const y = v => yb - v / ymax * (yb - yt); let el = '';
+  for (const v of [0, 0.005, 0.01, 0.015, 0.02, 0.025]) el += `<line class="${v ? 'gridl' : 'axis'}" x1="${x0}" y1="${y(v)}" x2="540" y2="${y(v)}"/><text x="${x0 - 8}" y="${y(v) + 4}" text-anchor="end">${v.toFixed(3).replace('.', ',')}</text>`;
+  models.forEach((m, i) => { const gx = x0 + 20 + i * 120; const bw = 34; const bars = [[m[1], 'var(--up)', 'IC 1 saat'], [m[2], 'var(--ch)', 'IC 4 saat']];
+    bars.forEach((b, j) => { const bx = gx + j * (bw + 2); const h = yb - y(b[0]); el += `<path d="M${bx} ${yb} v${-(h - 4)} a4 4 0 0 1 4 -4 h${bw - 8} a4 4 0 0 1 4 4 v${h - 4} z" fill="${b[1]}" data-tt="${m[0]} · ${b[2]}: ${fmt(b[0], 3)}"></path><text x="${bx + bw / 2}" y="${y(b[0]) - 6}" text-anchor="middle" fill="var(--ink)">${fmt(b[0], 3).replace('+', '')}</text>`; });
+    el += `<text x="${gx + bw + 1}" y="${yb + 16}" text-anchor="middle">${m[0]}</text>`; });
+  svg.innerHTML = el; }
+/* tablo */
+$('#splitRows').innerHTML = SPLITS.map(s => `<tr><td>${s.test} → +6 ay</td><td>${s.tr.toLocaleString('tr-TR')}</td><td>${s.te.toLocaleString('tr-TR')}</td><td>${fmtN(s.l1, 4)} → ${fmtN(s.l2, 4)}</td><td>${fmt(s.a, 3)}</td><td>${fmt(s.ad, 3)}</td><td>${fmt(s.lg, 3)}</td><td>${fmt(s.lo, 3)}</td><td>${fmt(s.ad4, 3)}</td></tr>`).join('') + `<tr><th>tümü (613 bin test saati)</th><td></td><td></td><td></td><th>+0,017</th><th>+0,017</th><th>+0,018</th><th>+0,021</th><th>+0,019</th></tr>`;
+/* ipucu */
+const tt = $('#tt');
+document.querySelectorAll('[data-tt]').forEach(p => { p.addEventListener('mouseenter', e => { tt.textContent = p.dataset.tt; tt.classList.add('show'); }); p.addEventListener('mousemove', e => { tt.style.left = e.clientX + 'px'; tt.style.top = e.clientY + 'px'; }); p.addEventListener('mouseleave', () => tt.classList.remove('show')); });
+})();
+</script>

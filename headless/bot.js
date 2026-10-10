@@ -59,7 +59,7 @@ function createBot(E, opt){
   function openMarket(x,px,es){
     const cfg=bot.cfg; const isL=x.dir==="long"; if(!(px>0)||!(x.sd>0)) return false;
     const sd=x.sd; const stop=isL?px*(1-sd):px*(1+sd), t1=isL?px*(1+1.5*sd):px*(1-1.5*sd), t2=isL?px*(1+3*sd):px*(1-3*sd);
-    const lev=cfg.lev||20; const risk=es?es.riskUsd:bot.bal*cfg.risk; const notional=risk/sd; const margin=notional/lev;
+    const pl=x.com&&x.com.plan; const lev=Math.min(cfg.lev||20,pl&&pl.lev||99); const risk=es?es.riskUsd:bot.bal*cfg.risk; const notional=risk/sd; const margin=notional/lev;
     if(margin+marginUsed()>bot.bal*0.95){ log("skip",x.sym,`Teminat yetmiyor: ${fmtB(margin)} gerekli, kullanılabilir ${fmtB(Math.max(0,bot.bal*0.95-marginUsed()))}.`); return false; }
     const fill=isL?px*(1+cfg.slip):px*(1-cfg.slip); const qty=notional/fill; const fee=notional*cfg.feeTaker; bot.bal-=fee; day().opens++;
     const votes=x.com.agents.map(a=>`${a.name} ${a.v>0?"+":""}${fx(a.v,1)}`); const now=Date.now();
@@ -147,7 +147,7 @@ function createBot(E, opt){
       const rv=E.positionReview(A,E.posCtx(p,liqPx(p)),[],c24,{sym:p.sym});
       const rNow=rv.rNow, peakR=rv.peakR, held=rv.held; const medHold=(LD&&LD.profile&&isFinite(LD.profile.medHold))?LD.profile.medHold:cfg.holdH/2;
       const against=rv.views.filter(a=>a.w&&a.v<-0.15).map(a=>a.name).join(", ")||"kimse"; const sayD=(who,t)=>log("desk",p.sym,`${who}: ${t}`,{id:p.id});
-      p.lastReview={t:Date.now(),verdict:rv.verdict,hold:rv.hold,score:rv.score,oppScore:rv.oppScore,rNow:+rNow.toFixed(2),views:rv.views.map(x=>({id:x.id,name:x.name,v:x.v,c:x.c,act:x.act,abst:x.abst,txt:x.txt})),llm:p.lastReview&&p.lastReview.llm}; p.reviews=(p.reviews||0)+1;
+      p.lastReview={t:Date.now(),verdict:rv.verdict,hold:rv.hold,score:rv.score,oppScore:rv.oppScore,rNow:+rNow.toFixed(2),views:rv.views.map(x=>({id:x.id,name:x.name,v:x.v,c:x.c,act:x.act,abst:x.abst,txt:x.txt,...(x.sh?{sh:true}:{})})),llm:p.lastReview&&p.lastReview.llm}; p.reviews=(p.reviews||0)+1;
       E.fcPosNote(p.id,p.sym,p.dir,A,rv); E.lmdPosAsk(p,rv,A,c24);
       const taker=isL?px*(1-cfg.slip):px*(1+cfg.slip);
       // dinamik hedef/stop (goal.js): başabaş, dirence göre hedef 1, koşucuyu uzat/kısalt, yapısal stop, 200 $'a taşıyan hedef 1'de tamamı

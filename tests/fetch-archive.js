@@ -7,12 +7,13 @@
 //   4) evrene en az bir kez girmiş coinler için 1 sa (ilk --top) ve 15 dk (ilk --top15) mumlar + fonlama → tests/data/arch/<iv>/<SYM>.csv, arch/funding/<SYM>.csv
 // CSV satırı Binance kline dizisiyle aynı: openTime,o,h,l,c,v,closeTime,q,n,tbv,tbq,ignore (başlıksız). Fonlama: time,rate.
 // Ham zip'ler tests/data/arch/zip/ altında önbellekte; kesilirse yeniden çalıştır, indirilenler atlanır.
-// Kullanım: node tests/fetch-archive.js [--from 2020-01] [--top 100] [--top15 30] [--iv 1h,15m] [--conc 12] [--no-funding] [--only 1d]
+// Kullanım: node tests/fetch-archive.js [--from 2020-01] [--top 100] [--top15 30] [--iv 1h,15m] [--conc 12] [--no-funding] [--only 1d] [--update]
+// --update (8 Ekim 2026, araştırma döngüsü): var olan CSV'leri atlamak yerine son satırın ayından bugüne kadar indirip ekler (yeni coinler baştan).
 const fs=require('fs'), path=require('path'), zlib=require('zlib');
 const S3='https://s3-ap-northeast-1.amazonaws.com/data.binance.vision', VISION='https://data.binance.vision';
 const OUT=path.join(__dirname,'data','arch'), ZIP=path.join(OUT,'zip');
 const arg=(k,d)=>{ const i=process.argv.indexOf('--'+k); return i<0?d:(process.argv[i+1]&&!process.argv[i+1].startsWith('--')?process.argv[i+1]:true); };
-const FROM=String(arg('from','2020-01')), TOP=+arg('top',100), TOP15=+arg('top15',30), IVS=String(arg('iv','1h,15m')).split(','), CONC=+arg('conc',12), FUND=!arg('no-funding',false), ONLY=arg('only',null);
+const FROM=String(arg('from','2020-01')), TOP=+arg('top',100), TOP15=+arg('top15',30), IVS=String(arg('iv','1h,15m')).split(','), CONC=+arg('conc',12), FUND=!arg('no-funding',false), ONLY=arg('only',null), UPD=!!arg('update',false);
 const DAY=864e5, T0=Date.UTC(+FROM.slice(0,4),+FROM.slice(5,7)-1,1);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const STABLE=/^(USDC|FDUSD|BUSD|TUSD|USDP|DAI|EUR|AEUR|USDE|BFUSD|XUSD|RLUSD|USD1)USDT$/;
@@ -68,14 +69,22 @@ async function klines(s,iv,firstMonth){
   out.sort((a,b)=>+a.slice(0,a.indexOf(','))-+b.slice(0,b.indexOf(','))); return out;
 }
 
+// --update: dosyadaki son mumun ayından itibaren indir, eskiyle birleştir
+async function refresh(f,s,iv,firstMonth){
+  if(UPD&&fs.existsSync(f)){ const old=fs.readFileSync(f,'utf8').split('\n').filter(Boolean); const lastT=old.length?+old[old.length-1].split(',')[0]:0;
+    if(lastT){ const m=new Date(lastT).toISOString().slice(0,7); const add=await klines(s,iv,m); const seen=new Set(old.map(l=>l.slice(0,l.indexOf(','))));
+      const out=old.concat(add.filter(l=>!seen.has(l.slice(0,l.indexOf(','))))); fs.writeFileSync(f,out.join('\n')); return; } }
+  fs.writeFileSync(f,(await klines(s,iv,firstMonth)).join('\n'));
+}
+
 (async()=>{
   console.log('arşiv:',await host());
   const syms=await listSymbols(); console.log('USDT sembolü:',syms.length);
   // 2) 1g mumlar, hepsi
   fs.mkdirSync(path.join(OUT,'1d'),{recursive:true});
-  const d1=syms.filter(s=>!fs.existsSync(path.join(OUT,'1d',s+'.csv'))||ONLY==='1d');
+  const d1=syms.filter(s=>!fs.existsSync(path.join(OUT,'1d',s+'.csv'))||ONLY==='1d'||UPD);
   console.log('1g indirilecek:',d1.length);
-  await pool(d1.map(s=>async()=>{ const k=await klines(s,'1d'); fs.writeFileSync(path.join(OUT,'1d',s+'.csv'),k.join('\n')); }),Math.max(1,CONC>>2),'1g');
+  await pool(d1.map(s=>async()=>{ await refresh(path.join(OUT,'1d',s+'.csv'),s,'1d'); }),Math.max(1,CONC>>2),'1g');
   // 3) aylık evren: ayın ilk gününden önceki 30 günün dolar hacmi, en az 20 gün verisi
   // TradFi vadelileri (hisse, emtia, endeks) evrene girmez: dayanakları hafta sonu kapalı olduğu için hafta sonu gün içi aralığı
   // hafta içinin %62'sinden küçük (kriptoda 0,65–0,9; hisse/altın/petrolde 0,2–0,6). Eşik 7 Ekim 2026'da arşivdeki dağılıma bakılarak seçildi.
@@ -94,11 +103,12 @@ async function klines(s,iv,firstMonth){
   // 4) 1 sa / 15 dk + fonlama, yalnız evrene girmiş coinler, ilk girdiği aydan 3 ay önceden (göstergeler ısınsın)
   const firstIn={}; for(const m of Object.keys(U).sort()) for(const s of U[m]) if(!firstIn[s]){ const d=new Date(Date.UTC(+m.slice(0,4),+m.slice(5,7)-1-3,1)); firstIn[s]=d.toISOString().slice(0,7); }
   for(const iv of IVS){ fs.mkdirSync(path.join(OUT,iv),{recursive:true});
-    const todo=(iv==='15m'||iv==='5m'||iv==='1m'?pickN(TOP15):pick).filter(s=>!fs.existsSync(path.join(OUT,iv,s+'.csv')));
-    let n=0; await pool(todo.map(s=>async()=>{ const f=path.join(OUT,iv,s+'.csv'); const k=await klines(s,iv,firstIn[s]<FROM?FROM:firstIn[s]); fs.writeFileSync(f,k.join('\n')); if(++n%25===0) console.log(`  ${iv}: ${n}/${todo.length} coin`); }),Math.max(1,CONC>>2),iv); }
+    const todo=(iv==='15m'||iv==='5m'||iv==='1m'?pickN(TOP15):pick).filter(s=>UPD||!fs.existsSync(path.join(OUT,iv,s+'.csv')));
+    let n=0; await pool(todo.map(s=>async()=>{ const f=path.join(OUT,iv,s+'.csv'); await refresh(f,s,iv,firstIn[s]<FROM?FROM:firstIn[s]); if(++n%25===0) console.log(`  ${iv}: ${n}/${todo.length} coin`); }),Math.max(1,CONC>>2),iv); }
   if(FUND){ fs.mkdirSync(path.join(OUT,'funding'),{recursive:true});
-    await pool(pick.map(s=>async()=>{ const M=months().filter(m=>m!==curMonth()&&m>=(firstIn[s]<FROM?FROM:firstIn[s])); const o=[];
-      for(const m of M) for(const l of rows(await csv(`monthly/fundingRate/${s}/${s}-fundingRate-${m}.zip`))){ const r=l.split(','); o.push(r[0]+','+r[r.length-1]); }
+    await pool(pick.map(s=>async()=>{ const ff=path.join(OUT,'funding',s+'.csv'); const old=UPD&&fs.existsSync(ff)?fs.readFileSync(ff,'utf8').split('\n').filter(Boolean):[]; const lastM=old.length?new Date(+old[old.length-1].split(',')[0]).toISOString().slice(0,7):null;
+      const M=months().filter(m=>m!==curMonth()&&m>=(lastM||(firstIn[s]<FROM?FROM:firstIn[s]))); const seen=new Set(old.map(l=>l.split(',')[0])); const o=old.slice();
+      for(const m of M) for(const l of rows(await csv(`monthly/fundingRate/${s}/${s}-fundingRate-${m}.zip`))){ const r=l.split(','); if(!seen.has(r[0])){ seen.add(r[0]); o.push(r[0]+','+r[r.length-1]); } }
       fs.writeFileSync(path.join(OUT,'funding',s+'.csv'),o.join('\n')); }),Math.max(1,CONC>>2),'fonlama'); }
   done();
   function done(){ if(FAILED.length){ console.log('indirilemeyen',FAILED.length,'dosya (yeniden çalıştırınca denenir):'); console.log(FAILED.slice(0,20).join('\n')); } console.log('bitti'); }

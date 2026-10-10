@@ -81,7 +81,7 @@ function entryStages(x, ctx){
   const warn=st.filter(s=>s.st==="warn").length; const cf=deskConf(x,thr,minYes,grade,cfg); let riskUsd=goalRisk(gs,ctx.bal,cfg,cf.pct)*Math.pow(cfg.warnMult,warn);
   const openRisk=pos.reduce((a,p)=>a+openRiskOf(p),0); const room=gs.eq*cfg.maxOpenRisk-openRisk; let f3=null, n3=[];
   if(riskUsd>room){ if(room<riskUsd*0.4) f3=`açık risk ${fx(openRisk,2)} $ (özkaynağın %${fx(openRisk/gs.eq*100,1)}); sınır %${fx(cfg.maxOpenRisk*100,0)}`; else { n3.push(`açık risk sınırı yüzünden risk ${fx(riskUsd,2)} → ${fx(room,2)} $`); riskUsd=room; } }
-  const lev=ctx.lev||cfg.lev||20; const notional=x.sd>0?riskUsd/x.sd:0, margin=notional/lev; const used=pos.reduce((a,p)=>a+(p.margin||0),0)+(ctx.reserved||0); const free=ctx.bal*0.95-used;
+  const pl=x.com&&x.com.plan; const lev=Math.min(ctx.lev||cfg.lev||20,pl&&pl.lev||99); const notional=x.sd>0?riskUsd/x.sd:0, margin=notional/lev; const used=pos.reduce((a,p)=>a+(p.margin||0),0)+(ctx.reserved||0); const free=ctx.bal*0.95-used;
   const need=Math.max(0,margin-free), slot=pos.length>=cfg.maxPos;
   n3.unshift(`masanın güveni %${Math.round(cf.conf*100)} (puan payı %${Math.round(cf.s*100)}, not ${grade}) → risk %${fx(cf.pct*100,1)} (taban %${fx(cfg.risk*100,1)}, üst %${fx(Math.max(cfg.risk,cfg.riskMax||0)*100,1)})${cf.fcTxt?" · "+cf.fcTxt:""}`);
   if(gs.mode!=="normal") n3.push(gs.why); if(warn) n3.push(`${warn} uyarı: boy ×${fx(Math.pow(cfg.warnMult,warn),2)}`);

@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Araştırma döngüsü (8 Ekim 2026): bulutta, bilgisayar kapalıyken de çalışır. Binance REST'e istek atmaz; veri data.binance.vision arşivinden.
+# Adımlar: önbellekteki arşivi aç → son günleri ekle (fetch-archive --update) → masa örnekleri (motor değiştiyse ya da 7 günden eskiyse
+# yeniden üret, 4 çekirdek) → hata örneklemi (geçmiş + son canlı kayıt) → önbelleği geri yaz.
+# Kullanım: bash tests/arastirma-dongusu.sh   (ortam: VERI önbellek klasörü, CIKTI rapor klasörü, CANLI canlı kayıt klasörü)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+PF=/mnt/project-files
+VERI=${VERI:-$PF/veri-arsivi}; CIKTI=${CIKTI:-$PF/arastirma/hata-orneklemi}; CANLI=${CANLI:-$PF/canli-kayit}
+ARCH=tests/data/arch; GUN=$(date -u +%F); NP=${NP:-$(nproc)}
+mkdir -p "$VERI" "$CIKTI" "$ARCH"
+t0=$(date +%s); el(){ echo "[$(( $(date +%s)-t0 )) sn] $*"; }
+
+# 1) arşiv önbelleği (CSV'ler; ham zip'ler saklanmaz)
+if [ ! -d "$ARCH/1d" ] && [ -f "$VERI/arch-csv.tar.gz" ]; then el "arşiv önbellekten açılıyor"; tar -xzf "$VERI/arch-csv.tar.gz" -C "$ARCH"; fi
+el "arşiv güncelleniyor"; node tests/fetch-archive.js --update --conc 24 | grep -v '^  ' || true
+node tests/fetch-metrics.js | grep -v '^  ' || true   # 5 dk OI, long/short, taker (ilk 30 coin)
+node tests/fetch-extra.js | grep -v '^  ' || true     # prim endeksi ve spot 15 dk (ilk 30 coin)
+node tests/fetch-bookdepth.js | grep -v '^  ' || true # emir defteri derinliği 15 dk'ya toplanmış (ilk 30 coin, 2023-06'dan)
+rm -rf "$ARCH/zip"
+
+# 2) masa örnekleri: motor kodu (src + yeniden oynatma betikleri) değiştiyse ya da 7 günden eskiyse yeniden üret
+HASH=$(cat src/*.js tests/masa-archive.js tests/backtest-masa.js tests/engine-node.js | sha1sum | cut -c1-12)
+OLD=$(cat "$VERI/samples.hash" 2>/dev/null || echo yok)
+AGE=$(( ( $(date +%s) - $(stat -c %Y "$VERI/samples.tar.gz" 2>/dev/null || echo 0) ) / 86400 ))
+if [ "$HASH" = "$OLD" ] && [ "$AGE" -lt 7 ] && ! ls $ARCH/samples-*.jsonl >/dev/null 2>&1; then el "masa örnekleri önbellekten"; tar -xzf "$VERI/samples.tar.gz" -C "$ARCH"; fi
+if ! ls $ARCH/samples-*.jsonl >/dev/null 2>&1 || [ "$HASH" != "$OLD" ] || [ "$AGE" -ge 7 ]; then
+  el "masa örnekleri yeniden üretiliyor ($NP parça; motor $OLD → $HASH, yaş $AGE gün)"; rm -f $ARCH/samples-*.jsonl
+  for i in $(seq 0 $((NP-1))); do node tests/masa-archive.js $i $NP > "/tmp/masa-$i.log" 2>&1 & done; wait
+  tail -n1 /tmp/masa-*.log
+  tar -czf "$VERI/samples.tar.gz.tmp" -C "$ARCH" $(cd $ARCH && ls samples-*.jsonl) && mv "$VERI/samples.tar.gz.tmp" "$VERI/samples.tar.gz"; echo "$HASH" > "$VERI/samples.hash"
+fi
+
+# 2b) denklem (100+ değişkenli saatlik model, VWAP sağlamlığı): 7 günde bir, çıktı CIKTI/../dongu/denklem-<gün>.md
+DEN=$ARCH/denklem.f32; DAGE=$(( ( $(date +%s) - $(stat -c %Y "$DEN" 2>/dev/null || echo 0) ) / 86400 ))
+if [ "$DAGE" -ge 7 ]; then el "denklem özellikleri + modeli"; node --max-old-space-size=12000 tests/denklem-ozellik.js | tail -1 && python3 tests/denklem-model.py --fast --target vwap --from 2023-06 --out "$PF/arastirma/dongu/denklem-$GUN.md" 2>/dev/null | tail -3 || true; fi
+# 2c) olay takvimi / seans / günlük faktörler: 7 günde bir, çıktı dongu/olay-etkisi-<gün>.md
+OLR=tests/olay-etkisi-report.md; OAGE=$(( ( $(date +%s) - $(stat -c %Y "$OLR" 2>/dev/null || echo 0) ) / 86400 ))
+if [ "$OAGE" -ge 7 ]; then el "olay etkisi"; node --max-old-space-size=12000 tests/olay-etkisi.js > /dev/null 2>&1 && cp "$OLR" "$PF/arastirma/dongu/olay-etkisi-$GUN.md" || true; fi
+
+# 2d) Ozan (sıralama modeli, src/rankmodel.js): 30 günde bir arşivin son haliyle yeniden eğit. Aday model ve rapor dongu/ozan/ altına yazılır;
+#     depodaki model değişmez (canlıya almak: dosyayı src/rankmodel-data.js'e kopyala, npm test, PR). Rapordaki son pencere IC'si modelin eskiyip eskimediğini gösterir.
+OZ=$PF/arastirma/dongu/ozan; mkdir -p "$OZ"; OAGE2=$(( ( $(date +%s) - $(stat -c %Y "$OZ/son-egitim" 2>/dev/null || echo 0) ) / 86400 ))
+if [ "$OAGE2" -ge 30 ]; then el "Ozan yeniden eğitim"
+  ( for p in 0 1 2 3; do node tests/rank-ozellik.js $p 4 > /dev/null & done; wait ) && python3 tests/rank-model.py --vars 0 --export tam --out "$OZ/ozan-$GUN.md" 2>/dev/null | tail -2 \
+    && node tests/rank-test.js | tail -1 && cp src/rankmodel-data.js "$OZ/rankmodel-data-$GUN.js" && touch "$OZ/son-egitim" || true
+  git checkout -- src/rankmodel-data.js tests/data/rank-parity.json tests/rank-model-report.md 2>/dev/null || true; rm -f $ARCH/rank-*.f32; fi
+# 3) hata örneklemi: en yeni canlı kayıt (bilgisayardan çekilen state.json kopyası ya da elle yüklenen yedek)
+LIVE=$(ls -t "$CANLI"/state-*.json "$PF"/sweep-yedek/sweep-geri-yukle*.json 2>/dev/null | head -1 || true)
+el "hata örneklemi (canlı: ${LIVE:-yok})"
+node tests/hata-orneklem.js --out "$CIKTI" --date "$GUN" ${LIVE:+--live "$LIVE"}
+
+# 4) arşiv önbelleğini geri yaz (günde bir; arka planda kesilirse eski kopya kalır)
+el "arşiv önbelleği yazılıyor"
+tar -czf "$VERI/arch-csv.tar.gz.tmp" -C "$ARCH" 1d 1h 15m funding metrics premium15m spot15m depth15m universe.json symbols.json && mv "$VERI/arch-csv.tar.gz.tmp" "$VERI/arch-csv.tar.gz"
+el "bitti → $CIKTI/hata-orneklemi-$GUN.md"
