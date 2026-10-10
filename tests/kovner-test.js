@@ -57,7 +57,21 @@ ok(E.COM_DEF.lf&&E.COM_DEF.lf.longBtc24Max===null&&E.COM_DEF.lf.r7dMin===0,'COM_
   ok(/7 günlük trend karşı/.test(v(Object.assign({},dn,{src:Object.assign({},dn.src,{btc15:btc(-0.0005)})}),'long')),'düşen coinde long süzgece takılmadı');
   ok(/7 günlük trend karşı/.test(v(up,'short')),'yükselişte short süzgece takılmadı: '+v(up,'short'));
   ok(!/kayıp süzgeci/.test(v(dn,'short')),'düşüşte short süzgece takıldı: '+v(dn,'short'));
-  ok(!/kayıp süzgeci/.test(v(up,'long',{lf:false})),'lf:false süzgeci kapatmadı'); }
+  ok(!/kayıp süzgeci/.test(v(up,'long',{lf:false})),'lf:false süzgeci kapatmadı');
+  // --- 24 saatlik long (10 Ekim 2026 akşamı, test #47): BTC 24 saatte yükseldiyse long yok; geçen long hedefsiz, 24 saat ---
+  ok(E.COM_DEF.l24&&E.COM_DEF.l24.holdH===24&&E.COM_DEF.l24.btc24Max===0&&E.COM_DEF.l24.rankMin===0.1,'COM_DEF.l24 varsayılanı');
+  ok(/24 saatlik long: BTC 24 saatte/.test(v(upB,'long')),'BTC yükselirken 24 saatlik long vetolanmadı: '+v(upB,'long'));
+  ok(!/24 saatlik long/.test(v(upB,'long',{l24:false})),'l24:false kuralı kapatmadı');
+  ok(!/24 saatlik long/.test(v(upD,'long')),'BTC düşmüşken long vetolandı: '+v(upD,'long'));
+  const cL=E.committee(upD,'long',0,{sym:'TSTUSDT'}), cS=E.committee(Object.assign({},dn,{src:Object.assign({},dn.src,{btc15:btc(0.0005)})}),'short',0,{sym:'TSTUSDT'});
+  ok(!!cL.plan&&cL.plan.h24===true&&cL.plan.holdH===24,'long planı 24 saatlik değil: '+JSON.stringify(cL.plan&&{h24:cL.plan.h24,holdH:cL.plan.holdH}));
+  ok(!!cS.plan&&!cS.plan.h24,'short plan 24 saatlik olmamalı: '+(cS.veto||''));
+  // fiyat adımı: hedef yok, stop var, 24 saat dolunca çıkış; masanın pozisyon kararı uygulanmaz
+  const cfg={slip:0.0003}; const T0=Date.UTC(2026,9,10,0,0); const mkP=()=>({dir:'long',entry:100,stop:97,stop0:97,risk0:3,t1:null,t2:null,h24:true,stage:'open',hi:100,lo:100,openT:T0,expiresAt:T0+24*36e5});
+  { const p=mkP(); ok(E.paperStep(p,110,T0+36e5,cfg).length===0&&p.stage==='open','h24: hedefte kâr alındı'); }
+  { const p=mkP(); const o=E.paperStep(p,96.9,T0+36e5,cfg); ok(o.length===1&&o[0].k==='stop'&&o[0].final,'h24: stop çalışmadı'); }
+  { const p=mkP(); const o=E.paperStep(p,101,T0+24*36e5+1,cfg); ok(o.length===1&&o[0].k==='time'&&o[0].final,'h24: 24 saatte çıkılmadı'); }
+  ok(E.posAct(mkP(),{verdict:'çık',rNow:-0.5,peakR:0,held:3,hold:-0.9,views:[]},{thr:0.35,medHold:2})==='none','h24: masa kararı uygulandı'); }
 ok(E.levFor(0.015)===20&&E.levFor(0.03)===18&&E.levFor(0.05)<=11,'levFor: '+[E.levFor(0.015),E.levFor(0.03),E.levFor(0.05)]);
 for(const sd of [0.012,0.02,0.03,0.054]){ const l=E.levFor(sd); ok(sd<=E.liqDist(l)*0.6||l===1,'stop likidasyondan önce değil: sd '+sd+' lev '+l); }
 // --- Arda: BTC 200 günlük ---

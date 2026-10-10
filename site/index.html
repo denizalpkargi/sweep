@@ -420,6 +420,7 @@ table.t tr.near td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
           <p>Eşik yükseldikçe R daha az eksi oluyor ama hiçbir eşikte artıya geçmiyor; 0,35 ile 0,45 arasındaki fark (0,03R) standart hatanın içinde. <b>0,35 seçildi</b>: eski masanın 0,30'una göre %58 daha çok sinyal, aynı beklenti. Yeni puanlama toplantıların %25'inde 0,30'u geçiyor (eskisi %12), yani masa iki kat daha sık konuşuyor. Asgari evet 3 (yalnız oy kullananlar sayılır). <b>Risk varsayılanı %3'te kaldı</b> (kullanıcının seçimi, 6 Ekim 2026; öneri %1 idi: efsane futures trader'larının ortak kuralı işlem başına %1–2). Hesap: −0,1R'lik işlemlerde %3 risk ayda ~%15 kayıp, %1'de ~%5.</p>
           <p><b>Masanın güveniyle risk (6 Ekim 2026 akşamı; kullanıcı "risk %10'a kadar artabilir, önemli olan masanın işleme ne kadar güvendiği" dedi):</b> taban risk %3, tavan %10 (ayarlar: "Taban risk %", "Güvenle risk en çok %"). Güven = puan payı (eşik → 0, eşik + 0,35 → 1) × not (A 1, B 0,5, C 0); tahmin defterinde masanın "gir" dediklerinin isabeti %50'nin altına inerse güven yarıya iner. Bileşenler aynı 173 bin toplantıdan seçildi (eşik 0,35, 11.701 sinyal): oy birliğinin bilgisi yok (oybirliğiyle alınan kararlar −0,07/−0,06R, bölünmüş masa −0,07/−0,10R, arası −0,14/−0,12R; bu yüzden formülde yok), not A iki yarıda da daha az kaybediyor (A −0,09/−0,02R, B −0,10/−0,11R, C −0,14/−0,11R), puan payı yalnız ikinci yarıda biraz iyi (güven ≥0,75 dilimi −0,11/+0,02R). Dürüst sonuç: hiçbir güven diliminde artı R yok; bu eşlemede ortalama risk %4,65, işlem başına bakiye kaybı −%0,45/−%0,36 (düz %3: −%0,31/−%0,29), yani büyütme beklenen kaybı ~1,4 kat artırıyor; eşit ağırlıklı ya da oybirlikli formüller ~2 kat. Eski "inanç boyu" (eşikte yarım risk) kaldırıldı. <b>Tam bütçe</b> (aynı gece; kullanıcı "masa elindeki bütçenin tamamını aktif olarak kullanmakta serbest, asıl amaç doğru kararlarla mümkün olduğunca çok işlem açması, veri topluyoruz" dedi): açık risk sınırı kaldırıldı (bütçeyi teminat sınırı belirler), aynı anda 6 pozisyon (3'tü), aynı yönde en çok 4 (2'ydi), günde 24 işlem / 12 kayıp (12/6'ydı). Karar kuralları (eşik, asgari oy, veto, not, korelasyon araları, koru modu) değişmedi; eski kayıtlı ayarlarda eski varsayılanda kalan sınırlar açılışta taşınır. Güven kazananı önceden gösteriyor mu, kâğıt bot ve tahmin defteri ölçecek.</p>
           <p><b>Kayıp süzgeci (10 Ekim 2026; kullanıcı karar kartında "Kayıp süzgeci"ni seçti):</b> masa 2020-06 → 2026-10 arşivinde, 319 coinde eşiği geçen 134 bin kararda oynatıldı. Long kararlar ortalamada shortlardan kötü (−0,14R / −0,08R) ama hepsi değil: BTC son 24 saatte yükselirken açılan longlar −0,16R, BTC düşmüşken açılanlar −0,08R (shortlarla aynı, her yıl daha iyi). Coinin 7 günlük trendine karşı girişler −0,15R (kalanlar −0,10R). Can bu yüzden longu yalnız BTC 24 saatte düşmüşken açtırıyor ve 7 günlük getirisi işlem yönünün tersine olan coinde girmiyor. Birlikte, BTC 200 kapısı kapalı: −0,116R → −0,069R (yarılar +0,046 / +0,049, t 2,9; son 12 ay +0,015, t 1,1). BTC 200 günlük kapısı aynı veride kaybı azaltmadı (7 yılın 5'inde kötü), kapatıldı. Eşikler (0) veriye bakılarak seçildi ve kalanlar hâlâ eksi: süzgeç kaybı azaltır, kenar yaratmaz. Pompa sonrası long kuralı (24 sa > %8) tek başına bir şey değiştirmedi. Ayrıntı <code>tests/kayip-suzgeci.py</code>. <b>Güncelleme (10 Ekim akşamı):</b> arşiv sonuçlarını üreten simülatörde zaman stopu mumun en kötü fiyatından çıkıyordu; düzeltilmiş simülatörle (24 coin, 6 ay) BTC 24 saat kuralı yalnız ilk yarıda tuttu, başka traderların 35.928 Hyperliquid işleminde ve canlı işlemlerde de tutmadı. Bu yüzden BTC kuralı kapalı, masa long açarken BTC'ye bakmıyor; yalnız 7 günlük trende karşı giriş yok (düzeltilmiş simde iki yarıda da kötü tarafta).</p>
+          <p><b>24 saatlik long (10 Ekim 2026 akşamı, test #47):</b> masa long derse yalnız BTC son 24 saatte düşmüşken ve Ozan coini evrenin en kötü onluğunda görmüyorsa girer; pozisyonun hedefi yok, stop aynı, 24 saat sonra kapanır; masanın pozisyon kararları bu longlara uygulanmaz. Arşivde (2020-06 → 2026-10, 2 kat stop, market giriş) bu longlar +0,027R (iki yarıda +0,017 / +0,039, son 12 ay +0,054); BTC kuralı olmadan aynı longlar −0,115R; Ozan süzgeciyle (2024-06'dan) +0,059R. Haftalık blok t 0,3 ve 2022–2023 eksi: kanıt değil, kâğıt bot ileriye ölçüyor. Shortlar eski planla.</p>
           <p><b>Rejim her şeyi belirliyor:</b> eşik 0,35'te longlar yukarı trendde ilk yarı −0,15R, ikinci yarı −0,03R; shortlar aşağı trendde ilk yarı −0,07R, ikinci yarı −0,20R. Yani masanın kârı hangi yarıda piyasanın hangi yöne gittiğine bağlı, kendi seçiminden gelen pay küçük. <b>Sonuç:</b> masadaki hiçbir üyenin 15 dakikalık okumasında 4 saatlik ufukta ölçülebilir bir kenar yok; masa puanı zayıf bir sıralama veriyor (en iyi dilim rastgeleden ~0,08R iyi) ama komisyon + kayma (~0,11R) bunu yiyor. İşareti değiştirebilecek şeyler: maliyeti düşürmek (limit/maker giriş, daha uzun tutuş, daha geniş stop) ya da geçmişte ölçülemeyen canlı verinin (OI, fonlama, kalabalık, liderler) gerçekten bilgi taşıması; bunu tahmin defteri ileriye dönük ölçüyor. Daha çok işlem = daha çok kayıt; bedeli işlem başına ~0,1R.</p></div>
         <div class="card"><h4>Trend sepeti · günlük trend takibi (6 Ekim 2026)</h4>
           <p><b>Kural:</b> BTC, ETH, SOL, BNB. Her coin günlük kapanışı 10/20/50/100 günlük ortalamaların kaçının üstündeyse o oranda long (0, ¼, ½, ¾, 1). BTC 50 günlük ortalamanın altındaysa hepsi nakit. Ağırlık = puan × min(hedef oynaklık ÷ 30 günlük oynaklık, üst sınır) ÷ 4; hedef oynaklık 1,4 (varsayılan; 6 Ekim'de 0,8 → 1,2 → 1,4), üst sınır 7; bakiye 200 $'a varınca 0,8'e iner (hedef modu); borsa kaldıracı 20x cross yalnız teminatı küçültür, etkin kaldıraç ortalama ≈1,9x. Günde bir, UTC 00:00'dan sonra dengelenir; fark hedefin %20'sinden azsa işlem yok. Stop ve hedef yok, trend dönünce satar. Masa'dan ayrı 100 $ sanal bakiye; Bot sekmesinde kart, ekransız botta <code>logs/trend-*.jsonl</code>.</p>
@@ -1344,7 +1345,12 @@ const DESK=[
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1.1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 // eşik, asgari evet ve katsayılar tests/backtest-masa.js ile seçildi (6 Ekim 2026, 24 coin × 6 ay, 169 bin toplantı); v: ayar sürümü (comMigrate)
-const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{longBtc24Max:null,r7dMin:0}};
+const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{longBtc24Max:null,r7dMin:0},l24:{holdH:24,btc24Max:0,rankMin:0.1}};
+// 10 Ekim 2026 akşamı, 24 saatlik long (test #47; kullanıcı araştırma döngüsünün önerisiyle "devam edelim" dedi; arastirma/dongu/2026-10-10-test44-birlesim.md):
+// long yalnız BTC son 24 saatte düşmüşken (btc24Max) ve Ozan coini evrenin en kötü onluğunda görmüyorsa (rankMin; gölgede olsa da veto); pozisyon hedefsiz,
+// stop aynı, holdH saat sonra zaman çıkışı, masanın pozisyon kararları ve dinamik hedef/stop uygulanmaz (plan.h24 → pozisyon h24). Arşivde (2020-06 → 2026-10,
+// stop 2 × sd, market giriş) bu longlar +0,027R (yarılar +0,017 / +0,039, son 12 ay +0,054); BTC kuralı olmadan aynı longlar −0,115R; Ozan süzgeciyle (2024-06'dan) +0,059R.
+// Haftalık blok t 0,3: kanıt değil, kâğıt botta ileriye sınanıyor. Shortlar eski planla. l24:false kapatır (config.json → masa).
 // 10 Ekim 2026, kayıp süzgeci (kullanıcı karar kartında "Kayıp süzgeci"; arastirma/kayip-suzgeci/kayip-suzgeci-2026-10-10.md): masa-archive örnekleri,
 // 319 coin, 2020-06 → 2026-10, eşiği geçen 134 bin karar. lf.longBtc24Max = long yalnız BTC son 24 saatte bundan az yükseldiyse (0: BTC düşmüşken);
 // BTC 24 sa yükselişteyken longlar −0,160R, düşüşteyken −0,076R (shortlarla aynı, −0,079R; her yıl daha iyi). Kullanıcı "long açmamak çok keskin" dedi, önceki
@@ -1482,6 +1488,10 @@ function committee(A, dir, c24, opts){
   const fm=facMember(A,dir,{now:opts.now}); set("fac",fm.v,fm.c,fm.txt); say("fac","açılış",fm.say);
   // sıralama modeli Ozan (rankmodel.js): coinin önümüzdeki 4/12 saatte evrendeki yeri; tahmin defterinde kanıtlanana kadar gölge oy (yazılır, puana girmez)
   const rk=typeof rkMember==='function'?rkMember(A,dir,{sym,now:opts.now}):{v:0,c:0,abst:true,idle:true,txt:"model yok",say:"Model yüklü değil, çekimserim."}; set("rank",rk.v,rk.c,rk.txt); say("rank","açılış",rk.say);
+  // 24 saatlik long (#47): BTC 24 saatte yükseldiyse ya da Ozan coini en kötü onlukta görüyorsa long yok
+  const l24=isL&&opts.l24?opts.l24:null; if(!veto&&l24){ const b24=l24.btc24Max!=null?btc24Of(A):null;
+    if(b24!=null&&b24>l24.btc24Max){ veto=`24 saatlik long: BTC 24 saatte ${pct(b24*100)}, long yok`; say("risk","açılış",`BTC son 24 saatte ${pct(b24*100)}. 24 saat tutulan longlar arşivde yalnız BTC düşmüşken artıda kaldı (+0,03R, yükselirken −0,12R); bekliyoruz.`); }
+    else if(l24.rankMin!=null&&isFinite(rk.p)&&rk.p<l24.rankMin){ veto=`24 saatlik long: Ozan coini evrenin en kötü %${Math.round(l24.rankMin*100)}'unda görüyor`; say("rank","tartışma",`Bu coin önümüzdeki saatlerde en zayıf onlukta (%${Math.round(rk.p*100)}). Arşivde bu dilimdeki longlar 24 saatte −0,14R yazdı; vetomu uyguluyorum.`); } }
   if(!veto&&tm.issues.length>=3&&ag.liq.v>0.5){ say("check","tartışma","Kerem, kurulumun üç şartı tutmuyor; bu kitaptaki süpürme değil. Güvenini kıs."); ag.liq.c=Math.max(0,ag.liq.c-0.2); chg.push("liq"); }
   /* ---- denetçi: kurulumu kapanmış işlemlerden çıkan derslerle karşılaştırır ---- */
   const au=audVoteFor(ag); ag.audit={id:"audit",v:au.v,c:au.c,txt:au.txt};
@@ -1510,7 +1520,7 @@ function committee(A, dir, c24, opts){
   const px=A.px; const holdH=best&&isFinite(best.hold)&&best.sw>0?clamp(Math.round(best.hold*1.5),2,12):null;
   const gl=agents.find(a=>a.id==="liq"), gf=agents.find(a=>a.id==="flow"); const swp=!!(gl&&!gl.abst&&gl.v>0.3), ofk=!!(gf&&!gf.abst&&gf.v>0); const grade=score>=opts.threshold+0.15&&swp&&ofk?"A":(swp||ofk)?"B":"C"; // goal.js aşama 2 ile aynı not
   const cf=typeof deskConf==="function"?deskConf({score,yes},opts.threshold,opts.minYes,grade,{confSpan:opts.confSpan}):null; const conf=cf?+cf.conf.toFixed(2):0; // masanın güveni (puan payı × not): risk tabanla tavan arasında bu oranda (goal.js aşama 3)
-  const sdP=sd*(opts.stopMult||1); const plan=veto?null:{holdH,conf,grade,entry:px,sd:sdP,sd0:sd,lev:levFor(sdP,BOT_CFG_DEF.lev),stop:isL?px*(1-sdP):px*(1+sdP),t1:isL?px*(1+1.5*sdP):px*(1-1.5*sdP),t2:isL?px*(1+runR*sdP):px*(1-runR*sdP),rr1:1.5,rr2:runR};
+  const sdP=sd*(opts.stopMult||1); const h24=!!l24; const plan=veto?null:{holdH:h24?l24.holdH:holdH,h24,conf,grade,entry:px,sd:sdP,sd0:sd,lev:levFor(sdP,BOT_CFG_DEF.lev),stop:isL?px*(1-sdP):px*(1+sdP),t1:isL?px*(1+1.5*sdP):px*(1-1.5*sdP),t2:isL?px*(1+runR*sdP):px*(1-runR*sdP),rr1:1.5,rr2:runR};
   const go=!veto&&score>=opts.threshold&&yes>=opts.minYes;
   const decision=veto?"veto":go?"giriş":score>=opts.threshold?"oy eksik":"bekle";
   say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${ptsT(score)}, ${yes}/${T.nAct} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sdP*100,2)}%${opts.stopMult>1?`, gürültünün ötesinde: hesaplanan stopun ${opts.stopMult} katı, boy o kadar küçük`:""}), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Burak: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy: masanın güveni %${Math.round(conf*100)} (puan eşiğin ${pts(score-opts.threshold)} üstünde, not ${grade}); risk tabandan tavana bu oranda, ${plan.lev}x.`:score>=opts.threshold?`Puan ${ptsT(score)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${ptsT(score)}, eşik ${pts(opts.threshold)}. Masa ikna olmadı, bekliyoruz.`);
@@ -1534,7 +1544,7 @@ const PD_CFG={exit:-0.35,reduce:-0.15,hold:0.1,exitShare:0.35,tpShare:0.4,tpMinR
 const PD_ACT={"tut":0,"kâr al":1,"stop sık":2,"azalt":3,"çık":4};
 function positionReview(A, pos, orders, c24, opts){
   const dir=pos.dir; const isL=dir==="long"; const sg=isL?1:-1; c24=isFinite(c24)?c24:0;
-  const c=committee(A,dir,c24,opts); const opp=committee(A,isL?"short":"long",c24,opts);
+  const o2=Object.assign({},opts,{l24:false}); const c=committee(A,dir,c24,o2); const opp=committee(A,isL?"short":"long",c24,o2); // pozisyon toplantısı giriş süzgecine bakmaz
   const kb=A.src&&A.src.k15L; const atr=kb&&kb.length>20?atrAt(kb,kb.length):A.med15*A.px; const atrRel=atr/A.px;
   const px=A.px; const pnlPct=(isL?(px/pos.entry-1):(1-px/pos.entry))*100; const liqAtr=pos.liq>0?Math.abs(px-pos.liq)/atr:NaN;
   const so=(orders||[]).filter(o=>o.sym===pos.sym&&(o.ro||o.cp)); const hasStop=so.some(o=>/STOP/.test(o.type))||pos.stop>0; const hasTp=so.some(o=>/TAKE_PROFIT/.test(o.type)||(o.px>0&&!/STOP/.test(o.type)))||pos.t1>0;
@@ -1607,6 +1617,7 @@ const posCtx=(p,liq)=>({sym:p.sym,dir:p.dir,entry:p.entry,liq,stop:p.stop,t1:p.t
    lock (kâr al: üyelerin %40'ı ya da 1R görüp 0,5R geri verme) · add (hedef 1'den sonra, kârda, bir kez yarım boy) · none */
 function posAct(p, rv, o){
   const rNow=rv.rNow, peakR=rv.peakR, held=rv.held; const mom=(rv.views&&rv.views.find(x=>x.id==="mom")||{v:0}).v;
+  if(p.h24) return "none"; // 24 saatlik long: yalnız stop ve zaman çıkışı (test #47)
   if(rv.verdict==="çık") return "exit";
   if(rv.verdict==="azalt"&&!p.reduced) return "reduce";
   if(held>Math.max(2,o.medHold*1.5)&&rNow>-0.3&&rNow<0.5&&rv.hold<PD_CFG.hold) return "time";
@@ -1691,6 +1702,7 @@ function paperStep(p, px, now, cfg){
   const isL=p.dir==="long"; const out=[]; p.hi=Math.max(p.hi,px); p.lo=Math.min(p.lo,px);
   const risk=p.risk0||Math.abs(p.entry-(p.stop0||p.stop));
   if(isL? px<=p.stop : px>=p.stop){ out.push({part:1,price:isL?p.stop*(1-cfg.slip):p.stop*(1+cfg.slip),k:"stop",t:p.stage==="open"?"Stop":"Kalan stop",taker:true,final:true}); return out; }
+  if(p.h24){ if(p.expiresAt && now>p.expiresAt) out.push({part:1,price:isL?px*(1-cfg.slip):px*(1+cfg.slip),k:"time",t:"24 saat doldu",taker:true,final:true}); return out; } // hedefsiz 24 saatlik long
   // erken kısmi kâr (varsayılan kapalı): hedef 1'den önce preR'de prePart kadarı kapanır, stop yerinde kalır
   if(cfg.preR>0&&p.stage==="open"&&!p.preDone&&risk>0&&(isL?px-p.entry:p.entry-px)>=cfg.preR*risk){ p.preDone=true; out.push({part:cfg.prePart||0.3,price:isL?p.entry+cfg.preR*risk:p.entry-cfg.preR*risk,k:"pre",t:`Erken kâr ${fx(cfg.preR,2)}R`,taker:false}); return out; }
   if(p.stage==="open" && (isL? px>=p.t1 : px<=p.t1)){ if(p.t1Part>=1){ out.push({part:1,price:p.t1,k:"tp1",t:"Hedef 1 (tamamı: 200 $ hedefi)",taker:false,final:true}); return out; }
@@ -2164,7 +2176,7 @@ function entryStages(x, ctx){
 function freePlan(x, es, ctx){
   const cfg=ctx.cfg, au=ctx.aud||{}; if(!cfg.freeMargin||(au.off&&au.off.free&&au.off.prune)) return null; if(es.grade==="C"||x.score<es.thr+cfg.freeEdge) return null;
   const now=ctx.now||Date.now(); const px=ctx.px||(()=>NaN); const opts=[];
-  for(const p of ctx.positions||[]){ const r=posR(p,px(p.sym)); const rev=p.lastReview&&isFinite(p.lastReview.score)?p.lastReview.score:p.score; const held=(now-p.openT)/60e3;
+  for(const p of ctx.positions||[]){ if(p.h24) continue; const r=posR(p,px(p.sym)); const rev=p.lastReview&&isFinite(p.lastReview.score)?p.lastReview.score:p.score; const held=(now-p.openT)/60e3;
     if(r>=cfg.freeMinR&&!(au.off&&au.off.free)){ const part=p.stage==="open"?0.5:1; opts.push({p,part,kind:"free",r,why:`${fx(r,2)}R kârda; ${part<1?"yarısı":"kalanı"} alınıyor, ${x.sym.replace("USDT","")} için yer açılıyor (puan ${pts(x.score)} > ${pts(rev)})`,margin:p.margin*part,rank:2+r}); }
     else if(r>-0.25&&held>=30&&isFinite(rev)&&rev<x.score-cfg.freeEdge&&rev<es.thr&&!(au.off&&au.off.prune)) opts.push({p,part:1,kind:"prune",r,why:`${fx(r,2)}R'de duruyor, masa artık ikna değil (${pts(rev)}); ${x.sym.replace("USDT","")} daha iyi (${pts(x.score)})`,margin:p.margin,rank:1-rev}); }
   opts.sort((a,b)=>b.rank-a.rank); const out=[]; let got=0, slotFree=!es.slot;
@@ -2174,7 +2186,7 @@ function freePlan(x, es, ctx){
 /* --- 4. açık pozisyonda dinamik hedef/stop ---
    ctx: {cfg,px,rv (positionReview sonucu ya da null),lvl (karşı taraftaki en yakın seviye),thr,gs,aud}. Döner: [{k,who,txt,stop?,t1?,t2?,t1Part?}] --- */
 function deskAdjust(p, ctx){
-  const cfg=ctx.cfg, px=ctx.px, out=[]; if(!cfg.dyn||!(px>0)) return out; const off=ctx.aud&&ctx.aud.off||{}; const isL=p.dir==="long", sg=isL?1:-1;
+  const cfg=ctx.cfg, px=ctx.px, out=[]; if(!cfg.dyn||!(px>0)||p.h24) return out; const off=ctx.aud&&ctx.aud.off||{}; const isL=p.dir==="long", sg=isL?1:-1;
   const r0=p.risk0||Math.abs(p.entry-(p.stop0||p.stop)); if(!(r0>0)) return out; const rNow=sg*(px-p.entry)/r0; const lv=R=>p.entry+sg*R*r0; const better=(a,b)=>sg*(a-b)>0;
   const rv=ctx.rv, thr=ctx.thr!=null?ctx.thr:cfg.threshold, gs=ctx.gs; const mom=rv&&rv.agents?(rv.agents.find(a=>a.id==="mom")||{v:0}).v:0;
   // hedef 1'de tamamını al: o fiyattaki kâr özkaynağı 200 $'a taşıyorsa
@@ -3828,14 +3840,14 @@ function botLivePx(sym){ const now=Date.now();
   return NaN; }
 function botOpenMarket(x,es){
   const cfg=bot.cfg; const isL=x.dir==="long"; const px=botLivePx(x.sym); if(!(px>0)){ botLog("skip",x.sym,"Taze fiyat yok (akış ve ticker 30 sn'den eski): market giriş yapılmadı."); return false; } if(!(x.sd>0)) return false;
-  const sd=x.sd; const stop=isL?px*(1-sd):px*(1+sd), t1=isL?px*(1+1.5*sd):px*(1-1.5*sd), t2=isL?px*(1+3*sd):px*(1-3*sd);
+  const sd=x.sd; const h24=!!(x.com&&x.com.plan&&x.com.plan.h24); const stop=isL?px*(1-sd):px*(1+sd), t1=h24?null:isL?px*(1+1.5*sd):px*(1-1.5*sd), t2=h24?null:isL?px*(1+3*sd):px*(1-3*sd);
   const pl=x.com&&x.com.plan; const lev=Math.min(cfg.lev||20,pl&&pl.lev||99); const risk=es?es.riskUsd:bot.bal*cfg.risk; const notional=risk/sd; const margin=notional/lev;
   if(margin+botMarginUsed()>bot.bal*0.95){ bot._noMargin={need:margin,free:Math.max(0,bot.bal*0.95-botMarginUsed())}; return false; }
   const fill=isL?px*(1+cfg.slip):px*(1-cfg.slip); const qty=notional/fill; const fee=notional*cfg.feeTaker; bot.bal-=fee; botDay().opens++;
   const votes=x.com.agents.map(a=>`${a.name||a.k} ${a.v>0?"+":""}${fx(a.v,1)}`);
   bot.positions.push({sym:x.sym,dir:x.dir,model:"KOMİTE",grade:x.grade,agents:x.com.agents,talk:x.com.talk,entry:fill,stop,t1,t2,rr1:1.5,rr2:x.com.plan?x.com.plan.rr2:3,lev,notional,margin,risk,risk0:Math.abs(fill-stop),stop0:stop,qty,qty0:qty,fees:fee,openT:Date.now(),expiresAt:Date.now()+((x.com.plan&&x.com.plan.holdH)||cfg.holdH)*3600e3,stage:"open",hi:fill,lo:fill,realized:0,score:x.score,yes:x.yes,votes,
-    entry0:fill,stages:es?es.stages:null,warn:es?es.warn:0,quality:es?es.grade:null,mode:es?es.gs.mode:null,freed:!!x.freed,decs:[],xs:[],labHold:!!(x.com.plan&&x.com.plan.holdH),bk0:bookRec(bot.book[x.sym],px),bkx:[]});
-  botLog("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · Can'ın kararı · puan ${ptsT(x.score)} · ${x.yes}/${DESK.length} evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · 1,5R ${fmtP(t1)} · 3R ${fmtP(t2)} · ${lev}x · pozisyon ${fmtB(notional)} · teminat ${fmtB(margin)} · risk ${fmtB(risk)}${es?` · not ${es.grade}${x.freed?" · yer açılarak":""}`:""}. Oylar: ${votes.join(", ")}.${es?" Aşamalar: "+stagesTxt(es):""}`);
+    entry0:fill,stages:es?es.stages:null,warn:es?es.warn:0,quality:es?es.grade:null,mode:es?es.gs.mode:null,freed:!!x.freed,decs:[],xs:[],labHold:!!(x.com.plan&&x.com.plan.holdH&&!h24),h24,bk0:bookRec(bot.book[x.sym],px),bkx:[]});
+  botLog("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · Can'ın kararı · puan ${ptsT(x.score)} · ${x.yes}/${DESK.length} evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · ${h24?`hedef yok, ${x.com.plan.holdH} saat sonra çıkış`:`1,5R ${fmtP(t1)} · 3R ${fmtP(t2)}`} · ${lev}x · pozisyon ${fmtB(notional)} · teminat ${fmtB(margin)} · risk ${fmtB(risk)}${es?` · not ${es.grade}${x.freed?" · yer açılarak":""}`:""}. Oylar: ${votes.join(", ")}.${es?" Aşamalar: "+stagesTxt(es):""}`);
   botSave(); botWsSync(); return true;
 }
 /* --- karar döngüsü: tarama bitince ve her dakika --- */
@@ -4207,7 +4219,7 @@ async function botManage(){
         
         const lp=(typeof ld!=="undefined"&&ld.profile)?` Tolga: liderlerin %${Math.round((ld.profile.addRate||0)*100)}'i kazanan pozisyona ekliyor.`:""; say("Baran",`hedef 1 alındı, masa hâlâ tut diyor (puan ${pts(rv.score)}); yarım boy ekliyorum.`+lp); say("Can",`Onay: ekleme bir kez, yarım boy. Ortalama giriş ${fmtP(p.entry)}, stop ${p.stop!==stop0?fmtP(stop0)+" → ":""}${fmtP(p.stop)}.`); botLog("add",p.sym,`Ekleme ${fmtP(fill)} · ${fmtB(addNotional)} · toplam ${fmtB(p.notional)} · teminat ${fmtB(p.margin)}.`); botSave(); continue; }
     }
-    if(rv.verdict==="tut"&&!p.heldNoted){ p.heldNoted=true; say("Can",`masa tut diyor (tutma puanı ${pts(rv.hold)}, ${rv.views.filter(a=>a.w&&a.v>0.15).length}/${rv.views.filter(a=>a.w).length} destek). Plan aynen: stop ${fmtP(p.stop)}, hedef ${fmtP(p.t1)} / ${fmtP(p.t2)}.`); }
+    if(rv.verdict==="tut"&&!p.heldNoted){ p.heldNoted=true; say("Can",`masa tut diyor (tutma puanı ${pts(rv.hold)}, ${rv.views.filter(a=>a.w&&a.v>0.15).length}/${rv.views.filter(a=>a.w).length} destek). Plan aynen: stop ${fmtP(p.stop)}, ${p.h24?"hedef yok, 24 saat dolunca çıkış":`hedef ${fmtP(p.t1)} / ${fmtP(p.t2)}`}.`); }
   } } finally{ if(bot._manT===run) bot._managing=false; }
 }
 /* --- Trend sepeti (src/trend.js): Masa'dan ayrı sanal bakiye, günde bir dengeleme, 5 dk'da bir işaretleme --- */

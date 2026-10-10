@@ -25,7 +25,12 @@ const DESK=[
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1.1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 // eşik, asgari evet ve katsayılar tests/backtest-masa.js ile seçildi (6 Ekim 2026, 24 coin × 6 ay, 169 bin toplantı); v: ayar sürümü (comMigrate)
-const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{longBtc24Max:null,r7dMin:0}};
+const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{longBtc24Max:null,r7dMin:0},l24:{holdH:24,btc24Max:0,rankMin:0.1}};
+// 10 Ekim 2026 akşamı, 24 saatlik long (test #47; kullanıcı araştırma döngüsünün önerisiyle "devam edelim" dedi; arastirma/dongu/2026-10-10-test44-birlesim.md):
+// long yalnız BTC son 24 saatte düşmüşken (btc24Max) ve Ozan coini evrenin en kötü onluğunda görmüyorsa (rankMin; gölgede olsa da veto); pozisyon hedefsiz,
+// stop aynı, holdH saat sonra zaman çıkışı, masanın pozisyon kararları ve dinamik hedef/stop uygulanmaz (plan.h24 → pozisyon h24). Arşivde (2020-06 → 2026-10,
+// stop 2 × sd, market giriş) bu longlar +0,027R (yarılar +0,017 / +0,039, son 12 ay +0,054); BTC kuralı olmadan aynı longlar −0,115R; Ozan süzgeciyle (2024-06'dan) +0,059R.
+// Haftalık blok t 0,3: kanıt değil, kâğıt botta ileriye sınanıyor. Shortlar eski planla. l24:false kapatır (config.json → masa).
 // 10 Ekim 2026, kayıp süzgeci (kullanıcı karar kartında "Kayıp süzgeci"; arastirma/kayip-suzgeci/kayip-suzgeci-2026-10-10.md): masa-archive örnekleri,
 // 319 coin, 2020-06 → 2026-10, eşiği geçen 134 bin karar. lf.longBtc24Max = long yalnız BTC son 24 saatte bundan az yükseldiyse (0: BTC düşmüşken);
 // BTC 24 sa yükselişteyken longlar −0,160R, düşüşteyken −0,076R (shortlarla aynı, −0,079R; her yıl daha iyi). Kullanıcı "long açmamak çok keskin" dedi, önceki
@@ -163,6 +168,10 @@ function committee(A, dir, c24, opts){
   const fm=facMember(A,dir,{now:opts.now}); set("fac",fm.v,fm.c,fm.txt); say("fac","açılış",fm.say);
   // sıralama modeli Ozan (rankmodel.js): coinin önümüzdeki 4/12 saatte evrendeki yeri; tahmin defterinde kanıtlanana kadar gölge oy (yazılır, puana girmez)
   const rk=typeof rkMember==='function'?rkMember(A,dir,{sym,now:opts.now}):{v:0,c:0,abst:true,idle:true,txt:"model yok",say:"Model yüklü değil, çekimserim."}; set("rank",rk.v,rk.c,rk.txt); say("rank","açılış",rk.say);
+  // 24 saatlik long (#47): BTC 24 saatte yükseldiyse ya da Ozan coini en kötü onlukta görüyorsa long yok
+  const l24=isL&&opts.l24?opts.l24:null; if(!veto&&l24){ const b24=l24.btc24Max!=null?btc24Of(A):null;
+    if(b24!=null&&b24>l24.btc24Max){ veto=`24 saatlik long: BTC 24 saatte ${pct(b24*100)}, long yok`; say("risk","açılış",`BTC son 24 saatte ${pct(b24*100)}. 24 saat tutulan longlar arşivde yalnız BTC düşmüşken artıda kaldı (+0,03R, yükselirken −0,12R); bekliyoruz.`); }
+    else if(l24.rankMin!=null&&isFinite(rk.p)&&rk.p<l24.rankMin){ veto=`24 saatlik long: Ozan coini evrenin en kötü %${Math.round(l24.rankMin*100)}'unda görüyor`; say("rank","tartışma",`Bu coin önümüzdeki saatlerde en zayıf onlukta (%${Math.round(rk.p*100)}). Arşivde bu dilimdeki longlar 24 saatte −0,14R yazdı; vetomu uyguluyorum.`); } }
   if(!veto&&tm.issues.length>=3&&ag.liq.v>0.5){ say("check","tartışma","Kerem, kurulumun üç şartı tutmuyor; bu kitaptaki süpürme değil. Güvenini kıs."); ag.liq.c=Math.max(0,ag.liq.c-0.2); chg.push("liq"); }
   /* ---- denetçi: kurulumu kapanmış işlemlerden çıkan derslerle karşılaştırır ---- */
   const au=audVoteFor(ag); ag.audit={id:"audit",v:au.v,c:au.c,txt:au.txt};
@@ -191,7 +200,7 @@ function committee(A, dir, c24, opts){
   const px=A.px; const holdH=best&&isFinite(best.hold)&&best.sw>0?clamp(Math.round(best.hold*1.5),2,12):null;
   const gl=agents.find(a=>a.id==="liq"), gf=agents.find(a=>a.id==="flow"); const swp=!!(gl&&!gl.abst&&gl.v>0.3), ofk=!!(gf&&!gf.abst&&gf.v>0); const grade=score>=opts.threshold+0.15&&swp&&ofk?"A":(swp||ofk)?"B":"C"; // goal.js aşama 2 ile aynı not
   const cf=typeof deskConf==="function"?deskConf({score,yes},opts.threshold,opts.minYes,grade,{confSpan:opts.confSpan}):null; const conf=cf?+cf.conf.toFixed(2):0; // masanın güveni (puan payı × not): risk tabanla tavan arasında bu oranda (goal.js aşama 3)
-  const sdP=sd*(opts.stopMult||1); const plan=veto?null:{holdH,conf,grade,entry:px,sd:sdP,sd0:sd,lev:levFor(sdP,BOT_CFG_DEF.lev),stop:isL?px*(1-sdP):px*(1+sdP),t1:isL?px*(1+1.5*sdP):px*(1-1.5*sdP),t2:isL?px*(1+runR*sdP):px*(1-runR*sdP),rr1:1.5,rr2:runR};
+  const sdP=sd*(opts.stopMult||1); const h24=!!l24; const plan=veto?null:{holdH:h24?l24.holdH:holdH,h24,conf,grade,entry:px,sd:sdP,sd0:sd,lev:levFor(sdP,BOT_CFG_DEF.lev),stop:isL?px*(1-sdP):px*(1+sdP),t1:isL?px*(1+1.5*sdP):px*(1-1.5*sdP),t2:isL?px*(1+runR*sdP):px*(1-runR*sdP),rr1:1.5,rr2:runR};
   const go=!veto&&score>=opts.threshold&&yes>=opts.minYes;
   const decision=veto?"veto":go?"giriş":score>=opts.threshold?"oy eksik":"bekle";
   say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${ptsT(score)}, ${yes}/${T.nAct} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sdP*100,2)}%${opts.stopMult>1?`, gürültünün ötesinde: hesaplanan stopun ${opts.stopMult} katı, boy o kadar küçük`:""}), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Burak: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy: masanın güveni %${Math.round(conf*100)} (puan eşiğin ${pts(score-opts.threshold)} üstünde, not ${grade}); risk tabandan tavana bu oranda, ${plan.lev}x.`:score>=opts.threshold?`Puan ${ptsT(score)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${ptsT(score)}, eşik ${pts(opts.threshold)}. Masa ikna olmadı, bekliyoruz.`);
@@ -215,7 +224,7 @@ const PD_CFG={exit:-0.35,reduce:-0.15,hold:0.1,exitShare:0.35,tpShare:0.4,tpMinR
 const PD_ACT={"tut":0,"kâr al":1,"stop sık":2,"azalt":3,"çık":4};
 function positionReview(A, pos, orders, c24, opts){
   const dir=pos.dir; const isL=dir==="long"; const sg=isL?1:-1; c24=isFinite(c24)?c24:0;
-  const c=committee(A,dir,c24,opts); const opp=committee(A,isL?"short":"long",c24,opts);
+  const o2=Object.assign({},opts,{l24:false}); const c=committee(A,dir,c24,o2); const opp=committee(A,isL?"short":"long",c24,o2); // pozisyon toplantısı giriş süzgecine bakmaz
   const kb=A.src&&A.src.k15L; const atr=kb&&kb.length>20?atrAt(kb,kb.length):A.med15*A.px; const atrRel=atr/A.px;
   const px=A.px; const pnlPct=(isL?(px/pos.entry-1):(1-px/pos.entry))*100; const liqAtr=pos.liq>0?Math.abs(px-pos.liq)/atr:NaN;
   const so=(orders||[]).filter(o=>o.sym===pos.sym&&(o.ro||o.cp)); const hasStop=so.some(o=>/STOP/.test(o.type))||pos.stop>0; const hasTp=so.some(o=>/TAKE_PROFIT/.test(o.type)||(o.px>0&&!/STOP/.test(o.type)))||pos.t1>0;
@@ -288,6 +297,7 @@ const posCtx=(p,liq)=>({sym:p.sym,dir:p.dir,entry:p.entry,liq,stop:p.stop,t1:p.t
    lock (kâr al: üyelerin %40'ı ya da 1R görüp 0,5R geri verme) · add (hedef 1'den sonra, kârda, bir kez yarım boy) · none */
 function posAct(p, rv, o){
   const rNow=rv.rNow, peakR=rv.peakR, held=rv.held; const mom=(rv.views&&rv.views.find(x=>x.id==="mom")||{v:0}).v;
+  if(p.h24) return "none"; // 24 saatlik long: yalnız stop ve zaman çıkışı (test #47)
   if(rv.verdict==="çık") return "exit";
   if(rv.verdict==="azalt"&&!p.reduced) return "reduce";
   if(held>Math.max(2,o.medHold*1.5)&&rNow>-0.3&&rNow<0.5&&rv.hold<PD_CFG.hold) return "time";
@@ -372,6 +382,7 @@ function paperStep(p, px, now, cfg){
   const isL=p.dir==="long"; const out=[]; p.hi=Math.max(p.hi,px); p.lo=Math.min(p.lo,px);
   const risk=p.risk0||Math.abs(p.entry-(p.stop0||p.stop));
   if(isL? px<=p.stop : px>=p.stop){ out.push({part:1,price:isL?p.stop*(1-cfg.slip):p.stop*(1+cfg.slip),k:"stop",t:p.stage==="open"?"Stop":"Kalan stop",taker:true,final:true}); return out; }
+  if(p.h24){ if(p.expiresAt && now>p.expiresAt) out.push({part:1,price:isL?px*(1-cfg.slip):px*(1+cfg.slip),k:"time",t:"24 saat doldu",taker:true,final:true}); return out; } // hedefsiz 24 saatlik long
   // erken kısmi kâr (varsayılan kapalı): hedef 1'den önce preR'de prePart kadarı kapanır, stop yerinde kalır
   if(cfg.preR>0&&p.stage==="open"&&!p.preDone&&risk>0&&(isL?px-p.entry:p.entry-px)>=cfg.preR*risk){ p.preDone=true; out.push({part:cfg.prePart||0.3,price:isL?p.entry+cfg.preR*risk:p.entry-cfg.preR*risk,k:"pre",t:`Erken kâr ${fx(cfg.preR,2)}R`,taker:false}); return out; }
   if(p.stage==="open" && (isL? px>=p.t1 : px<=p.t1)){ if(p.t1Part>=1){ out.push({part:1,price:p.t1,k:"tp1",t:"Hedef 1 (tamamı: 200 $ hedefi)",taker:false,final:true}); return out; }

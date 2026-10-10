@@ -24,7 +24,7 @@ const srv=http.createServer((req,res)=>{ let b=''; req.on('data',d=>b+=d); req.o
   const fetchFn=(u,o)=>String(u).startsWith(base)?globalThis.fetch(u,o):mock.fetch(u,o);
   const E=loadEngine({localStorage,fetch:fetchFn});
   // gerçek görünümlü analiz (sahte Binance: süpürme → MSS → OTE)
-  E.COM_DEF.btc200=false; E.COM_DEF.lf=false; // kuyruk testi iki yönü de ister; Arda'nın BTC 200 günlük kapısı kovner-test.js'te sınanır
+  E.COM_DEF.btc200=false; E.COM_DEF.lf=false; E.COM_DEF.l24=false; // kuyruk testi iki yönü de ister (24 saatlik long kuralı kovner-test.js'te); Arda'nın BTC 200 günlük kapısı kovner-test.js'te sınanır
   const [t24,prem]=await Promise.all([E.j('/fapi/v1/ticker/24hr?symbol=ENAUSDT'),E.j('/fapi/v1/premiumIndex?symbol=ENAUSDT')]); const row=await E.scanOne({t24,prem}); const A=E.analyze(row._f,row._s);
   /* --- 1. açık pozisyon toplantısı: 13 üyenin hepsi pozisyonu görür --- */
   const now=Date.now(); const p={id:"ENAUSDT-1",sym:"ENAUSDT",dir:"long",entry:A.px*0.985,stop:A.px*0.97,stop0:A.px*0.97,t1:A.px*1.01,t2:A.px*1.03,risk0:A.px*0.015,hi:A.px*1.012,lo:A.px*0.98,openT:now-3*3600e3,expiresAt:now+5*3600e3,stage:"open",qty:100,qty0:100};

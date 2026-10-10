@@ -97,7 +97,7 @@ function entryStages(x, ctx){
 function freePlan(x, es, ctx){
   const cfg=ctx.cfg, au=ctx.aud||{}; if(!cfg.freeMargin||(au.off&&au.off.free&&au.off.prune)) return null; if(es.grade==="C"||x.score<es.thr+cfg.freeEdge) return null;
   const now=ctx.now||Date.now(); const px=ctx.px||(()=>NaN); const opts=[];
-  for(const p of ctx.positions||[]){ const r=posR(p,px(p.sym)); const rev=p.lastReview&&isFinite(p.lastReview.score)?p.lastReview.score:p.score; const held=(now-p.openT)/60e3;
+  for(const p of ctx.positions||[]){ if(p.h24) continue; const r=posR(p,px(p.sym)); const rev=p.lastReview&&isFinite(p.lastReview.score)?p.lastReview.score:p.score; const held=(now-p.openT)/60e3;
     if(r>=cfg.freeMinR&&!(au.off&&au.off.free)){ const part=p.stage==="open"?0.5:1; opts.push({p,part,kind:"free",r,why:`${fx(r,2)}R kârda; ${part<1?"yarısı":"kalanı"} alınıyor, ${x.sym.replace("USDT","")} için yer açılıyor (puan ${pts(x.score)} > ${pts(rev)})`,margin:p.margin*part,rank:2+r}); }
     else if(r>-0.25&&held>=30&&isFinite(rev)&&rev<x.score-cfg.freeEdge&&rev<es.thr&&!(au.off&&au.off.prune)) opts.push({p,part:1,kind:"prune",r,why:`${fx(r,2)}R'de duruyor, masa artık ikna değil (${pts(rev)}); ${x.sym.replace("USDT","")} daha iyi (${pts(x.score)})`,margin:p.margin,rank:1-rev}); }
   opts.sort((a,b)=>b.rank-a.rank); const out=[]; let got=0, slotFree=!es.slot;
@@ -107,7 +107,7 @@ function freePlan(x, es, ctx){
 /* --- 4. açık pozisyonda dinamik hedef/stop ---
    ctx: {cfg,px,rv (positionReview sonucu ya da null),lvl (karşı taraftaki en yakın seviye),thr,gs,aud}. Döner: [{k,who,txt,stop?,t1?,t2?,t1Part?}] --- */
 function deskAdjust(p, ctx){
-  const cfg=ctx.cfg, px=ctx.px, out=[]; if(!cfg.dyn||!(px>0)) return out; const off=ctx.aud&&ctx.aud.off||{}; const isL=p.dir==="long", sg=isL?1:-1;
+  const cfg=ctx.cfg, px=ctx.px, out=[]; if(!cfg.dyn||!(px>0)||p.h24) return out; const off=ctx.aud&&ctx.aud.off||{}; const isL=p.dir==="long", sg=isL?1:-1;
   const r0=p.risk0||Math.abs(p.entry-(p.stop0||p.stop)); if(!(r0>0)) return out; const rNow=sg*(px-p.entry)/r0; const lv=R=>p.entry+sg*R*r0; const better=(a,b)=>sg*(a-b)>0;
   const rv=ctx.rv, thr=ctx.thr!=null?ctx.thr:cfg.threshold, gs=ctx.gs; const mom=rv&&rv.agents?(rv.agents.find(a=>a.id==="mom")||{v:0}).v:0;
   // hedef 1'de tamamını al: o fiyattaki kâr özkaynağı 200 $'a taşıyorsa
