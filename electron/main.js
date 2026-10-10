@@ -70,7 +70,8 @@ function readJson(f){ try{ const o=JSON.parse(fs.readFileSync(f,'utf8')); return
 function cleanData(o){ const d=o&&o.data&&typeof o.data==='object'?o.data:o; const r={}; for(const [k,v] of Object.entries(d||{})) if(/^(st|rp)-/.test(k)&&!SECRET.has(k)&&typeof v==='string') r[k]=v; return r.hasOwnProperty('st-bot')?r:null; }
 function restoreFile(){
   const dirs=[stateDir()]; for(const k of ['downloads','desktop']) try{ dirs.push(app.getPath(k)); }catch(e){} try{ dirs.push(path.join(app.getPath('home'),'Downloads')); }catch(e){}
-  let best=null; for(const d of dirs){ try{ for(const f of fs.readdirSync(d)) if(/^sweep-geri-yukle.*\.json$/i.test(f)){ const p=path.join(d,f), t=fs.statSync(p).mtimeMs; if(!best||t>best.t) best={p,t}; } }catch(e){} }
+  // 10 Ekim 2026: uygulanmış dosya (.uygulandi-<zaman>.json) da .json ile bittiği için her açılışta yeniden uygulanıyor, kaydı 9 Ekim'e döndürüyordu.
+  let best=null; for(const d of dirs){ try{ for(const f of fs.readdirSync(d)) if(/^sweep-geri-yukle.*\.json$/i.test(f)&&!/\.uygulandi-/i.test(f)){ const p=path.join(d,f), t=fs.statSync(p).mtimeMs; if(!best||t>best.t) best={p,t}; } }catch(e){} }
   return best&&best.p;
 }
 ipcMain.on('sweep-restore',(e,q)=>{
