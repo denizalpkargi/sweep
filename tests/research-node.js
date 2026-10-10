@@ -31,7 +31,7 @@ globalThis.fetch=(u,opt)=>{ if(u.includes('/copy-trade/')){ const b=opt&&opt.bod
     return resp({code:'000000',data:{list:[]}}); }
   const sym=(u.match(/symbol=(\w+)/)||[])[1]; const k=data.klines[sym]; if(!k) return Promise.resolve({ok:false,status:400,headers:{get:()=>null},text:()=>Promise.resolve('bad symbol')});
   const st=+(u.match(/startTime=(\d+)/)||[])[1]; const lim=+(u.match(/limit=(\d+)/)||[])[1]||500; const rows=st?k.filter(x=>x[0]>=st).slice(0,lim):k.slice(-lim); return resp(rows); };
-const E=loadEngine(); E.ldRate.gap=0; const fails=[]; const ok=(c,msg)=>{ if(!c) fails.push(msg); console.log((c?'✓ ':'✗ ')+msg); };
+const E=loadEngine(); E.ldRate.gap=0; E.COM_DEF.lf=false; const fails=[]; const ok=(c,msg)=>{ if(!c) fails.push(msg); console.log((c?'✓ ':'✗ ')+msg); };
 (async()=>{
   E.ld.list=data.leaders.map(x=>({id:String(x.leadPortfolioId),nick:x.nickname,roi:+x.roi,aum:+x.aum,copiers:+x.currentCopyCount,mdd:+x.mdd}));
   const t0=Date.now(); await E.labHarvest(99); console.log(`toplama: ${E.lab.trades.length} işlem, ${((Date.now()-t0)/1000).toFixed(1)} sn`);
