@@ -12,3 +12,7 @@ tests/audit-*.json
 tests/lessons-report.txt
 tests/legends-report.txt
 tests/_lessons*.json
+tests/hl/*.json
+tests/hl/*.jsonl
+tests/hl/*.csv
+tests/hl/*.txt
