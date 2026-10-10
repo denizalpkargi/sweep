@@ -24,7 +24,13 @@ const DESK=[
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1.1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 // eşik, asgari evet ve katsayılar tests/backtest-masa.js ile seçildi (6 Ekim 2026, 24 coin × 6 ay, 169 bin toplantı); v: ayar sürümü (comMigrate)
-const COM_DEF={threshold:0.35,minYes:3,v:3};
+const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:true};
+// 7 Ekim 2026 (arastirma/gun-incelemesi-2026-10-07.md, kullanıcı "devam"): stopMult = plan stopu masanın hesapladığı stopun bu katı, $ risk aynı (boy küçülür);
+// 6 ayda 24 coinde −0,040R → −0,011R (iki yarıda da iyi). btc200 = Arda'nın kapısı: long yalnız BTC günlük 200 ortalamanın üstünde, short yalnız altında (−0,040 → −0,020R).
+// BTC'nin günlük SMA200'üne göre fiyatın yeri (oran); veri yoksa null (geriye dönük testte btcCache yok → kapı kapalı)
+function btc200Rel(){ const d=(typeof btcCache!=="undefined"&&btcCache)?btcCache.d:null; if(!d||d.length<202) return null; const now=Date.now(); const closed=d.filter(x=>x.t+864e5<=now); if(closed.length<200) return null; const sma=closed.slice(-200).reduce((a,x)=>a+x.c,0)/200; return d[d.length-1].c/sma-1; }
+// stop uzaklığına göre en yüksek güvenli kaldıraç: stop, likidasyon mesafesinin %60'ını geçmesin (Can'ın vetosuyla aynı ölçü)
+function levFor(sd,max){ max=max||20; let l=max; while(l>1&&sd>liqDist(l)*0.6) l--; return l; }
 /* ---------- İkna turu ----------
    Her üye, diğerlerinin güvenle ağırlıklı görüşünü (Σ w·c·v / Σ w·c) dinler. Güveni düşük olan çok, yüksek olan az değişir:
    v ← v + pull · (1 − c) · (diğerlerinin ortalama güveni) · (diğerlerinin görüşü − v), rounds tur. Çekimserler dinlemez, konuşmaz.
@@ -114,6 +120,7 @@ function committee(A, dir, c24, opts){
   say("mom","açılış",`Rüzgâr puanı ${A.score>0?"+":""}${A.score}, hacim ×${fx(A.volRel,1)}. ${mv>0.4?"Hareket var, beklemeyelim.":mv>0?"Momentum ılık, ben yine de varım.":"Momentum karşı tarafta, kovalamam."}${A.climax&&isL?" Climax mumu gördüm, tepede alıcı olmak istemem.":""}${A.capit&&!isL?" Kapitülasyon mumu var, dipte satmam.":""}`);
   const cap=liqDist(20)*0.6; const pump=isL?c24>15:c24<-15; const fundBad=isL?A.fund>0.001:A.fund<-0.001;
   let veto=null; if(sd>cap) veto=`oynaklık 20x stopuna sığmıyor (${fx(sd*100,1)}%)`; else if(pump) veto=`24 saatte ${pct(c24)}: kovalama`; else if(fundBad) veto=`fonlama aşırı (${fx(A.fund*100,3)}%)`;
+  const b200=opts.btc200?btc200Rel():null; if(!veto&&b200!=null&&(isL?b200<0:b200>0)){ veto=`Arda: BTC günlük 200 ortalamanın ${b200<0?"altında":"üstünde"} (${pct(b200*100)}), ${D} yok`; say("macro","açılış",`BTC 200 günlük ortalamanın ${b200<0?"altında":"üstünde"} (${pct(b200*100)}). Bu rejimde ${D} açmıyoruz; 6 aylık testte kapı iki yarıda da kaybı azalttı.`); }
   let rv=veto?-1:0.6; if(!veto){ if(isL&&A.distrib) rv-=0.4; if(!isL&&A.accum) rv-=0.4; if(isL?A.fund>0.0005:A.fund<-0.0005) rv-=0.2; if(isL&&A.climax) rv-=0.2; if(!isL&&A.capit) rv-=0.2; }
   if(typeof AUD!=="undefined"&&AUD&&AUD.summary){ const S=AUD.summary; say("audit","açılış",`Kayıtta ${S.n} kapanmış işlem: kazanma %${Math.round(S.wr*100)}, ortalama ${S.avg>=0?"+":""}${fx(S.avg,2)}R.${AUD.lessons.length?" Çıkardığımız dersler: "+AUD.lessons.map(l=>l.t.toLowerCase()).join(", ")+".":" Henüz kesin bir ders yok."} Tartışmada kurulumu bunlarla karşılaştıracağım.`); }
   set("risk",rv,0.8,veto?"VETO: "+veto:`stop ${fx(sd*100,2)}% · 20x'e sığar · fonlama ${fx(A.fund*100,4)}%`);
@@ -167,10 +174,10 @@ function committee(A, dir, c24, opts){
   const px=A.px; const holdH=best&&isFinite(best.hold)&&best.sw>0?clamp(Math.round(best.hold*1.5),2,12):null;
   const gl=agents.find(a=>a.id==="liq"), gf=agents.find(a=>a.id==="flow"); const swp=!!(gl&&!gl.abst&&gl.v>0.3), ofk=!!(gf&&!gf.abst&&gf.v>0); const grade=score>=opts.threshold+0.15&&swp&&ofk?"A":(swp||ofk)?"B":"C"; // goal.js aşama 2 ile aynı not
   const cf=typeof deskConf==="function"?deskConf({score,yes},opts.threshold,opts.minYes,grade,{confSpan:opts.confSpan}):null; const conf=cf?+cf.conf.toFixed(2):0; // masanın güveni (puan payı × not): risk tabanla tavan arasında bu oranda (goal.js aşama 3)
-  const plan=veto?null:{holdH,conf,grade,entry:px,sd,stop:isL?px*(1-sd):px*(1+sd),t1:isL?px*(1+1.5*sd):px*(1-1.5*sd),t2:isL?px*(1+runR*sd):px*(1-runR*sd),rr1:1.5,rr2:runR};
+  const sdP=sd*(opts.stopMult||1); const plan=veto?null:{holdH,conf,grade,entry:px,sd:sdP,sd0:sd,lev:levFor(sdP,BOT_CFG_DEF.lev),stop:isL?px*(1-sdP):px*(1+sdP),t1:isL?px*(1+1.5*sdP):px*(1-1.5*sdP),t2:isL?px*(1+runR*sdP):px*(1-runR*sdP),rr1:1.5,rr2:runR};
   const go=!veto&&score>=opts.threshold&&yes>=opts.minYes;
   const decision=veto?"veto":go?"giriş":score>=opts.threshold?"oy eksik":"bekle";
-  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${ptsT(score)}, ${yes}/${T.nAct} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sd*100,2)}%), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Burak: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy: masanın güveni %${Math.round(conf*100)} (puan eşiğin ${pts(score-opts.threshold)} üstünde, not ${grade}); risk tabandan tavana bu oranda, 20x.`:score>=opts.threshold?`Puan ${ptsT(score)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${ptsT(score)}, eşik ${pts(opts.threshold)}. Masa ikna olmadı, bekliyoruz.`);
+  say("risk","karar",veto?`Karar: veto. ${veto}.`:go?`Karar: ${D} giriş. Puan ${ptsT(score)}, ${yes}/${T.nAct} evet. Market ${fmtP(px)}, stop ${fmtP(plan.stop)} (${fx(sdP*100,2)}%${opts.stopMult>1?`, gürültünün ötesinde: hesaplanan stopun ${opts.stopMult} katı, boy o kadar küçük`:""}), 1,5R'de yarısı ${fmtP(plan.t1)} ve stop girişe, kalan ${runR}R ${fmtP(plan.t2)}. Zaman stopu ${holdH?holdH+" saat (Burak: liderlerin medyan tutuşu × 1,5)":"8 saat"}. Boy: masanın güveni %${Math.round(conf*100)} (puan eşiğin ${pts(score-opts.threshold)} üstünde, not ${grade}); risk tabandan tavana bu oranda, ${plan.lev}x.`:score>=opts.threshold?`Puan ${ptsT(score)} eşiği geçiyor ama ${yes} evet var, ${opts.minYes} gerekli. Bekliyoruz.`:`Puan ${ptsT(score)}, eşik ${pts(opts.threshold)}. Masa ikna olmadı, bekliyoruz.`);
   // ham girdiler: karar günlüğünde (headless JSONL) sonradan analiz için
   const r4=v=>isFinite(v)?+(+v).toFixed(4):null;
   const feat={px:A.px,c24:r4(c24),trend:A.trend,trendScore:A.trendScore,st:A.st,stage:r?r.stage:null,grade:r?r.grade:null,kz:r&&r.kz||null,pool:r&&r.pool?r.pool.name:null,poolW:r&&r.pool?r.pool.w:null,rsOk:!!(q&&q.rsOk),rsStage:q?q.stage:null,

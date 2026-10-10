@@ -78,6 +78,8 @@ eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P
 if(!eng.includes('function dipClose')) throw new Error('dip insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'turtle.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function ttClose')) throw new Error('turtle insert failed');
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'kovner.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function kovClose')) throw new Error('kovner insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'account.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function acctStart')) throw new Error('account insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'leaders.js','utf8')+`\n// backtest: every completed sequence in the history`);
