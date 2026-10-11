@@ -5,12 +5,12 @@ const now=Date.UTC(2026,9,11,12,7); const mk=(iv,n,seed,end)=>{ let p=100*seed, 
 const end15=Math.floor(now/9e5)*9e5+9e5;
 function fakeA(seed){ return {px:100,fund:0.0001,trendScore:0,st:0,trend:"flat",score:0,volRel:1,tk30:1,med15:0.004,src:{k15L:mk(9e5,100,seed,end15),k1h:mk(36e5,60,seed,Math.floor(now/36e5)*36e5+36e5),k4h:mk(144e5,60,seed,Math.floor(now/144e5)*144e5+144e5),k1d:mk(864e5,120,seed,Math.floor(now/864e5)*864e5+864e5),
   btc15:mk(9e5,1500,1.7,end15),oi5raw:Array.from({length:24},(_,i)=>({timestamp:now-(24-i)*3e5,sumOpenInterestValue:String(1e7*(1+0.001*i*seed))})),tp5:Array.from({length:8},(_,i)=>({timestamp:now-(8-i)*3e5,longShortRatio:String(1.2+0.01*i)})),gl5:Array.from({length:8},(_,i)=>({timestamp:now-(8-i)*3e5,longShortRatio:String(2-0.02*i*seed)})),fr:0.0001}}; }
-// 1) model yokken: üyeler kural oyuyla, model bayrağı yok
-const E0=loadEngine(); ok(!E0.uyeOn(),'varsayılan dosyada model yok ya da yüklü');
+// 1) dosyadaki model (yer tutucu ya da bilgisayarda dışa aktarılmış)
+const E0=loadEngine(); console.log('dosyadaki model', E0.uyeOn()?Object.keys(E0.UYE_MODEL.fams).join(','):'yok');
 // 2) sahte model: Emre z30d, Baran z1 ile sıralar (tek bölmeli ağaç: büyük değer → yüksek puan)
 const stump=f=>({feats:[f],trees:[{s:[0],t:[0],m:[4],l:[-1],r:[-2],v:[-1,1]},{s:[],t:[],m:[],l:[],r:[],v:[0]}]});
 const fake={at:'test',fams:{trend:{models:{4:stump('z30d'),12:stump('x_z30d')}},mom:{models:{4:stump('z1'),12:stump('x_z1')}}}};
-const E=loadEngine({patch:s=>s.replace('const UYE_MODEL=null;','const UYE_MODEL='+JSON.stringify(fake)+';')}); ok(E.uyeOn(),'sahte model yüklenmeli');
+const E=loadEngine({patch:s=>s.replace(/const UYE_MODEL=[^\n]*;/,()=>'const UYE_MODEL='+JSON.stringify(fake)+';')}); ok(E.uyeOn(),'sahte model yüklenmeli');
 for(let i=0;i<20;i++) E.rkScore('S'+i+'USDT',fakeA(1+i*0.07),now);
 let seen=0, both=0;
 for(let i=0;i<20;i++){ const a=fakeA(1+i*0.07), sym='S'+i+'USDT';
