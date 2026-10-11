@@ -138,18 +138,18 @@
 
 | Strateji | Evren | Alınan / atlanan | Yıllık | En büyük düşüş | Sharpe (aylık) | En kötü ay |
 |---|---|---|---|---|---|---|
-| Data Trader Stoch + RSI + MACD (risk %0.5) | ana 20 | 499 / 141 | 5 % | -12 % | 0,77 | -6 % |
-| Data Trader Stoch + RSI + MACD (risk %1) | ana 20 | 484 / 156 | 9 % | -23 % | 0,74 | -11 % |
-| Data Trader Stoch + RSI + MACD (risk %0.5) | geniş | 473 / 1302 | 3 % | -8 % | 0,78 | -6 % |
-| Data Trader Stoch + RSI + MACD (risk %1) | geniş | 471 / 1304 | 6 % | -15 % | 0,73 | -12 % |
-| Data Trader Stoch + RSI + MACD · ana 20 dışı (risk %0.5) | geniş | 642 / 580 | 1 % | -18 % | 0,14 | -5 % |
-| Data Trader Stoch + RSI + MACD · ana 20 dışı (risk %1) | geniş | 641 / 581 | 1 % | -34 % | 0,11 | -9 % |
-| Ichimoku (risk %0.5) | ana 20 | 468 / 3739 | 6 % | -9 % | 2,06 | -7 % |
-| Ichimoku (risk %1) | ana 20 | 505 / 3702 | 12 % | -17 % | 1,72 | -12 % |
-| Ichimoku (risk %0.5) | geniş | 362 / 9883 | 2 % | -14 % | 0,97 | -9 % |
-| Ichimoku (risk %1) | geniş | 384 / 9861 | 4 % | -29 % | 0,96 | -16 % |
-| Ichimoku · ana 20 dışı (risk %0.5) | geniş | 284 / 6304 | 1 % | -12 % | 0,40 | -7 % |
-| Ichimoku · ana 20 dışı (risk %1) | geniş | 374 / 6214 | -0 % | -27 % | 0,01 | -14 % |
+| Data Trader Stoch + RSI + MACD (risk %0.5) | ana 20 | 634 / 6 | 6 % | -12 % | 0,70 | -6 % |
+| Data Trader Stoch + RSI + MACD (risk %1) | ana 20 | 630 / 10 | 11 % | -23 % | 0,71 | -12 % |
+| Data Trader Stoch + RSI + MACD (risk %0.5) | geniş | 1432 / 343 | 2 % | -22 % | 0,24 | -10 % |
+| Data Trader Stoch + RSI + MACD (risk %1) | geniş | 1424 / 351 | 4 % | -38 % | 0,27 | -19 % |
+| Data Trader Stoch + RSI + MACD · ana 20 dışı (risk %0.5) | geniş | 1077 / 145 | 1 % | -19 % | 0,19 | -7 % |
+| Data Trader Stoch + RSI + MACD · ana 20 dışı (risk %1) | geniş | 1076 / 146 | 2 % | -33 % | 0,20 | -14 % |
+| Ichimoku (risk %0.5) | ana 20 | 3989 / 218 | 28 % | -25 % | 1,42 | -15 % |
+| Ichimoku (risk %1) | ana 20 | 3882 / 325 | 50 % | -41 % | 1,33 | -24 % |
+| Ichimoku (risk %0.5) | geniş | 6891 / 3354 | 41 % | -23 % | 1,73 | -14 % |
+| Ichimoku (risk %1) | geniş | 6779 / 3466 | 87 % | -41 % | 1,72 | -27 % |
+| Ichimoku · ana 20 dışı (risk %0.5) | geniş | 5540 / 1048 | 29 % | -22 % | 1,47 | -10 % |
+| Ichimoku · ana 20 dışı (risk %1) | geniş | 5518 / 1070 | 59 % | -39 % | 1,43 | -21 % |
 
 İki adayın aylık ortalama R'si arasındaki korelasyon (ana 20, 4 sa): 0,18 (80 ay).
 
@@ -157,4 +157,4 @@
 
 Sosyal medya taramasında ve bu testte toplam yaklaşık 167 ayar denendi. İlk süzgeçteki 88 ayarın "fark t"leri: en yüksek 5,6, 4,6, 4,3, 4,0, 3,8; medyan 0,8; t > 2 olan 25. Bonferroni ile %5 için gereken iki yönlü p < 4.2e-4 (t ≈ 3,5). Tabanın fark p'leri: Data Trader Stoch + RSI + MACD 3.8e-3 (t 2,9) · Ichimoku 2.6e-4 (t 3,7).
 
-_25 sn · node tests/sm-aday.js_
+_32 sn · node tests/sm-aday.js_

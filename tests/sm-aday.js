@@ -49,7 +49,7 @@ const mean=a=>a.length?a.reduce((p,q)=>p+q,0)/a.length:NaN;
 // normal yaklaşımla iki yönlü p
 const pNorm=t=>{ const z=Math.abs(t), u=1/(1+0.2316419*z), dd=0.3989423*Math.exp(-z*z/2); const q=dd*u*(0.3193815+u*(-0.3565638+u*(1.781478+u*(-1.821256+u*1.330274)))); return 2*q; };
 const tCrit=p=>{ let lo=0,hi=10; for(let k=0;k<60;k++){ const m=(lo+hi)/2; if(pNorm(m)>p) lo=m; else hi=m; } return lo; };
-function portfolio(T,{risk=0.005,maxPos=10,lev=2}={}){ const ev=[]; T.forEach((t,k)=>{ ev.push([t.t,1,k]); ev.push([t.tx,0,k]); }); ev.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+function portfolio(T,{risk=0.005,maxPos=10,lev=2}={}){ const ev=[]; T.forEach((t,k)=>{ ev.push([t.t,1,k]); ev.push([t.tx,0,k]); }); ev.sort((a,b)=>a[0]-b[0]||b[1]-a[1]);
   let eq=1,peak=1,dd=0; const open=new Map(); let taken=0,skipped=0; const mon=new Map();
   for(const [tm,typ,k] of ev){ const t=T[k];
     if(typ===1){ const nom=[...open.values()].reduce((a,x)=>a+x.nom,0); const size=risk*eq, nm=size/t.risk;
