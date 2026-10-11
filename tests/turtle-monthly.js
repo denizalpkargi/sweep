@@ -53,7 +53,7 @@ L.push(`| En iyi ay | ${best.m} ${pc(best.p)} |`);
 L.push(`| En kötü ay | ${worst.m} ${pc(worst.p)} |`);
 const l24=M.slice(-24).map(x=>x.p);
 L.push(`| Son 24 ay: ortalama / medyan / kayıplı | ${pc(sum(l24)/l24.length)} / ${pc(med(l24))} / ${l24.filter(x=>x<0).length} ay |`,'');
-L.push('## Yıl yıl','','| Yıl | Ay | Yıl getirisi | Yıla 1000 $'la başlasa → | Ortalama ay | Medyan ay | Kayıplı ay | En iyi | En kötü | İşlem |','|---|---|---|---|---|---|---|---|---|---|');
+L.push('## Yıl yıl','',"| Yıl | Ay | Yıl getirisi | Yıla 1000 $'la başlasa → | Ortalama ay | Medyan ay | Kayıplı ay | En iyi | En kötü | İşlem |",'|---|---|---|---|---|---|---|---|---|---|');
 for(const y of [...new Set(M.map(x=>x.m.slice(0,4)))]){
   const a=M.filter(x=>x.m.startsWith(y)), g=a.reduce((e,x)=>e*(1+x.p),1)-1, p=a.map(x=>x.p);
   L.push(`| ${y} | ${a.length} | ${pc(g)} | ${tr(1000*(1+g))} $ | ${pc(sum(p)/p.length)} | ${pc(med(p))} | ${p.filter(x=>x<0).length} | ${pc(Math.max(...p))} | ${pc(Math.min(...p))} | ${sum(a.map(x=>x.n))} |`);
