@@ -16,7 +16,7 @@ if '--ek' in sys.argv:
     em = json.load(open(os.path.join(D, 'uyeek.json'))); EX = np.concatenate([np.fromfile(f, dtype=np.float32).reshape(-1, len(em['cols'])) for f in sorted(glob.glob(os.path.join(D, 'uyeek-*.f32')))])
     ex = pd.DataFrame(EX, columns=em['cols']); del EX; ex['th'] = ex.th.round().astype(np.int64); ex['si'] = ex.si.round().astype(np.int64); df['si'] = df.si.round().astype(np.int64)
     EKF = em['ker'] + em['yus']; df = df.merge(ex[['th', 'si'] + EKF].drop_duplicates(['th', 'si']), on=['th', 'si'], how='left'); print('Kerem/Yusuf birleşen', int(df[EKF[0]].notna().sum()), '/', len(df), flush=True)
- df['t'] = df.th*3600000 + meta['t0']; df['month'] = pd.to_datetime(df.t, unit='ms').dt.strftime('%Y-%m')
+df['t'] = df.th*3600000 + meta['t0']; df['month'] = pd.to_datetime(df.t, unit='ms').dt.strftime('%Y-%m')
 df = df.sort_values(['th', 'si']).reset_index(drop=True)
 for k in XS: df['x_'+k] = df.groupby('th')[k].rank(pct=True).astype(np.float32)  # canlıda rkPct ile aynı tanım
 HZ = {'4': 'y4v', '12': 'y12v'}
