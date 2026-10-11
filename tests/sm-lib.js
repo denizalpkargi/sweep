@@ -53,9 +53,9 @@ function vwapDay(d){ const n=d.n,o=new Float64Array(n); let pv=0,vv=0,day=-1; fo
 // Williams fraktalları (2 mum sol/sağ): onay i+2'de bilinir → fr[i+2]=1 (tepe) / -1 (dip) işaretlenir, seviye frLv
 function fractals(d,k=2){ const n=d.n,up=A(n),dn=A(n); for(let i=k;i<n-k;i++){ let isH=true,isL=true; for(let j=1;j<=k;j++){ if(!(d.h[i]>d.h[i-j]&&d.h[i]>d.h[i+j])) isH=false; if(!(d.l[i]<d.l[i-j]&&d.l[i]<d.l[i+j])) isL=false; } if(isH) up[i+k]=d.h[i]; if(isL) dn[i+k]=d.l[i]; } return {up,dn}; }
 function smma(x,p){ return rma(x,p); }
-function ichimoku(d){ const mid=(p)=>{ const H=hh(d.h,p),L=ll(d.l,p),o=A(d.n); for(let i=0;i<d.n;i++) o[i]=(H[i]+L[i])/2; return o; };
-  const ten=mid(9),kij=mid(26),sb=mid(52),n=d.n,spanA=A(n),spanB=A(n); // bulut 26 mum ileri: i anındaki bulut = i-26'da hesaplanan
-  for(let i=26;i<n;i++){ spanA[i]=(ten[i-26]+kij[i-26])/2; spanB[i]=sb[i-26]; } return {ten,kij,spanA,spanB}; }
+function ichimoku(d,a=9,b=26,c=52){ const mid=(p)=>{ const H=hh(d.h,p),L=ll(d.l,p),o=A(d.n); for(let i=0;i<d.n;i++) o[i]=(H[i]+L[i])/2; return o; };
+  const ten=mid(a),kij=mid(b),sb=mid(c),n=d.n,spanA=A(n),spanB=A(n); // bulut b mum ileri: i anındaki bulut = i-b'de hesaplanan
+  for(let i=b;i<n;i++){ spanA[i]=(ten[i-b]+kij[i-b])/2; spanB[i]=sb[i-b]; } return {ten,kij,spanA,spanB}; }
 function cross(a,b,i){ return a[i-1]<=b[i-1]&&a[i]>b[i]; }  // a, b'yi yukarı keser
 function crossV(a,v,i){ return a[i-1]<=v&&a[i]>v; }
 // son k mumdaki en düşük dip / en yüksek tepe (i dahil)
@@ -68,7 +68,8 @@ function highest(d,i,k){ let m=-Infinity; for(let j=Math.max(0,i-k+1);j<=i;j++) 
 function simulate(d,sigs,opt={}){ const out=[]; let busyUntil=-1; sigs.sort((a,b)=>a.i-b.i);
   for(const s of sigs){ if(s.i<=busyUntil||s.i+1>=d.n) continue; const r=runTrade(d,s,s.i+1,opt); if(!r) continue; out.push(r); busyUntil=r.xi; }
   return out; }
-function runTrade(d,s,ei,opt={}){ const dir=s.dir; const lim=s.fixEntry!=null; const raw=lim?s.fixEntry:d.o[ei]; const entry=lim?raw:raw*(1+dir*SLIP); const entFee=lim?0.0002:FEE; let stop=s.stop;
+function runTrade(d,s,ei,opt={}){ const cm=opt.cost||1, FEE_=FEE*cm, SLIP_=SLIP*cm; // opt.cost: maliyet çarpanı (stres testi)
+  const dir=s.dir; const lim=s.fixEntry!=null; const raw=lim?s.fixEntry:d.o[ei]; const entry=lim?raw:raw*(1+dir*SLIP_); const entFee=lim?0.0002*cm:FEE_; let stop=s.stop;
   // giriş açılışı stopun ötesindeyse (boşluk) işlem yok sayılır
   if(dir>0?!(stop<raw):!(stop>raw)) return null; const risk=Math.abs(raw-stop)/raw; if(risk<0.0005) return null;
   const tp=s.tp??null, maxBars=s.maxBars||1e9; let xi=-1,px=0,why='';
@@ -87,23 +88,23 @@ function runTrade(d,s,ei,opt={}){ const dir=s.dir; const lim=s.fixEntry!=null; c
     if(j===d.n-1){ xi=j; px=d.c[j]; why='son'; }
   }
   if(xi<0) return null;
-  const exitPx=px*(1-dir*(why==='tp'&&opt.makerTp?0:SLIP)); const exitFee=why==='tp'&&opt.makerTp?0.0002:FEE;
+  const exitPx=px*(1-dir*(why==='tp'&&opt.makerTp?0:SLIP_)); const exitFee=why==='tp'&&opt.makerTp?0.0002*cm:FEE_;
   const g=dir*(exitPx-entry)/entry - entFee - exitFee; const f=dir*fundSum(d.fund,d.t[ei],d.t[xi]);
   const net=g-f; const R=net/(pos.risk0/raw);
-  return {sym:d.sym,t:d.t[ei],ei,xi,dir,R,ret:net,risk:risk,why,bars:xi-ei};
+  return {sym:d.sym,t:d.t[ei],tx:d.t[xi],ei,xi,dir,R,ret:net,risk:risk,why,bars:xi-ei};
 }
 // rastgele kıyas: aynı coin ve yön, ±30 gün içinde rastgele mum, AYNI stop/hedef uzaklığı (%) ve aynı süre sınırı; çıkış kuralı yerine işlemin kendi süresi kadar tutuş üst sınırı
 function rng(seed){ let s=seed>>>0||1; return ()=>{ s^=s<<13; s>>>=0; s^=s>>>17; s^=s<<5; s>>>=0; return s/4294967296; }; }
-function randomTwin(d,tr0,sig,R,k=3){ const res=[]; const span=Math.round(30*864e5/(d.t[1]-d.t[0]));
+function randomTwin(d,tr0,sig,R,k=3,opt={}){ const res=[]; const span=Math.round(30*864e5/(d.t[1]-d.t[0]));
   for(let a=0;a<k;a++){ for(let tries=0;tries<10;tries++){ const i=Math.max(60,Math.min(d.n-3,tr0.ei-1+Math.round((R()*2-1)*span))); const raw=d.o[i+1]; const sd=Math.abs(sig.entryRef-sig.stop)/sig.entryRef;
       const tpd=sig.tp!=null?Math.abs(sig.tp-sig.entryRef)/sig.entryRef:null; const s={i,dir:tr0.dir,stop:raw*(1-tr0.dir*sd),tp:tpd!=null?raw*(1+tr0.dir*tpd):null,maxBars:Math.max(1,tr0.bars+1)};
-      const r=runTrade(d,s,i+1); if(r){ res.push(r.R); break; } } }
+      const r=runTrade(d,s,i+1,opt); if(r){ res.push(r.R); break; } } }
   return res; }
 // strateji koşusu: sinyal üretici gen(d) → [{i,dir,stop,tp,...}], her sinyale entryRef = sinyal mumu kapanışı
 function runStrategy(name,syms,iv,gen,opt={}){ const trades=[]; const R=rng(12345);
-  for(const sym of syms){ const d=load(sym,iv); if(!d||d.n<300) continue; const sigs=gen(d).filter(s=>s&&s.i>=50); for(const s of sigs) s.entryRef=s.fixEntry??d.c[s.i];
+  for(const sym of syms){ const d=opt.loader?opt.loader(sym,iv):load(sym,iv); if(!d||d.n<300) continue; const sigs=gen(d).filter(s=>s&&s.i>=50&&(!opt.keep||opt.keep(d,s))); for(const s of sigs) s.entryRef=s.fixEntry??d.c[s.i];
     const tt=simulate(d,sigs,opt); const bySig=new Map(sigs.map(s=>[s.i,s]));
-    for(const t of tt){ const s=bySig.get(t.ei-1); const rr=randomTwin(d,t,s,R,opt.k||3); t.rnd=rr.length?rr.reduce((a,b)=>a+b,0)/rr.length:NaN; trades.push(t); } }
+    for(const t of tt){ const s=bySig.get(t.ei-1); const rr=randomTwin(d,t,s,R,opt.k||3,opt); t.rnd=rr.length?rr.reduce((a,b)=>a+b,0)/rr.length:NaN; trades.push(t); } }
   return {name,iv,trades}; }
 // özet
 const SPLIT=Date.UTC(2023,4,15), LAST12=Date.UTC(2025,9,11);
@@ -120,4 +121,4 @@ function summarize(run){ const T=run.trades; const all=stats(T),h1=stats(T.filte
   // yıl yıl
   const years={}; for(const t of T){ const y=new Date(t.t).getUTCFullYear(); (years[y]=years[y]||[]).push(t.R); } const yr={}; for(const y in years) yr[y]=years[y].reduce((a,b)=>a+b,0)/years[y].length;
   return {name:run.name,iv:run.iv,n:T.length,win,pf:gl?gp/gl:NaN,R:all.m,tR:all.t,h1:h1.m,h2:h2.m,l12:l12.m,n12:l12.n,rnd:rnd.m,diff:dAll.m,tDiff:dAll.t,d1:d1.m,d2:d2.m,long:L.m,short:S.m,nL:L.n,nS:S.n,retPct:gross*100,bars,riskPct:risk*100,years:yr}; }
-module.exports={load,smaN,sma,ema,rma,wma,hma,stdev,tr,atr,rsi,macd,hh,ll,stoch,stochRsi,boll,supertrend,adx,heikin,psar,cci,vwapDay,fractals,smma,ichimoku,cross,crossV,lowest,highest,simulate,runTrade,runStrategy,summarize,stats,SPLIT,LAST12,SIDE};
+module.exports={load,loadFunding,smaN,sma,ema,rma,wma,hma,stdev,tr,atr,rsi,macd,hh,ll,stoch,stochRsi,boll,supertrend,adx,heikin,psar,cci,vwapDay,fractals,smma,ichimoku,cross,crossV,lowest,highest,simulate,runTrade,runStrategy,summarize,stats,SPLIT,LAST12,SIDE};
