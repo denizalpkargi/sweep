@@ -19,6 +19,7 @@ const fs=require('fs'), path=require('path'), zlib=require('zlib');
 const arg=(k,d)=>{ const i=process.argv.indexOf('--'+k); return i<0?d:process.argv[i+1]; };
 const DIR=arg('dir',path.join(__dirname,'data','sb1m'));
 const BAR=+arg('bar',1), HOURS=process.argv.includes('--hours'), WEEKEND=process.argv.includes('--weekend');
+const TRADES=arg('trades',null); const TR=[];
 const OUT=arg('out',path.join(__dirname,'data','sb-result-'+BAR+'m'+(HOURS?'-hours':'')+'.json'));
 const MID=Date.parse('2023-06-01T00:00Z')/6e4, Y12=(Date.parse('2026-10-11T00:00Z')-365*864e5)/6e4;
 const MAKER=0.0002, TAKER=0.0005+0.0003, THROUGH=0.0005;
@@ -128,12 +129,16 @@ for(const sym of syms){ const D=load(sym); const {t0,n,o,h,l,c}=D; const ix=t=>M
           if(V.id===MAIN){ addx(`${wname}|${p}`,ex,1); addx(`${wname}|${p}`,'sp',sp); addx(`${wname}|${p}`,'R',R); addx(`${wname}|${p}`,'n',1); add(`MAIN|${dir>0?'long':'short'}|${wname}|${p}`,rn);
             const b=sp<0.002?'<0,2':sp<0.004?'0,2–0,4':sp<0.008?'0,4–0,8':'≥0,8'; add(`MAIN|stop${b}|${p}`,rn); add(`MAIN|sym:${sym}|${p}`,rn); } }
         // plasebo (ana varyant)
-        if(V.id===MAIN&&!HOURS) for(let z=0;z<20;z++) for(const pv of ['rast','yon']){ const pd=pv==='rast'?(rnd()<0.5?1:-1):dir; const rr=T+Math.floor(rnd()*(E-T)); const e=o[rr]; const dd2=sp*e;
+        let pacc=0, pn=0;
+        if(V.id===MAIN) for(let z=0;z<(HOURS?10:20);z++) for(const pv of ['rast','yon']){ const pd=pv==='rast'?(rnd()<0.5?1:-1):dir; const rr=T+Math.floor(rnd()*(E-T)); const e=o[rr]; const dd2=sp*e;
             const st=e-pd*dd2, tg=e+pd*R*dd2; let pr,pe; for(let i=rr;i<X;i++){ if(pd>0?l[i]<=st:h[i]>=st){ pr=-1; pe='stop'; break; } if(i>rr&&(pd>0?h[i]>=tg:l[i]<=tg)){ pr=R; pe='hedef'; break; } }
             if(pr===undefined){ pr=pd*(o[X]-e)/dd2; pe='zaman'; } const pc=TAKER+(pe==='hedef'?MAKER:TAKER);
+            if(pv==='rast'){ pacc+=pr-pc/sp; pn++; }
             for(const p of per){ add(`P-${pv}|${wname}|${p}`,pr-pc/sp); add(`P-${pv}|ALL|${p}`,pr-pc/sp); add(`P-${pv}|${wname}|${p}|brut`,pr); } }
+        if(V.id===MAIN&&TRADES) TR.push({sym,w:wname,t:(t0+T*BAR)*6e4,te:(t0+k*BAR)*6e4,dir,entry,stop,tgt,ex,r:+r.toFixed(4),rn:+rn.toFixed(4),sp:+sp.toFixed(5),p:pn?+(pacc/pn).toFixed(4):null});
       } } }
   console.error(sym,'tamam', 'pencere',nWin,'kurulum',nSetup);
 }
+if(TRADES) fs.writeFileSync(TRADES,TR.map(x=>JSON.stringify(x)).join('\n')+'\n');
 fs.writeFileSync(OUT,JSON.stringify({bar:BAR,hours:HOURS,weekend:WEEKEND,ST,EXTRA,nWin,nSetup}));
 console.error('yazıldı',OUT);
