@@ -4,16 +4,23 @@
 # Ayarlar ve aileler tests/uye-lambdarank.py ile aynı (ileriye yürüyen sonuç: tests/uye-lambdarank-report.md). Arşiv: rank-*.f32 + rank.json (tests/rank-ozellik.js).
 # Evren genişliği (12 Ekim 2026): --top100 trend,mom,… verilen aileler ayın ilk 100 coiniyle eğitilir (UYE_MODEL.fams[id].top = 100; x_ ve etiket ilk 100 içinde),
 # diğerleri ilk 30 ile. Arşiv rank-ozellik.js --top 100 ile üretilmiş olmalı (ilk 30 alt kümesi universe.json'dan seçilir). Parite: ilk 100 aileleri rows100 satırlarıyla.
-# Kullanım: python tests/uye-model-export.py [--trees 200] [--maxtrain 300000] [--top100 trend,mom]
+# --ek: Kerem (liq) ve Yusuf (check) da eklenir; değişkenleri tests/uye-ek-ozellik.js → uyeek-*.f32 (canlıyla aynı src/uyemodel.js ukFeat). Onur canlıya bağlı değil.
+# --fams trend,mom,...: yalnız bu üyeler (ölçümde tutanlar) dışa aktarılır.
+# Kullanım: python tests/uye-model-export.py [--trees 200] [--maxtrain 300000] [--ek] [--fams ...] [--top100 trend,mom,...]
 import json, sys, os, time, glob, numpy as np, pandas as pd, lightgbm as lgb
 np.random.seed(1); HERE = os.path.dirname(os.path.abspath(__file__)); D = os.path.join(HERE, 'data', 'arch')
 arg = lambda k, d: sys.argv[sys.argv.index('--'+k)+1] if '--'+k in sys.argv else d
 NTREE = int(arg('trees', 200)); MAXTR = int(arg('maxtrain', 300000)); T100 = [x for x in str(arg('top100', '')).split(',') if x]; t0 = time.time()
 meta = json.load(open(os.path.join(D, 'rank.json'))); COLS = meta['cols']; RAW = meta['feats']; XS = meta['xs']
 X = np.concatenate([np.fromfile(f, dtype=np.float32).reshape(-1, len(COLS)) for f in sorted(glob.glob(os.path.join(D, 'rank-*.f32')))]); df = pd.DataFrame(X, columns=COLS); del X
-df = df[np.isfinite(df.y4v)].copy(); df['th'] = df.th.round().astype(np.int64); df['t'] = df.th*3600000 + meta['t0']; df['month'] = pd.to_datetime(df.t, unit='ms').dt.strftime('%Y-%m')
+df = df[np.isfinite(df.y4v)].copy(); df['th'] = df.th.round().astype(np.int64); df['si'] = df.si.round().astype(np.int64); EKF = []
+if '--ek' in sys.argv:
+    em = json.load(open(os.path.join(D, 'uyeek.json'))); EX = np.concatenate([np.fromfile(f, dtype=np.float32).reshape(-1, len(em['cols'])) for f in sorted(glob.glob(os.path.join(D, 'uyeek-*.f32')))])
+    ex = pd.DataFrame(EX, columns=em['cols']); del EX; ex['th'] = ex.th.round().astype(np.int64); ex['si'] = ex.si.round().astype(np.int64)
+    EKF = em['ker'] + em['yus']; df = df.merge(ex[['th', 'si'] + EKF].drop_duplicates(['th', 'si']), on=['th', 'si'], how='left'); print('Kerem/Yusuf birleşen', int(df[EKF[0]].notna().sum()), '/', len(df), flush=True)
+df['t'] = df.th*3600000 + meta['t0']; df['month'] = pd.to_datetime(df.t, unit='ms').dt.strftime('%Y-%m')
 U = json.load(open(os.path.join(D, 'universe.json')))['months']; pos = {m: {s: i for i, s in enumerate(v)} for m, v in U.items()}; SYMS = meta['syms']
-df['urk'] = [pos.get(m, {}).get(SYMS[int(round(s))], 999) for m, s in zip(df.month.values, df.si.values)]
+df['urk'] = [pos.get(m, {}).get(SYMS[s], 999) for m, s in zip(df.month.values, df.si.values)]
 HZ = {'4': 'y4v', '12': 'y12v'}
 def prep(d):  # x_ dilimleri (canlıda rkPct ile aynı tanım) ve saat içi onluk etiket, d'nin evreni içinde
     d = d.sort_values(['th', 'si']).reset_index(drop=True)
@@ -31,9 +38,11 @@ FAMS = {
   'macro': ['rel1','rel4','rel24','beta','corr'],
   'risk':  ['rv','rvR','rv4h','rvD','rng24','x_rv'],
 }
+if EKF: FAMS['liq'] = em['ker']; FAMS['check'] = em['yus']
+if arg('fams', ''): FAMS = {k: v for k, v in FAMS.items() if k in arg('fams', '').split(',')}
 XSF = ['x_'+k for k in XS]
 for k, v in FAMS.items():
-    miss = [c for c in v if c not in RAW + XSF]; assert not miss, (k, miss)
+    miss = [c for c in v if c not in RAW + XSF + EKF]; assert not miss, (k, miss)
 def fit(tr, feats, tg):
     trs = tr[np.isfinite(tr[tg].values)].sort_values('th'); grp = trs.groupby('th', sort=False).size().values
     return lgb.LGBMRanker(objective='lambdarank', n_estimators=NTREE, learning_rate=0.03, num_leaves=31, min_child_samples=1000, subsample=0.7, subsample_freq=1, colsample_bytree=0.6, reg_lambda=10,
@@ -56,8 +65,8 @@ def sets(d):  # eğitim örneklemi (rank-model.py --export ile aynı: en çok 2 
     tr_idx = d.index.values
     if len(tr_idx) > MAXTR*2: tr_idx = np.sort(np.random.choice(tr_idx, MAXTR*2, replace=False))
     return d.loc[tr_idx], d.loc[np.sort(np.random.choice(d.index[d.t >= d.t.max() - 30*864e5].values, 300, replace=False))]
-rows_of = lambda par: [[None if not np.isfinite(v) else float(v) for v in r] for r in par[RAW + XSF].values.tolist()]
-tr, par = sets(df); parity = {'cols': RAW + XSF, 'rows': rows_of(par), 'pred': {}}
+rows_of = lambda par: [[None if not np.isfinite(v) else float(v) for v in r] for r in par[RAW + XSF + EKF].values.tolist()]
+tr, par = sets(df); parity = {'cols': RAW + XSF + EKF, 'rows': rows_of(par), 'pred': {}}
 if T100: tr100, par100 = sets(D100); parity['rows100'] = rows_of(par100)
 fams = {}
 for fid, feats in FAMS.items():
