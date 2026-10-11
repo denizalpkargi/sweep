@@ -5,6 +5,7 @@
 # 3) İleri yürüyen LightGBM: aileler tek tek ve birlikte, hedef R ve y → tests/data/arch/ok/rapor-*.md
 # Kullanım: bash tests/ozan-kalite-pc.sh [dış veri klasörü=tests/data/dis-veri]   (PY=python3 ile Python seçilebilir)
 set -e
+export PYTHONUTF8=1
 cd "$(dirname "$0")/.."
 PY=${PY:-python}; XD=${1:-tests/data/dis-veri}; A=tests/data/arch; O=$A/ok; mkdir -p "$O"
 if [ ! -s "$O/samples-3.jsonl" ] || [ "${YENI:-0}" = 1 ]; then

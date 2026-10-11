@@ -21,7 +21,7 @@ AG = ['trend','liq','flow','macro','quant','mom','vol','check','fac','risk']
 
 rows = []
 for f in sorted(glob.glob(os.path.join(SD, 'samples-*.jsonl'))):
-    for l in open(f):
+    for l in open(f, encoding='utf-8'):
         s = json.loads(l)
         if s['R'] is None: continue
         r = {'sym': s['sym'], 't': s['t'], 'L': 1 if s['dir'] == 'long' else 0, 'veto': s['veto'],
@@ -160,7 +160,7 @@ if ARCH:
     df['T'] = ((df.t + 15*60000)//3600000)*3600000
     keys = df[['sym','T']].drop_duplicates()
     def hourly(meta_f, f32s, pre, skip):
-        meta = json.load(open(os.path.join(ARCH, meta_f))); C = meta['cols']; syms = meta['syms']
+        meta = json.load(open(os.path.join(ARCH, meta_f), encoding='utf-8')); C = meta['cols']; syms = meta['syms']
         X = np.concatenate([np.fromfile(f, dtype=np.float32).reshape(-1, len(C)) for f in sorted(glob.glob(os.path.join(ARCH, f32s)))])
         si = C.index('si') if 'si' in C else C.index('sym'); th = C.index('th')
         H = pd.DataFrame({'sym': np.array(syms)[X[:, si].round().astype(int)], 'T': X[:, th].round().astype(np.int64)*3600000 + meta['t0']})

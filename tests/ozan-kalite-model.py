@@ -162,4 +162,4 @@ if __name__ == '__main__':
     for n in SETS: rep.append(f"- {n}: " + " · ".join(f"{v:+.3f}" for v in detail[n]['onluk']))
     rep.append("\n## En çok kullanılan değişkenler\n")
     for n in SETS: rep.append(f"- {n}: " + ", ".join(f"{c} {100*v:.1f}%" for c, v in imps[n][:12]))
-    open(OUT, 'w').write("\n".join(rep)+"\n"); print("\n".join(rep[:4+len(SETS)]))
+    open(OUT, 'w', encoding='utf-8').write("\n".join(rep)+"\n"); print("\n".join(rep[:4+len(SETS)]))
