@@ -204,7 +204,7 @@ function analyze(f, s){
   A.med15 = [...r15].sort((a,b)=>a-b)[Math.floor(r15.length/2)] || 0;
   A.src = {k15L:s.k15L||m15, k1h:h1, btc15:s.btc15||null, oi15:s.oi15||null, taker15:s.taker15||null, toppos15:s.toppos15||null, fundTimes:(s.fund||[]).map(x=>+x.fundingTime), nextFund:A.nextFund};
   A.src.k1d=d; // günlük mumlar (havuzlar: önceki gün tepesi/dibi)
-  A.src.k4h=h4; A.src.oi5raw=f.oi5; A.src.tp5=s.toppos||null; A.src.gl5=s.glob||null; A.src.fr=f.prem?+f.prem.lastFundingRate:NaN; // sıralama modeli (rankmodel.js rkFeatA)
+  A.src.k4h=h4; A.src.k15x=f.k15x||null; A.src.oi5raw=f.oi5; A.src.tp5=s.toppos||null; A.src.gl5=s.glob||null; A.src.fr=f.prem?+f.prem.lastFundingRate:NaN; // sıralama modeli (rankmodel.js rkFeatA)
   A.vp=sessionProfiles(A.src.k15L,A.src.k15L.length,{withCurrent:true,rows:true}).slice(-12).map(p=>({...p,prof:p.current?p.prof:null})); // günlük hacim profilleri (UTC): POC, VAH/VAL, çıplak POC
   const kb=A.src.k15L; A.bt={long:boxTheory(kb,A.med15,"long"),short:boxTheory(kb,A.med15,"short")};
   A.btStats = kb.length>=600 ? {long:boxTheoryStats(kb,A.med15,"long"),short:boxTheoryStats(kb,A.med15,"short")} : {};
@@ -577,7 +577,7 @@ async function scanOne(u){
     j(`/fapi/v1/klines?symbol=${s}&interval=1d&limit=120`),
     j(`/fapi/v1/klines?symbol=${s}&interval=4h&limit=60`),
     j(`/fapi/v1/klines?symbol=${s}&interval=1h&limit=60`),
-    j(`/fapi/v1/klines?symbol=${s}&interval=15m&limit=100`),
+    j(`/fapi/v1/klines?symbol=${s}&interval=15m&limit=200`), // analiz son 100 mumu kullanır; 200'ün tamamı yalnız Kerem'in model değişkenleri için (uyemodel.js ukFeat)
     j(`/fapi/v1/klines?symbol=${s}&interval=5m&limit=24`),
     jOr(`/futures/data/openInterestHist?symbol=${s}&period=5m&limit=24`,[{sumOpenInterestValue:"0",sumOpenInterest:"0"}]),
     jOr(`/futures/data/takerlongshortRatio?symbol=${s}&period=5m&limit=12`,[{buySellRatio:"1"}]),
@@ -585,7 +585,7 @@ async function scanOne(u){
     jOr(`/futures/data/globalLongShortAccountRatio?symbol=${s}&period=5m&limit=8`,[{longShortRatio:"1"}])
   ]);
   if(k1d.length<60 || !oi5.length || !taker5.length || !toppos.length || !glob.length) return null;
-  const f={t24:u.t24,prem:u.prem,k5:K(k5),k15:K(k15),oi5,taker5}, sl={k1d:K(k1d),k4h:K(k4h),k1h:K(k1h),toppos,glob};
+  const k15x=K(k15); const f={t24:u.t24,prem:u.prem,k5:K(k5),k15:k15x.slice(-100),k15x,oi5,taker5}, sl={k1d:K(k1d),k4h:K(k4h),k1h:K(k1h),toppos,glob};
   const A=analyze(f,sl);
   const row=rowOf(A,u); row._f=f; row._s=sl; if(typeof fcObserve==='function') fcObserve(u.t24.symbol,A,row.com); return row;
 }

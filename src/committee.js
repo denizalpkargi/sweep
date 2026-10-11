@@ -145,29 +145,30 @@ function committee(A, dir, c24, opts){
   if(typeof AUD!=="undefined"&&AUD&&AUD.summary){ const S=AUD.summary; say("audit","açılış",`Kayıtta ${S.n} kapanmış işlem: kazanma %${Math.round(S.wr*100)}, ortalama ${S.avg>=0?"+":""}${fx(S.avg,2)}R.${AUD.lessons.length?" Çıkardığımız dersler: "+AUD.lessons.map(l=>l.t.toLowerCase()).join(", ")+".":" Henüz kesin bir ders yok."} Tartışmada kurulumu bunlarla karşılaştıracağım.`); }
   set("risk",rv,0.8,veto?"VETO: "+veto:`stop ${fx(sd*100,2)}% · 20x'e sığar · fonlama ${fx(A.fund*100,4)}%`);
   say("risk","açılış",veto?`Daha dinlemeden söyleyeyim: ${veto}. Bu masadan ${D} çıkmaz.`:`Stop ${fx(sd*100,2)}% ile 20x'e sığıyor, likidasyon uzak. Boyu risk yüzdesinden hesaplarım. Önce sizi dinleyeyim.`);
-  // eğitilmiş üyeler (uyemodel.js, 11 Ekim 2026): model varsa ve coin evrendeyse Emre, Baran, Mert, Arda, Can (ve aşağıda Serkan) kural oyu yerine modelle oy verir;
+  // eğitilmiş üyeler (uyemodel.js, 11 Ekim 2026): model varsa ve coin evrendeyse Kerem, Emre, Baran, Mert, Arda, Can (ve aşağıda Serkan, Yusuf) kural oyu yerine modelle oy verir;
   // kural okuması metinde kalır, Can'ın vetosu kuraldır. Tartışmadaki kurallı itirazlar modelle oy veren üyenin oyunu değiştirmez.
   const TR={}; const uy=id=>{ if(id==="risk"&&veto) return; const u=typeof uyeVote==="function"?uyeVote(id,dir,sym,A,opts.now):null; if(!u) return; TR[id]=1; ag[id]={id,v:clamp(u.v,-1,1),c:u.c,txt:u.txt+" · kural: "+ag[id].txt}; say(id,"açılış",u.say); };
-  for(const id of ["trend","mom","flow","macro","risk"]) uy(id);
+  const liqRule=ag.liq.v; // Kerem modelle konuşsa da Yusuf kuralın şartlarını kural okumasıyla denetler
+  for(const id of ["liq","trend","mom","flow","macro","risk"]) uy(id);
   /* ---- 2. tur: tartışma (oyları gerçekten değiştirir) ---- */
   let runR=3; const chg=[];
   if(!veto){
-    if(ag.copy.v<-0.4&&ag.liq.v>0.5){ say("copy","tartışma","Kerem, liderlerin çoğu ters yönde; süpürme ikinci kez de gelebilir, güvenini biraz kıs."); ag.liq.c=Math.max(0,ag.liq.c-0.1); chg.push("liq"); }
+    if(ag.copy.v<-0.4&&!TR.liq&&ag.liq.v>0.5){ say("copy","tartışma","Kerem, liderlerin çoğu ters yönde; süpürme ikinci kez de gelebilir, güvenini biraz kıs."); ag.liq.c=Math.max(0,ag.liq.c-0.1); chg.push("liq"); }
     if(ag.copy.v>0.5&&ag.mom.v>0&&!TR.mom){ say("mom","tartışma","Liderler de bizim tarafta; boyu tam tutarım."); ag.mom.v=Math.min(1,ag.mom.v+0.1); chg.push("mom"); }
     if(ag.macro.v<-0.3&&ag.mom.v>0.3&&!TR.mom&&!TR.macro){ say("macro","tartışma",`Baran, BTC ${isL?"düşerken":"yükselirken"} momentum kovalamak son 15 günde en çok kaybettiren şey. Oyunu kıs.`); if(A.volRel>=1.8){ ag.mom.v-=0.1; say("mom","tartışma",`Hacim ×${fx(A.volRel,1)}, bu coin BTC'yi dinlemiyor. Biraz kısıyorum ama tutuyorum.`); } else { ag.mom.v-=0.3; say("mom","tartışma","Haklısın, hacim de sıradan. Oyumu düşürüyorum."); } chg.push("mom"); }
-    if(!TR.trend&&ag.trend.v<-0.3&&ag.liq.v>0.5){ say("trend","tartışma","Kerem, süpürme güzel ama günlük yön karşı. Karşı-trend işlemde hedef kısa tutulur."); ag.liq.c-=0.2; runR=2; say("liq","tartışma","Kabul: süpürme + MSS karşı trendde de çalışır ama koşucuyu 2R'de keselim, güvenimi düşürüyorum."); chg.push("liq"); }
-    else if(!TR.trend&&ag.trend.v>0.3&&ag.liq.v>0.5){ say("liq","tartışma","Trend de bizimle; süpürme trend yönünde olunca en iyi örnekler bunlar."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
-    if(ag.liq.v>0.5&&ag.flow.v<0&&!TR.flow){ say("flow","tartışma","Kerem, süpürmede emilim yok: CVD fiyatla birlikte dip yaptı. Satış gerçek olabilir, fiyat yeniden süpürebilir."); ag.liq.v-=0.2; say("liq","tartışma","Teyit zayıfsa ikinci süpürme riski var, oyumu bir kademe düşürüyorum."); chg.push("liq"); }
+    if(!TR.trend&&!TR.liq&&ag.trend.v<-0.3&&ag.liq.v>0.5){ say("trend","tartışma","Kerem, süpürme güzel ama günlük yön karşı. Karşı-trend işlemde hedef kısa tutulur."); ag.liq.c-=0.2; runR=2; say("liq","tartışma","Kabul: süpürme + MSS karşı trendde de çalışır ama koşucuyu 2R'de keselim, güvenimi düşürüyorum."); chg.push("liq"); }
+    else if(!TR.trend&&!TR.liq&&ag.trend.v>0.3&&ag.liq.v>0.5){ say("liq","tartışma","Trend de bizimle; süpürme trend yönünde olunca en iyi örnekler bunlar."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
+    if(!TR.liq&&ag.liq.v>0.5&&ag.flow.v<0&&!TR.flow){ say("flow","tartışma","Kerem, süpürmede emilim yok: CVD fiyatla birlikte dip yaptı. Satış gerçek olabilir, fiyat yeniden süpürebilir."); ag.liq.v-=0.2; say("liq","tartışma","Teyit zayıfsa ikinci süpürme riski var, oyumu bir kademe düşürüyorum."); chg.push("liq"); }
     if(bad&&LM.f.yer==="kova"&&ag.mom.v>0.3&&!TR.mom){ say("lab","tartışma",`Baran, liderler bu konumda kovaladığında ortalama ${fx(bad.mean,2)} ATR alıyor${isFinite(bad.lift)?`, tabanlarından ${fx(Math.abs(bad.lift),2)} ATR kötü`:""}. Fiyat 24 saatlik aralığın ucunda.`); ag.mom.v-=0.25; say("mom","tartışma","Veri bunu söylüyorsa oyumu kısıyorum."); chg.push("mom"); }
-    if(best&&LM.f.sw==="var"&&ag.liq.v>0.5){ say("lab","tartışma","Kerem, liderlerin kazanan işlemleri de süpürmeden sonra geliyor; senin okumanı destekliyor."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
+    if(best&&LM.f.sw==="var"&&!TR.liq&&ag.liq.v>0.5){ say("lab","tartışma","Kerem, liderlerin kazanan işlemleri de süpürmeden sonra geliyor; senin okumanı destekliyor."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
     if(best&&best.conds.some(c=>c[0]==="btc")&&ag.macro.v>0&&!TR.macro){ say("macro","tartışma","Burak'ın adayı BTC yönüne bağlı; BTC tarafı da bizimle, güvenimi artırıyorum."); ag.macro.c=Math.min(1,ag.macro.c+0.1); chg.push("macro"); }
     if(n>=3&&sum<0){ say("quant","tartışma",`Bu coinde K3 geçmişi ${fx(sum,1)}R, yani eksi. Herkesin güvenini %15 kısıyorum; kanıtsız yere kalite A demeyelim.`); for(const k in ag) if(k!=="risk"&&!TR[k]) ag[k].c*=0.85; chg.push("all"); }
     const sdMin=AUD&&AUD.sdMin>0.015?AUD.sdMin:0.015;
     if(sd<sdMin){ if(sdMin>0.015) say("audit","tartışma",`Kayıplarımızın çoğu gürültü stopu: fiyat lehimize gitmeden 45 dakikada stop oluyoruz. Stop tabanı %${fx(sdMin*100,1)}, boy ona göre küçülsün.`); else say("quant","tartışma",`Stop ${fx(sd*100,2)}% dar; testte %1,5 altı stoplar eksiydi. Stopu %1,5 tabanına çekelim, boy ona göre küçülür.`); sd=sdMin; say("risk","tartışma",`Tamam, stop %${fx(sdMin*100,1)}; pozisyon boyu buna göre.`); }
   }
   /* ---- hacim analisti (volume.js) ve strateji doğrulayıcı (tfcheck.js): son stopla (tartışmadan sonra) ---- */
-  const vm=volMember(A,dir), tm=tfMember(A,dir,{r,lv:ag.liq.v,q,sd,costR:(BOT_CFG_DEF.feeTaker*2+BOT_CFG_DEF.slip)/sd});
-  set("vol",vm.v,vm.c,vm.txt); say("vol","açılış",vm.say); uy("vol"); set("check",tm.v,tm.c,tm.txt); say("check","açılış",tm.say);
+  const vm=volMember(A,dir), tm=tfMember(A,dir,{r,lv:liqRule,q,sd,costR:(BOT_CFG_DEF.feeTaker*2+BOT_CFG_DEF.slip)/sd});
+  set("vol",vm.v,vm.c,vm.txt); say("vol","açılış",vm.say); uy("vol"); set("check",tm.v,tm.c,tm.txt); say("check","açılış",tm.say); uy("check");
   // faktör analisti Kaan (factors.js): araştırma ekibinin ölçülmüş kurallarından oy; izlemedeki faktörler yalnız kayda geçer
   const fm=facMember(A,dir,{now:opts.now}); set("fac",fm.v,fm.c,fm.txt); say("fac","açılış",fm.say);
   // sıralama modeli Ozan (rankmodel.js): coinin önümüzdeki 4/12 saatte evrendeki yeri; tahmin defterinde kanıtlanana kadar gölge oy (yazılır, puana girmez)
@@ -176,7 +177,7 @@ function committee(A, dir, c24, opts){
   const l24=isL&&opts.l24?opts.l24:null; if(!veto&&l24){ const b24=l24.btc24Max!=null?btc24Of(A):null;
     if(b24!=null&&b24>l24.btc24Max){ veto=`24 saatlik long: BTC 24 saatte ${pct(b24*100)}, long yok`; say("risk","açılış",`BTC son 24 saatte ${pct(b24*100)}. 24 saat tutulan longlar arşivde yalnız BTC düşmüşken artıda kaldı (+0,03R, yükselirken −0,12R); bekliyoruz.`); }
     else if(l24.rankMin!=null&&isFinite(rk.p)&&rk.p<l24.rankMin){ veto=`24 saatlik long: Ozan coini evrenin en kötü %${Math.round(l24.rankMin*100)}'unda görüyor`; say("rank","tartışma",`Bu coin önümüzdeki saatlerde en zayıf onlukta (%${Math.round(rk.p*100)}). Arşivde bu dilimdeki longlar 24 saatte −0,14R yazdı; vetomu uyguluyorum.`); } }
-  if(!veto&&tm.issues.length>=3&&ag.liq.v>0.5){ say("check","tartışma","Kerem, kurulumun üç şartı tutmuyor; bu kitaptaki süpürme değil. Güvenini kıs."); ag.liq.c=Math.max(0,ag.liq.c-0.2); chg.push("liq"); }
+  if(!veto&&tm.issues.length>=3&&!TR.liq&&ag.liq.v>0.5){ say("check","tartışma","Kerem, kurulumun üç şartı tutmuyor; bu kitaptaki süpürme değil. Güvenini kıs."); ag.liq.c=Math.max(0,ag.liq.c-0.2); chg.push("liq"); }
   /* ---- denetçi: kurulumu kapanmış işlemlerden çıkan derslerle karşılaştırır ---- */
   const au=audVoteFor(ag); ag.audit={id:"audit",v:au.v,c:au.c,txt:au.txt};
   // tahmin defteri (forecast.js): masanın evet dediği, sonradan tabandan kötü çıkan kalıplar
@@ -188,7 +189,7 @@ function committee(A, dir, c24, opts){
   // Burak'ın elinde eşleşen aday ya da kaçınılacak kalıp yoksa çekimserdir: ağırlığı 0, puanı sulandırmaz
   const labIdle=!best&&!bad;
   // çekimserler: verisi olmayan üye puana girmez, ortalamayı sulandırmaz (Tolga: lider verisi yok; Burak: eşleşen kalıp yok; Onur: coinde K3 kanıtı yok; Arda: BTC verisi yok; Murat: kayıt yok)
-  const abst={copy:!cs||!(((cs[dir]||{}).w||0)+((cs[isL?"short":"long"]||{}).w||0)>0),lab:labIdle,quant:n<3,macro:!B&&!TR.macro,audit:!au.w,vol:!!vm.abst&&!TR.vol,check:!!tm.abst,fac:!!fm.abst,rank:!!rk.abst};
+  const abst={copy:!cs||!(((cs[dir]||{}).w||0)+((cs[isL?"short":"long"]||{}).w||0)>0),lab:labIdle,quant:n<3,macro:!B&&!TR.macro,audit:!au.w,vol:!!vm.abst&&!TR.vol,check:!!tm.abst&&!TR.check,fac:!!fm.abst,rank:!!rk.abst};
   // modelle oy veren üye: katsayı UYE_CFG.w, Murat'ın ve tahmin defterinin çarpanı yok (o çarpanlar kural oyunun geçmişinden)
   const pre=DESK.map(d=>{ const a=ag[d.id]; const md=!!TR[d.id]; const m=md?1:clamp((AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1)*(typeof fcMult==='function'?fcMult(d.id):1),0.5,1.5); return {id:d.id,name:d.name,role:d.role,v:a.v,c:a.c,txt:a.txt,abst:!!abst[d.id],base:md?UYE_CFG.w:d.id==="audit"?(au.w?d.w:0):d.w,m,idle:d.id==="rank"&&!!rk.idle,shadow:d.id==="rank"&&!!rk.shadow,model:md}; });
   /* ---- 3. tur: ikna turu (fon toplantısı): tez, karşı tez, sonra kararsızlar en ikna edici argümana göre oyunu günceller ---- */
