@@ -74,6 +74,38 @@ function restoreFile(){
   let best=null; for(const d of dirs){ try{ for(const f of fs.readdirSync(d)) if(/^sweep-geri-yukle.*\.json$/i.test(f)&&!/\.uygulandi-/i.test(f)){ const p=path.join(d,f), t=fs.statSync(p).mtimeMs; if(!best||t>best.t) best={p,t}; } }catch(e){} }
   return best&&best.p;
 }
+/* ---- Claude paketinden kaçış (11 Ekim 2026) ----
+   SWEEP bir Claude Code oturumundan başlatılınca Claude masaüstü uygulamasının (MSIX) paketinde çalışıyordu:
+   1) Claude kendini güncelleyince Windows paketin bütün süreçlerini kapatıyor (close-app; 8 Ekim 21:39, 11 Ekim 03:44 UTC). Yeniden açma yardımcısı da
+      paketin içinde başladığı için onunla birlikte ölüyor; SWEEP sabaha kadar kapalı kalıyordu.
+   2) %APPDATA% yazıları, klasörü ilk paket içinden açılan kopya oluşturduysa paketin LocalCache'ine yönlendiriliyor (Roaming\SWEEP\state ve Local Storage).
+      Kısayoldan ya da Windows açılışında açılan SWEEP başka bir kayıt görüyordu: bot 100 $'dan ve kapalı (8–11 Ekim'de "veritabanı sıfırlandı" sanılan durumlar).
+   Açılışta userData'ya bir işaret dosyası yazılır; bir paketin LocalCache'inde görünürse SWEEP Gezgin üzerinden (paketin dışında) yeniden açılır ve bu kopya
+   hemen kapanır. Dışarıdaki kopya, paketin LocalCache'inde kalan state.json'ı da geri yükleme adayı sayar (st-bot lastTick'i en yeni olan kazanır). */
+const pkgCaches=()=>{ if(process.platform!=='win32') return []; const base=path.join(process.env.LOCALAPPDATA||'','Packages'), name=path.basename(app.getPath('userData')); try{ return fs.readdirSync(base).map(n=>path.join(base,n,'LocalCache','Roaming',name)).filter(d=>fs.existsSync(d)); }catch(e){ return []; } };
+function inPackage(){
+  const dirs=pkgCaches(); if(!dirs.length) return null;
+  const n='.paket-'+process.pid, f=path.join(app.getPath('userData'),n);
+  try{ fs.writeFileSync(f,''); }catch(e){ return null; }
+  const hit=dirs.find(d=>fs.existsSync(path.join(d,n)))||null; try{ fs.unlinkSync(f); }catch(e){} return hit;
+}
+function escapePackage(){
+  if(!app.isPackaged||process.platform!=='win32') return false;
+  const hit=inPackage(); if(!hit) return false;
+  // Gezgin de paketin içinde açarsa döngüye girmesin: 5 dk içinde ikinci denemede olduğu gibi devam (işaret dosyası da LocalCache'te).
+  const mark=path.join(app.getPath('userData'),'paket-kacis.json'), last=readJson(mark);
+  if(last&&Date.now()-last.t<5*60e3){ log('Claude paketinin içinde çalışıyor:',hit,'· 5 dk içinde dışarıda açma denendi, olduğu gibi devam'); return false; }
+  try{ fs.writeFileSync(mark,JSON.stringify({t:Date.now(),hit})); }catch(e){}
+  log('Claude paketinin içinde açıldı:',hit,'· Gezgin üzerinden paketin dışında yeniden açılıyor');
+  try{ app.releaseSingleInstanceLock(); require('child_process').spawn('explorer.exe',[process.execPath],{detached:true,stdio:'ignore'}).unref(); return true; }
+  catch(e){ logErr('escapePackage',e); return false; }
+}
+// Geri yükleme adayları: kendi yedeklerimiz ve Claude paketinde kalmış son yedek; st-bot lastTick'i en yeni olan.
+function newestBackup(){
+  const fsx=[path.join(stateDir(),'state.json'),path.join(stateDir(),'state.prev.json')]; for(const d of pkgCaches()) fsx.push(path.join(d,'state','state.json'));
+  let best=null; for(const f of fsx){ const data=cleanData(readJson(f)); if(!data) continue; let bt=0; try{ bt=+JSON.parse(data['st-bot']).lastTick||0; }catch(_){} if(!best||bt>best.bt) best={f,data,bt}; }
+  return best;
+}
 ipcMain.on('sweep-restore',(e,q)=>{
   let out=null;
   try{
@@ -81,12 +113,12 @@ ipcMain.on('sweep-restore',(e,q)=>{
     if(f){ const data=cleanData(readJson(f)); fs.renameSync(f,f.replace(/\.json$/i,'')+'.uygulandi-'+Date.now()+'.json');
       if(data){ out={data,from:f}; log('geri yükleme dosyası uygulanıyor:',f,Object.keys(data).length,'kayıt'); } else log('geri yükleme dosyası okunamadı:',f); }
     else if(q&&q.hasBot===false){
-      for(const n of ['state.json','state.prev.json']){ const data=cleanData(readJson(path.join(stateDir(),n))); if(data){ out={data,from:n}; log('kayıt veritabanı boş açıldı (st-bot yok); son yedek uygulanıyor:',n,Object.keys(data).length,'kayıt'); break; } }
+      const b=newestBackup(); if(b){ out={data:b.data,from:b.f}; log('kayıt veritabanı boş açıldı (st-bot yok); son yedek uygulanıyor:',b.f,Object.keys(b.data).length,'kayıt'); }
     }
     else if(q&&q.hasBot){
       // kayıt eski bir hâle dönmüşse (yedekteki bot fiyatı 2 dk'dan daha yeni görmüş) yedeği uygula
-      const data=cleanData(readJson(path.join(stateDir(),'state.json'))); let bt=0; try{ bt=+JSON.parse(data['st-bot']).lastTick||0; }catch(_){}
-      if(data&&bt>(+q.botTick||0)+120e3){ out={data,from:'state.json'}; log('kayıt yedekten eski açıldı (son fiyat',new Date(+q.botTick||0).toISOString(),'< yedek',new Date(bt).toISOString()+'); yedek uygulanıyor:',Object.keys(data).length,'kayıt'); }
+      const b=newestBackup();
+      if(b&&b.bt>(+q.botTick||0)+120e3){ out={data:b.data,from:b.f}; log('kayıt yedekten eski açıldı (son fiyat',new Date(+q.botTick||0).toISOString(),'< yedek',new Date(b.bt).toISOString()+'); yedek uygulanıyor:',b.f,Object.keys(b.data).length,'kayıt'); }
     }
   }catch(err){ logErr('sweep-restore',err); }
   e.returnValue=out;
@@ -191,6 +223,7 @@ app.on('will-quit',()=>log('uygulama kapandı'));
 
 app.whenReady().then(()=>{
   log('--- SWEEP başladı · sürüm',app.getVersion(),'· Electron',process.versions.electron,'· günlük',path.join(app.getPath('userData'),'logs'));
+  if(escapePackage()){ app.exit(0); return; }
   pruneLogs();
   // Bilgisayar uyku moduna geçince bot durmasın (ekran kapanabilir).
   powerSaveBlocker.start('prevent-app-suspension');
