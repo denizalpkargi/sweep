@@ -4,8 +4,8 @@
 // (varsayılan 16 = 4 saat) her iki yön için committee() çalışır. Örnek başına: üyelerin açılış oyları (v, c, çekimser), puan, evet, veto,
 // botun planıyla sonuç R (backtest-masa simBot), tahmin defteri ölçüsü y ve modele girecek ham özellikler (yöne göre işaretli) ile
 // 4 saat sonraki hareket ÷ ATR (f4). Fonlama arşivden gelir; OI, kalabalık, liderler yine nötr.
-// Kullanım: node tests/masa-archive.js [parça=0] [parça sayısı=1] [--step 16] [--top 30] [--from 2020-06]
-//   → tests/data/arch/samples-<parça>.jsonl  (4 çekirdekte: 0..3 ayrı süreçler)
+// Kullanım: node tests/masa-archive.js [parça=0] [parça sayısı=1] [--step 16] [--top 30] [--from 2020-06] [--out klasör]
+//   → tests/data/arch/samples-<parça>.jsonl (--out ile başka klasöre)  (4 çekirdekte: 0..3 ayrı süreçler)
 const fs=require('fs'), path=require('path');
 const {loadEngine}=require('./engine-node.js'); const {inputsAt,simBot,fcY}=require('./backtest-masa.js');
 const ARCH=path.join(__dirname,'data','arch');
@@ -37,7 +37,7 @@ function feats(k,i,d1,fund){
     fr, hr:new Date(k[i].t+M15).getUTCHours(), dow:new Date(k[i].t+M15).getUTCDay(), atr, dc };
 }
 const SIGNED=['r1','r4','r24','r7d','r30d','s20','s50','s200','b4','b24','bs200','bs50','fr']; // long için olduğu gibi, short için eksi
-const out=path.join(ARCH,`samples-${SH}.jsonl`); const W=fs.createWriteStream(out); const cfg=E.BOT_CFG_DEF; const t0=Date.now(); let tot=0;
+const OUTD=arg('out',ARCH); fs.mkdirSync(OUTD,{recursive:true}); const out=path.join(OUTD,`samples-${SH}.jsonl`); const W=fs.createWriteStream(out); const cfg=E.BOT_CFG_DEF; const t0=Date.now(); let tot=0;
 for(const s of syms){
   const k=E.K(csvK(path.join(ARCH,'15m',s+'.csv'))), d1=E.K(csvK(path.join(ARCH,'1d',s+'.csv'))); if(k.length<4000){ console.log(s,'az veri',k.length); continue; }
   const fund=csvK(path.join(ARCH,'funding',s+'.csv')).map(r=>[+r[0],+r[1]]);
