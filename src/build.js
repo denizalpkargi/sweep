@@ -78,6 +78,9 @@ eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P
 if(!eng.includes('function dipClose')) throw new Error('dip insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'turtle.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function ttClose')) throw new Error('turtle insert failed');
+// Ichimoku sepeti (11 Ekim 2026, test #65): turtle.js TT_TRADFI'yi kullanır, bu yüzden ondan sonra
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'ichi.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function icClose')) throw new Error('ichi insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'kovner.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function kovClose')) throw new Error('kovner insert failed');
 // kalite short sepeti (11 Ekim 2026, test #52): rankmodel.js rkPredict'i ve dip.js DAY_MS'i kullanır, bu yüzden onlardan sonra
