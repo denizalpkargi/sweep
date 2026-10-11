@@ -83,9 +83,11 @@ function rkScore0(sym,A,now){
   if(uni.length<RK_CFG.minN) return {sym,few:true,n:uni.length};
   const col=k=>{ const i=RK_FEATS.indexOf(k); return uni.map(([,x])=>x.raw[i]); }; const cols={}; for(const k of RK_XS) cols[k]=col(k);
   const xsOf=raw=>{ const o={}; for(const k of RK_XS) o["x_"+k]=rkPct(raw[RK_FEATS.indexOf(k)],cols[k]); return o; };
-  const out={sym,n:uni.length};
-  for(const h of Object.keys(RK_MODEL.models)){ const M=RK_MODEL.models[h]; const sc=uni.map(([k,x])=>rkPredict(M,rkRow(M,x.raw,xsOf(x.raw)))); const me=uni.findIndex(([k])=>k===sym); out["s"+h]=sc[me]; out["p"+h]=rkPct(sc[me],sc); }
-  const ps=Object.keys(RK_MODEL.models).map(h=>out["p"+h]).filter(isFinite); out.p=ps.length?ps.reduce((s,v)=>s+v,0)/ps.length:NaN; return out;
+  const out={sym,n:uni.length}; const rows=uni.map(([,x])=>({raw:x.raw,xs:xsOf(x.raw)})); const me=uni.findIndex(([k])=>k===sym);
+  for(const h of Object.keys(RK_MODEL.models)){ const M=RK_MODEL.models[h]; const sc=rows.map(r=>rkPredict(M,rkRow(M,r.raw,r.xs))); out["s"+h]=sc[me]; out["p"+h]=rkPct(sc[me],sc); }
+  const ps=Object.keys(RK_MODEL.models).map(h=>out["p"+h]).filter(isFinite); out.p=ps.length?ps.reduce((s,v)=>s+v,0)/ps.length:NaN;
+  if(typeof uyeScores==="function") out.fam=uyeScores(uni,rows,me); // eğitilmiş üyeler (uyemodel.js): aynı evren ve değişkenler
+  return out;
 }
 // tahmin defterinde kanıt: ≥ 200 sonuç ve çarpan > 1 → oy puana girer; o zamana dek gölge
 function rkGate(){ const L=(typeof FC!=="undefined"&&FC&&FC.learn&&FC.learn.agents)?FC.learn.agents.rank:null; return !!(L&&L.n>=RK_CFG.gateN&&L.m>1); }
