@@ -587,7 +587,7 @@ async function scanOne(u){
   if(k1d.length<60 || !oi5.length || !taker5.length || !toppos.length || !glob.length) return null;
   const k15x=K(k15); const f={t24:u.t24,prem:u.prem,k5:K(k5),k15:k15x.slice(-100),k15x,oi5,taker5}, sl={k1d:K(k1d),k4h:K(k4h),k1h:K(k1h),toppos,glob};
   const A=analyze(f,sl);
-  const row=rowOf(A,u); row._f=f; row._s=sl; if(typeof fcObserve==='function') fcObserve(u.t24.symbol,A,row.com); return row;
+  const row=rowOf(A,u); row._f=f; row._s=sl; if(typeof fcObserve==='function') fcObserve(u.t24.symbol,A,row.com); if(typeof sgObserve==='function') sgObserve(row.s,A.src.k15L); return row;
 }
 function rowOf(A,u){
   const s=u.t24.symbol; const p=scan.prev[s]; const delta=(p && Date.now()-p.t<90*60e3)?A.score-p.score:NaN;
@@ -595,7 +595,8 @@ function rowOf(A,u){
   const L=A.amd&&A.amd.long, S=A.amd&&A.amd.short;
   return {s,px:A.px,c24:+u.t24.priceChangePercent,score:A.score,delta,setup:A.setup,pick:A.pick,setupS:A.setupS,pickS:A.pickS,pickHC:A.pickHC,pickHCS:A.pickHCS,deep:!!A.amdStats,
     gradeL:L?L.grade:null,stageL:L?L.stage:null,kzL:L?L.kz||null:null,gradeS:S?S.grade:null,stageS:S?S.stage:null,kzS:S?S.kz||null:null,consL,consS,
-    maxLevL:A.maxLevL,maxLevS:A.maxLevS,capit:A.capit,trend:A.trend,distR:isFinite(A.distR)?A.distR*100:NaN,distS:isFinite(A.distS)?A.distS*100:NaN,fund:A.fund*100,oi1h:A.oi1h*100,volRel:A.volRel,qv:+u.t24.quoteVolume,bo:A.bo,climax:A.climax,distrib:A.distrib};
+    maxLevL:A.maxLevL,maxLevS:A.maxLevS,capit:A.capit,trend:A.trend,distR:isFinite(A.distR)?A.distR*100:NaN,distS:isFinite(A.distS)?A.distS*100:NaN,fund:A.fund*100,oi1h:A.oi1h*100,volRel:A.volRel,qv:+u.t24.quoteVolume,bo:A.bo,climax:A.climax,distrib:A.distrib,
+    sigL:typeof sgFeat==='function'?sgFeat(A,"long",+u.t24.priceChangePercent,s):null,sigS:typeof sgFeat==='function'?sgFeat(A,"short",+u.t24.priceChangePercent,s):null};
 }
 // ikinci geçiş: AMD dizisi ilerlemiş adaylar 15 günlük 15 dakikalık geçmişle yeniden analiz edilir (tutarlılık + tam havuz haritası)
 const DEEP_STAGES=new Set(["entry","waitEntry","waitMSS","afterTouch"]);
@@ -605,5 +606,5 @@ async function scanDeep(r){
   const kb=K(k15L); if(kb.length<600) return null;
   const A=analyze({...r._f,k15:kb},{...r._s,k15L:kb,oi15:oi15||null,taker15:taker15||null});
   consPut(s,A);
-  const u={t24:r._f.t24,prem:r._f.prem}; const row=rowOf(A,u); row._f=r._f; row._s=r._s; if(typeof fcObserve==='function') fcObserve(s,A,row.com); return row;
+  const u={t24:r._f.t24,prem:r._f.prem}; const row=rowOf(A,u); row._f=r._f; row._s=r._s; if(typeof fcObserve==='function') fcObserve(s,A,row.com); if(typeof sgObserve==='function') sgObserve(row.s,A.src.k15L); return row;
 }

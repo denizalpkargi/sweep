@@ -18,9 +18,12 @@
   </header>
 
   <aside class="col left">
-    <div class="tabs" role="tablist"><button role="tab" id="tabFeed" aria-selected="true">Sinyaller</button><button role="tab" id="tabWatch" aria-selected="false">Takip</button></div>
+    <div class="tabs" role="tablist"><button role="tab" id="tabFeed" aria-selected="true">Sinyaller</button><button role="tab" id="tabWatch" aria-selected="false">Takip</button><button role="tab" id="tabSig" aria-selected="false">İsabet</button></div>
     <div id="feedWrap">
       <ul class="feed" id="feed"><li class="empty" style="display:block;border:0;background:transparent">Tarayıcı ilk turunu bitirince sinyaller burada akar.</li></ul>
+    </div>
+    <div id="sigWrap" hidden>
+      <div class="card"><h3>Sinyallerin isabeti <button class="q" type="button">?</button></h3><p class="hint">Tarayıcının her sinyali kaydedilir ve 24 saat sonra kendiliğinden sonuçlanır. Giriş: sinyalden sonraki 15 dk mumun ortalama fiyatı (market). Çıkış: 4 / 12 / 24 saat sonra. Maliyet %0,16 dahil. Stoplu R: 24 saatte önce stop gelirse −1R, gelmezse 24 sa getirisi ÷ stop uzaklığı. Gölge etiketler sinyali silmez, burada ayrı sayılır.</p><div id="sigStats" class="muted">—</div></div>
     </div>
     <div id="watchWrap" hidden>
       <div class="card"><h3>Dizisi ilerleyenler <button class="q" type="button">?</button></h3><p class="hint">Süpürme olmuş ama yapı kırılımı ya da bölgeye dönüş bekleyen coinler. Sinyal değil, kuyruktur: izle, kovalama.</p><ul class="watch" id="watch"><li class="empty">—</li></ul></div>
