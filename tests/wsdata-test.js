@@ -59,6 +59,17 @@ const E=loadEngine({fetch});
   ok(!!g2&&g2!==g,'sessiz akış yeniden açıldı');
   g2.emit({stream:'!markPrice@arr@1s',data:[{e:'markPriceUpdate',E:NOW,s:'C3USDT',p:'10.6',i:'10.3',P:'10.3',r:'0.0001',T:NOW+3600e3}]});
   const k0=E.wsdSummary().kick; NOW+=5e3; E.wsdWatch(NOW); ok(g2.readyState===1&&E.wsdSummary().kick===k0,'konuşan akışa dokunulmadı');
+  // likidasyon kaydı: genel akışta !forceOrder@arr, dakika kapanınca "SWEEP · akis" satırı (zorla alış = short likidasyonu)
+  ok(g2.url.includes('!forceOrder@arr'),'genel akışta likidasyonlar var');
+  const said=[]; const ci=console.info; console.info=m=>said.push(m);
+  const lm=Math.floor(NOW/6e4)*6e4;
+  g2.emit({stream:'!forceOrder@arr',data:{e:'forceOrder',E:NOW,o:{s:'C3USDT',S:'BUY',q:'2',p:'10.5',ap:'10.6',z:'2',T:lm+1000}}});
+  g2.emit({stream:'!forceOrder@arr',data:{e:'forceOrder',E:NOW,o:{s:'C3USDT',S:'SELL',q:'1',p:'10.4',ap:'10.4',z:'1',T:lm+2000}}});
+  g2.emit({stream:'!forceOrder@arr',data:{e:'forceOrder',E:NOW,o:{s:'C3BUSD',S:'SELL',q:'1',p:'1',ap:'1',z:'1',T:lm+2000}}});
+  E.wsdLiqFlush(lm+30e3); ok(said.length===0,'bitmemiş dakika yazılmaz');
+  E.wsdLiqFlush(lm+61e3); console.info=ci;
+  const ln=said.find(m=>m.startsWith('SWEEP · akis ')); const j=ln&&JSON.parse(ln.slice(13));
+  ok(j&&j.t===lm&&JSON.stringify(j.l)===JSON.stringify({C3USDT:[21,10,2]}),'dakikalık likidasyon satırı: '+ln);
   console.log('özet',JSON.stringify(E.wsdSummary()));
   Date.now=realNow; console.log('wsdata-test errors',JSON.stringify(errors)); process.exit(errors.length?1:0);
 })().catch(e=>{ console.error(e); process.exit(1); });
