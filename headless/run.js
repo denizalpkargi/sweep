@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // SWEEP · ekransız kâğıt bot. Tarayıcı/Electron penceresi olmadan aynı motoru ve Masa (komite) modunu 7/24 çalıştırır.
 // Kullanım: node headless/run.js [--dir bot-data] [--min-vol 10000000] [--every 300000] [--votes deep|all|go|none] [--once]
-// Trend sepeti (src/trend.js) aynı süreçte, ayrı sanal bakiyeyle çalışır: logs/trend-*.jsonl, status.json → trend; Geri çekilme sepeti (src/dip.js) de aynı şekilde: logs/dip-*.jsonl, status.json → dip, config.json → dip; Kaplumbağa sepeti (src/turtle.js): logs/turtle-*.jsonl, status.json → turtle, config.json → turtle; Sıkışma sepeti (src/kovner.js): logs/kov-*.jsonl, status.json → kov, config.json → kov.
+// Trend sepeti (src/trend.js) aynı süreçte, ayrı sanal bakiyeyle çalışır: logs/trend-*.jsonl, status.json → trend; Geri çekilme sepeti (src/dip.js) de aynı şekilde: logs/dip-*.jsonl, status.json → dip, config.json → dip; Kaplumbağa sepeti (src/turtle.js): logs/turtle-*.jsonl, status.json → turtle, config.json → turtle; Ichimoku sepeti (src/ichi.js): logs/ichi-*.jsonl, status.json → ichi, config.json → ichi; Sıkışma sepeti (src/kovner.js): logs/kov-*.jsonl, status.json → kov, config.json → kov.
 // Trend ayarları config.json → trend (ör. {"trend":{"on":false}} ya da {"trend":{"tv":0.4,"cap":2}}).
 // Lider araştırması: research/rapor-YYYY-MM-DD.md (saatte bir), research/lab-rules.json; Selim'in LLM'i config.json → llm ({"provider":"ollama","model":"qwen3:8b"}) ya da LLM_PROVIDER/LLM_URL/LLM_MODEL, Claude için ANTHROPIC_API_KEY.
 // Çıktılar (--dir altında): bot.json (durum), status.json (nabız), store.json (motor önbellekleri, liderler),
@@ -58,6 +58,7 @@ async function main(o,inj){
       if(!o.quiet) console.log(`${new Date(now).toISOString().slice(11,19)} scan   ${out.length}/${list.length} coin · ${deepN} derin · ${failed} hata · ${Math.round((now-t0)/1000)} sn`);
       await B.decide(out,'scan',freshPx);
       E.lmdScanAsk(out);
+      await ksScanRun(out);
     }catch(e){ log('skip','',`Tarama hatası: ${e.message}`); }
     finally{ scanning=false; }
   }
@@ -97,7 +98,8 @@ async function main(o,inj){
         if(n) log('sys',p.sym,`Kapalıyken geçen ${n} dakika 1 dk mumlarla oynatıldı.`,{id:p.id,minutes:n}); }
       catch(e){ log('skip',p.sym,`Boşluk doldurulamadı: ${e.message}`,{id:p.id}); } }
   }
-  function status(){ const s={t:Date.now(),pid:process.pid,startT:bot.startT,bal:bot.bal,equity:B.equity(),roi:(B.equity()/bot.start-1)*100,positions:bot.positions.map(p=>({sym:p.sym,dir:p.dir,entry:p.entry,stop:p.stop,t1:p.t1,t2:p.t2,stage:p.stage,px:rt.px[p.sym]||null,openT:p.openT})),trades:bot.trades.length,day:bot.day,lastScan,priceSrc:rt.src,desk_ai:(()=>{ const C=E.lmdCfg(), L=E.lmd; return {on:C.on,model:E.llm.cfg.model,ready:E.lmdReady()||'hazır',calls:L.stats.n,ok:L.stats.ok,bad:L.stats.bad,avgSec:L.stats.ok?Math.round(L.stats.ms/L.stats.ok/1000):null,err:L.err,queue:L.q.length}; })(),lastTick:bot.lastTick,weight:E.rest.used,goal:(()=>{ const g=B.goal(); return {goal:g.goal,eq:g.eq,peak:g.peak,dd:g.dd,prog:g.prog,mode:g.mode,why:g.why,hit:bot.goalHit||null}; })(),trend:(()=>{ const m=E.trendSummary(TR.s,null); return {on:TR.s.cfg.on,tv:TR.s.cfg.tv,tvNow:m.tvNow,goal:m.goal,goalHit:m.goalHit,eq:m.eq,roi:m.roi,dd:m.dd,lev:m.lev,day:m.day,btcOk:m.btcOk,fees:m.fees,funding:m.funding,pos:Object.fromEntries(Object.entries(TR.s.pos).map(([k,p])=>[k,{qty:p.qty,avg:p.avg,px:p.px}]))}; })(),dip:(()=>{ const m=E.dipSummary(DP.s,null); return {on:DP.s.cfg.on,lev:DP.s.cfg.lev,eq:m.eq,roi:m.roi,dd:m.dd,n:m.n,wr:m.wr,avg:m.avg,open:m.open,orders:m.orders,pos:DP.s.pos,ord:DP.s.ord}; })(),turtle:(()=>{ const m=E.ttSummary(TT.s,null); return {on:TT.s.cfg.on,eq:m.eq,roi:m.roi,dd:m.dd,n:m.n,wr:m.wr,avgR:m.avgR,open:m.open,lev:m.lev,btc:m.btc,univ:m.univ,day:TT.s.day,pos:Object.fromEntries(Object.entries(TT.s.pos).map(([k,p])=>[k,{e:p.e,qty:p.qty,stop:p.stop,cat:p.cat,px:p.px,age:p.age}]))}; })(),kov:(()=>{ const m=E.kovSummary(KV.s,null); return {on:KV.s.cfg.on,eq:m.eq,roi:m.roi,dd:m.dd,n:m.n,wr:m.wr,avgR:m.avgR,open:m.open,pos:KV.s.pos,sq:KV.s.sq||null}; })(),leaders:{at:E.ld.at,n:E.ld.list.length,err:E.ld.err},research:(()=>{ const L=E.lab, S=E.sel; const lr=S.runs[S.runs.length-1]||null; return {trades:L.trades.length,base:L.base?{leaders:L.base.leaders,featured:L.base.featured,long:L.base.long.mean,short:L.base.short.mean}:null,cands:L.cands.map(c=>({name:c.name,dir:c.dir,n:c.n,mean:c.mean,lift:c.lift,status:c.status})),avoid:L.avoid.map(c=>({name:c.name,dir:c.dir,n:c.n,lift:c.lift})),shadows:L.shadows.length,llm:{provider:E.llm.cfg.provider,model:E.llm.cfg.provider==='claude'?E.llm.cfg.claudeModel:E.llm.cfg.model,ready:E.llmReady()},selim:{at:S.at,err:S.err,last:lr,summary:S.summary,hyps:S.hyps.map(h=>({name:h.ad||h.name,dir:h.dir,conds:h.conds,status:h.status,avoid:!!h.avoid,n:h.n,lift:h.lift}))},positions:bot.positions.map(p=>{ const w=E.ldPosView(p.sym,p.dir); return {sym:p.sym,dir:p.dir,leaders:w.txt}; })}; })(),forecast:(()=>{ const F=E.getFC()||E.fcLoad(); const L=F.learn; return {pend:F.pend.length,n:L?L.n:0,base:L?L.base:null,go:L?L.go:null,buckets:L?L.buckets:[],agents:L?L.agents:{},lessons:L?L.lessons:[]}; })(),audit:(()=>{ const A=E.getAud(); return A&&A.summary?{n:A.summary.n,wr:A.summary.wr,avgR:A.summary.avg,lessons:A.lessons.map(l=>({k:l.k,n:l.n,avg:l.avg,lever:l.lever})),mult:A.mult,decs:A.decs,off:A.off}:null; })()};
+  function status(){ const s={t:Date.now(),pid:process.pid,startT:bot.startT,bal:bot.bal,equity:B.equity(),roi:(B.equity()/bot.start-1)*100,positions:bot.positions.map(p=>({sym:p.sym,dir:p.dir,entry:p.entry,stop:p.stop,t1:p.t1,t2:p.t2,stage:p.stage,px:rt.px[p.sym]||null,openT:p.openT})),trades:bot.trades.length,day:bot.day,lastScan,priceSrc:rt.src,desk_ai:(()=>{ const C=E.lmdCfg(), L=E.lmd; return {on:C.on,model:E.llm.cfg.model,ready:E.lmdReady()||'hazır',calls:L.stats.n,ok:L.stats.ok,bad:L.stats.bad,avgSec:L.stats.ok?Math.round(L.stats.ms/L.stats.ok/1000):null,err:L.err,queue:L.q.length}; })(),lastTick:bot.lastTick,weight:E.rest.used,goal:(()=>{ const g=B.goal(); return {goal:g.goal,eq:g.eq,peak:g.peak,dd:g.dd,prog:g.prog,mode:g.mode,why:g.why,hit:bot.goalHit||null}; })(),trend:(()=>{ const m=E.trendSummary(TR.s,null); return {on:TR.s.cfg.on,tv:TR.s.cfg.tv,tvNow:m.tvNow,goal:m.goal,goalHit:m.goalHit,eq:m.eq,roi:m.roi,dd:m.dd,lev:m.lev,day:m.day,btcOk:m.btcOk,fees:m.fees,funding:m.funding,pos:Object.fromEntries(Object.entries(TR.s.pos).map(([k,p])=>[k,{qty:p.qty,avg:p.avg,px:p.px}]))}; })(),dip:(()=>{ const m=E.dipSummary(DP.s,null); return {on:DP.s.cfg.on,lev:DP.s.cfg.lev,eq:m.eq,roi:m.roi,dd:m.dd,n:m.n,wr:m.wr,avg:m.avg,open:m.open,orders:m.orders,pos:DP.s.pos,ord:DP.s.ord}; })(),turtle:(()=>{ const m=E.ttSummary(TT.s,null); return {on:TT.s.cfg.on,eq:m.eq,roi:m.roi,dd:m.dd,n:m.n,wr:m.wr,avgR:m.avgR,open:m.open,lev:m.lev,btc:m.btc,univ:m.univ,day:TT.s.day,pos:Object.fromEntries(Object.entries(TT.s.pos).map(([k,p])=>[k,{e:p.e,qty:p.qty,stop:p.stop,cat:p.cat,px:p.px,age:p.age}]))}; })(),ichi:(()=>{ const m=E.icSummary(IC.s,null); return {on:IC.s.cfg.on,eq:m.eq,roi:m.roi,dd:m.dd,n:m.n,wr:m.wr,avgR:m.avgR,open:m.open,lev:m.lev,univ:m.univ,bar:IC.s.bar,pos:Object.fromEntries(Object.entries(IC.s.pos).map(([k,p])=>[k,{dir:p.dir,e:p.e,qty:p.qty,stop:p.stop,tp:p.tp,px:p.px,age:p.age}]))}; })(),kov:(()=>{ const m=E.kovSummary(KV.s,null); return {on:KV.s.cfg.on,eq:m.eq,roi:m.roi,dd:m.dd,n:m.n,wr:m.wr,avgR:m.avgR,open:m.open,pos:KV.s.pos,sq:KV.s.sq||null}; })(),leaders:{at:E.ld.at,n:E.ld.list.length,err:E.ld.err},research:(()=>{ const L=E.lab, S=E.sel; const lr=S.runs[S.runs.length-1]||null; return {trades:L.trades.length,base:L.base?{leaders:L.base.leaders,featured:L.base.featured,long:L.base.long.mean,short:L.base.short.mean}:null,cands:L.cands.map(c=>({name:c.name,dir:c.dir,n:c.n,mean:c.mean,lift:c.lift,status:c.status})),avoid:L.avoid.map(c=>({name:c.name,dir:c.dir,n:c.n,lift:c.lift})),shadows:L.shadows.length,llm:{provider:E.llm.cfg.provider,model:E.llm.cfg.provider==='claude'?E.llm.cfg.claudeModel:E.llm.cfg.model,ready:E.llmReady()},selim:{at:S.at,err:S.err,last:lr,summary:S.summary,hyps:S.hyps.map(h=>({name:h.ad||h.name,dir:h.dir,conds:h.conds,status:h.status,avoid:!!h.avoid,n:h.n,lift:h.lift}))},positions:bot.positions.map(p=>{ const w=E.ldPosView(p.sym,p.dir); return {sym:p.sym,dir:p.dir,leaders:w.txt}; })}; })(),forecast:(()=>{ const F=E.getFC()||E.fcLoad(); const L=F.learn; return {pend:F.pend.length,n:L?L.n:0,base:L?L.base:null,go:L?L.go:null,buckets:L?L.buckets:[],agents:L?L.agents:{},lessons:L?L.lessons:[]}; })(),audit:(()=>{ const A=E.getAud(); return A&&A.summary?{n:A.summary.n,wr:A.summary.wr,avgR:A.summary.avg,lessons:A.lessons.map(l=>({k:l.k,n:l.n,avg:l.avg,lever:l.lever})),mult:A.mult,decs:A.decs,off:A.off}:null; })()};
+    try{ const m=E.ksSummary(KS.s,KS.px); s.ks={on:KS.s.cfg.on,eq:m.eq,roi:m.roi,dd:m.dd,n:m.n,wr:m.wr,avgR:m.avgR,open:m.open,thr:m.thr,last:KS.s.last,preds:KS.s.preds.length,pos:KS.s.pos}; }catch(e){}
     try{ atomicWrite(path.join(dir,'status.json'),JSON.stringify(s,null,1)); }catch(e){} return s; }
 
   /* --- trend sepeti (src/trend.js): Masa'dan ayrı sanal bakiye, depo st-trend (store.json), olaylar logs/trend-*.jsonl --- */
@@ -122,6 +124,13 @@ async function main(o,inj){
       for(const ev of r.evs){ write('turtle',ev); if(!o.quiet) console.log(`${new Date(ev.t).toISOString().slice(11,19)} kaplumbağa ${ev.type} ${ev.sym} @ ${ev.px}${ev.why?' · '+ev.why:''}`); } }
     catch(e){ write('turtle',{t:Date.now(),type:'error',text:String(e.message||e)}); }
     finally{ TT.busy=false; } }
+  /* --- Ichimoku sepeti (src/ichi.js, test #65): depo st-ichi, olaylar logs/ichi-*.jsonl, ayar config.json → ichi; fiyat turu dakikada bir --- */
+  const IC={s:E.icLoad(),busy:false}; if(cfg&&cfg.ichi) Object.assign(IC.s.cfg,cfg.ichi);
+  async function ichiRun(){ if(IC.busy||!IC.s.cfg.on) return; IC.busy=true;
+    try{ const r=await E.icTick(IC.s,Date.now()); E.icSave(IC.s);
+      for(const ev of r.evs){ write('ichi',ev); if(!o.quiet) console.log(`${new Date(ev.t).toISOString().slice(11,19)} ichi   ${ev.type} ${ev.dir>0?'L':'S'} ${ev.sym} @ ${ev.px}${ev.why?' · '+ev.why:''}`); } }
+    catch(e){ write('ichi',{t:Date.now(),type:'error',text:String(e.message||e)}); }
+    finally{ IC.busy=false; } }
   /* --- sıkışma sepeti (src/kovner.js): depo st-kov, olaylar logs/kov-*.jsonl, ayar config.json → kov --- */
   const KV={s:E.kovLoad(),busy:false}; if(cfg&&cfg.kov) Object.assign(KV.s.cfg,cfg.kov);
   async function kovRun(){ if(KV.busy||!KV.s.cfg.on) return; KV.busy=true;
@@ -129,6 +138,17 @@ async function main(o,inj){
       for(const ev of r.evs){ write('kov',ev); if(!o.quiet) console.log(`${new Date(ev.t).toISOString().slice(11,19)} kov    ${ev.type} ${ev.sym} @ ${ev.px}${ev.why?' · '+ev.why:''}`); } }
     catch(e){ write('kov',{t:Date.now(),type:'error',text:String(e.message||e)}); }
     finally{ KV.busy=false; } }
+  /* --- kalite short sepeti (src/kshort.js, test #52): depo st-ks, olaylar logs/ks-*.jsonl, ayar config.json → ks; karar tarama sonrası, fiyat turu dakikada bir --- */
+  const KS={s:E.ksLoad(),busy:false,scanBusy:false,px:{}}; if(cfg&&cfg.ks) Object.assign(KS.s.cfg,cfg.ks);
+  const ksOut=ev=>{ if(ev.type==='skip'&&ev.why==='kalite eşiğin altında') return; write('ks',ev); if(!o.quiet) console.log(`${new Date(ev.t).toISOString().slice(11,19)} ks     ${ev.type} ${ev.sym||''}${ev.px?' @ '+ev.px:''}${ev.why?' · '+ev.why:''}${ev.p!=null?' · kalite '+ev.p.toFixed(3):''}`); };
+  async function ksScanRun(rows){ if(KS.scanBusy||!KS.s.cfg.on) return; KS.scanBusy=true;
+    try{ const evs=await E.ksScan(KS.s,rows,Date.now()); E.ksSave(KS.s); evs.forEach(ksOut); }
+    catch(e){ write('ks',{t:Date.now(),type:'error',text:String(e.message||e)}); }
+    finally{ KS.scanBusy=false; } }
+  async function ksRun(){ if(KS.busy) return; KS.busy=true;
+    try{ const r=await E.ksTick(KS.s,Date.now()); KS.px=r.px; E.ksSave(KS.s); r.evs.forEach(ksOut); }
+    catch(e){ write('ks',{t:Date.now(),type:'error',text:String(e.message||e)}); }
+    finally{ KS.busy=false; } }
   /* --- araştırma (src/research.js, src/analyst.js, src/llm.js): LLM ayarı config.json → llm ya da ortam değişkenleri; anahtar dosyaya yazılmaz --- */
   { const lc=Object.assign({},cfg&&cfg.llm||{}); if(process.env.LLM_PROVIDER) lc.provider=process.env.LLM_PROVIDER; if(process.env.LLM_URL) lc.url=process.env.LLM_URL; if(process.env.LLM_MODEL) lc.model=process.env.LLM_MODEL;
     if(Object.keys(lc).length) Object.assign(E.llm.cfg,lc); if(process.env.ANTHROPIC_API_KEY) E.llmSetKey(process.env.ANTHROPIC_API_KEY,false);
@@ -143,7 +163,7 @@ async function main(o,inj){
   const c=bot.cfg; log('sys','',`Ekransız bot başladı · KOMİTE · sanal ${bot.bal.toFixed(2)} $ · risk %${c.risk*100} · en çok ${c.lev}x · aynı anda ${c.maxPos} pozisyon · eşik ${E.pts(c.threshold)}/${E.SCORE_MAX}, ${c.minYes}/${E.DESK.length} oy · zaman stopu ${c.holdH} sa · hedef ${c.goal} $ · aynı yönde en fazla ${c.maxSameDir} · yer açma ${c.freeMargin?"açık":"kapalı"}${c.aggr?" · AGRESİF (düşüş frenleri kapalı)":""} · tarama ${Math.round(o.every/60000)} dk · ${bot.positions.length} açık pozisyon`,{cfg:c,opts:o});
   await gapFill(); wsSync();
   await E.ldRefresh(false).catch(()=>{});
-  await trendRun(); await dipRun(); await turtleRun(); await kovRun();
+  await trendRun(); await dipRun(); await turtleRun(); await ichiRun(); await kovRun(); await ksRun();
   await runScan();
   if(o.once){ await B.manage().catch(()=>{}); shutdown('once'); return {B,E,status:status()}; }
   timers.push(setInterval(()=>{ runScan(); },o.every));
@@ -153,7 +173,7 @@ async function main(o,inj){
   timers.push(setInterval(()=>{ E.ldRefresh(false).catch(()=>{}); },10*60e3));
   // araştırma ekibi: Node'da CORS yok, lider geçmişi burada da toplanır (depo: st-lab); Selim (LLM) günde bir, rapor saatte bir research/ altına
   timers.push(setInterval(()=>{ E.labTick(false).then(()=>research()).catch(()=>{}); },60e3));
-  timers.push(setInterval(trendRun,5*60e3)); timers.push(setInterval(dipRun,5*60e3)); timers.push(setInterval(turtleRun,5*60e3)); timers.push(setInterval(kovRun,5*60e3));
+  timers.push(setInterval(trendRun,5*60e3)); timers.push(setInterval(dipRun,5*60e3)); timers.push(setInterval(turtleRun,5*60e3)); timers.push(setInterval(ichiRun,60e3)); timers.push(setInterval(kovRun,5*60e3)); timers.push(setInterval(ksRun,60e3));
   timers.push(setInterval(status,30000)); status();
   for(const s of ['SIGINT','SIGTERM']) process.on(s,()=>{ shutdown(s); process.exit(0); });
   return {B,E,shutdown,status};

@@ -145,25 +145,29 @@ function committee(A, dir, c24, opts){
   if(typeof AUD!=="undefined"&&AUD&&AUD.summary){ const S=AUD.summary; say("audit","açılış",`Kayıtta ${S.n} kapanmış işlem: kazanma %${Math.round(S.wr*100)}, ortalama ${S.avg>=0?"+":""}${fx(S.avg,2)}R.${AUD.lessons.length?" Çıkardığımız dersler: "+AUD.lessons.map(l=>l.t.toLowerCase()).join(", ")+".":" Henüz kesin bir ders yok."} Tartışmada kurulumu bunlarla karşılaştıracağım.`); }
   set("risk",rv,0.8,veto?"VETO: "+veto:`stop ${fx(sd*100,2)}% · 20x'e sığar · fonlama ${fx(A.fund*100,4)}%`);
   say("risk","açılış",veto?`Daha dinlemeden söyleyeyim: ${veto}. Bu masadan ${D} çıkmaz.`:`Stop ${fx(sd*100,2)}% ile 20x'e sığıyor, likidasyon uzak. Boyu risk yüzdesinden hesaplarım. Önce sizi dinleyeyim.`);
+  // eğitilmiş üyeler (uyemodel.js, 11 Ekim 2026): model varsa ve coin evrendeyse Emre, Baran, Mert, Arda, Can (ve aşağıda Serkan) kural oyu yerine modelle oy verir;
+  // kural okuması metinde kalır, Can'ın vetosu kuraldır. Tartışmadaki kurallı itirazlar modelle oy veren üyenin oyunu değiştirmez.
+  const TR={}; const uy=id=>{ if(id==="risk"&&veto) return; const u=typeof uyeVote==="function"?uyeVote(id,dir,sym,A,opts.now):null; if(!u) return; TR[id]=1; ag[id]={id,v:clamp(u.v,-1,1),c:u.c,txt:u.txt+" · kural: "+ag[id].txt}; say(id,"açılış",u.say); };
+  for(const id of ["trend","mom","flow","macro","risk"]) uy(id);
   /* ---- 2. tur: tartışma (oyları gerçekten değiştirir) ---- */
   let runR=3; const chg=[];
   if(!veto){
     if(ag.copy.v<-0.4&&ag.liq.v>0.5){ say("copy","tartışma","Kerem, liderlerin çoğu ters yönde; süpürme ikinci kez de gelebilir, güvenini biraz kıs."); ag.liq.c=Math.max(0,ag.liq.c-0.1); chg.push("liq"); }
-    if(ag.copy.v>0.5&&ag.mom.v>0){ say("mom","tartışma","Liderler de bizim tarafta; boyu tam tutarım."); ag.mom.v=Math.min(1,ag.mom.v+0.1); chg.push("mom"); }
-    if(ag.macro.v<-0.3&&ag.mom.v>0.3){ say("macro","tartışma",`Baran, BTC ${isL?"düşerken":"yükselirken"} momentum kovalamak son 15 günde en çok kaybettiren şey. Oyunu kıs.`); if(A.volRel>=1.8){ ag.mom.v-=0.1; say("mom","tartışma",`Hacim ×${fx(A.volRel,1)}, bu coin BTC'yi dinlemiyor. Biraz kısıyorum ama tutuyorum.`); } else { ag.mom.v-=0.3; say("mom","tartışma","Haklısın, hacim de sıradan. Oyumu düşürüyorum."); } chg.push("mom"); }
-    if(ag.trend.v<-0.3&&ag.liq.v>0.5){ say("trend","tartışma","Kerem, süpürme güzel ama günlük yön karşı. Karşı-trend işlemde hedef kısa tutulur."); ag.liq.c-=0.2; runR=2; say("liq","tartışma","Kabul: süpürme + MSS karşı trendde de çalışır ama koşucuyu 2R'de keselim, güvenimi düşürüyorum."); chg.push("liq"); }
-    else if(ag.trend.v>0.3&&ag.liq.v>0.5){ say("liq","tartışma","Trend de bizimle; süpürme trend yönünde olunca en iyi örnekler bunlar."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
-    if(ag.liq.v>0.5&&ag.flow.v<0){ say("flow","tartışma","Kerem, süpürmede emilim yok: CVD fiyatla birlikte dip yaptı. Satış gerçek olabilir, fiyat yeniden süpürebilir."); ag.liq.v-=0.2; say("liq","tartışma","Teyit zayıfsa ikinci süpürme riski var, oyumu bir kademe düşürüyorum."); chg.push("liq"); }
-    if(bad&&LM.f.yer==="kova"&&ag.mom.v>0.3){ say("lab","tartışma",`Baran, liderler bu konumda kovaladığında ortalama ${fx(bad.mean,2)} ATR alıyor${isFinite(bad.lift)?`, tabanlarından ${fx(Math.abs(bad.lift),2)} ATR kötü`:""}. Fiyat 24 saatlik aralığın ucunda.`); ag.mom.v-=0.25; say("mom","tartışma","Veri bunu söylüyorsa oyumu kısıyorum."); chg.push("mom"); }
+    if(ag.copy.v>0.5&&ag.mom.v>0&&!TR.mom){ say("mom","tartışma","Liderler de bizim tarafta; boyu tam tutarım."); ag.mom.v=Math.min(1,ag.mom.v+0.1); chg.push("mom"); }
+    if(ag.macro.v<-0.3&&ag.mom.v>0.3&&!TR.mom&&!TR.macro){ say("macro","tartışma",`Baran, BTC ${isL?"düşerken":"yükselirken"} momentum kovalamak son 15 günde en çok kaybettiren şey. Oyunu kıs.`); if(A.volRel>=1.8){ ag.mom.v-=0.1; say("mom","tartışma",`Hacim ×${fx(A.volRel,1)}, bu coin BTC'yi dinlemiyor. Biraz kısıyorum ama tutuyorum.`); } else { ag.mom.v-=0.3; say("mom","tartışma","Haklısın, hacim de sıradan. Oyumu düşürüyorum."); } chg.push("mom"); }
+    if(!TR.trend&&ag.trend.v<-0.3&&ag.liq.v>0.5){ say("trend","tartışma","Kerem, süpürme güzel ama günlük yön karşı. Karşı-trend işlemde hedef kısa tutulur."); ag.liq.c-=0.2; runR=2; say("liq","tartışma","Kabul: süpürme + MSS karşı trendde de çalışır ama koşucuyu 2R'de keselim, güvenimi düşürüyorum."); chg.push("liq"); }
+    else if(!TR.trend&&ag.trend.v>0.3&&ag.liq.v>0.5){ say("liq","tartışma","Trend de bizimle; süpürme trend yönünde olunca en iyi örnekler bunlar."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
+    if(ag.liq.v>0.5&&ag.flow.v<0&&!TR.flow){ say("flow","tartışma","Kerem, süpürmede emilim yok: CVD fiyatla birlikte dip yaptı. Satış gerçek olabilir, fiyat yeniden süpürebilir."); ag.liq.v-=0.2; say("liq","tartışma","Teyit zayıfsa ikinci süpürme riski var, oyumu bir kademe düşürüyorum."); chg.push("liq"); }
+    if(bad&&LM.f.yer==="kova"&&ag.mom.v>0.3&&!TR.mom){ say("lab","tartışma",`Baran, liderler bu konumda kovaladığında ortalama ${fx(bad.mean,2)} ATR alıyor${isFinite(bad.lift)?`, tabanlarından ${fx(Math.abs(bad.lift),2)} ATR kötü`:""}. Fiyat 24 saatlik aralığın ucunda.`); ag.mom.v-=0.25; say("mom","tartışma","Veri bunu söylüyorsa oyumu kısıyorum."); chg.push("mom"); }
     if(best&&LM.f.sw==="var"&&ag.liq.v>0.5){ say("lab","tartışma","Kerem, liderlerin kazanan işlemleri de süpürmeden sonra geliyor; senin okumanı destekliyor."); ag.liq.c=Math.min(1,ag.liq.c+0.1); chg.push("liq"); }
-    if(best&&best.conds.some(c=>c[0]==="btc")&&ag.macro.v>0){ say("macro","tartışma","Burak'ın adayı BTC yönüne bağlı; BTC tarafı da bizimle, güvenimi artırıyorum."); ag.macro.c=Math.min(1,ag.macro.c+0.1); chg.push("macro"); }
-    if(n>=3&&sum<0){ say("quant","tartışma",`Bu coinde K3 geçmişi ${fx(sum,1)}R, yani eksi. Herkesin güvenini %15 kısıyorum; kanıtsız yere kalite A demeyelim.`); for(const k in ag) if(k!=="risk") ag[k].c*=0.85; chg.push("all"); }
+    if(best&&best.conds.some(c=>c[0]==="btc")&&ag.macro.v>0&&!TR.macro){ say("macro","tartışma","Burak'ın adayı BTC yönüne bağlı; BTC tarafı da bizimle, güvenimi artırıyorum."); ag.macro.c=Math.min(1,ag.macro.c+0.1); chg.push("macro"); }
+    if(n>=3&&sum<0){ say("quant","tartışma",`Bu coinde K3 geçmişi ${fx(sum,1)}R, yani eksi. Herkesin güvenini %15 kısıyorum; kanıtsız yere kalite A demeyelim.`); for(const k in ag) if(k!=="risk"&&!TR[k]) ag[k].c*=0.85; chg.push("all"); }
     const sdMin=AUD&&AUD.sdMin>0.015?AUD.sdMin:0.015;
     if(sd<sdMin){ if(sdMin>0.015) say("audit","tartışma",`Kayıplarımızın çoğu gürültü stopu: fiyat lehimize gitmeden 45 dakikada stop oluyoruz. Stop tabanı %${fx(sdMin*100,1)}, boy ona göre küçülsün.`); else say("quant","tartışma",`Stop ${fx(sd*100,2)}% dar; testte %1,5 altı stoplar eksiydi. Stopu %1,5 tabanına çekelim, boy ona göre küçülür.`); sd=sdMin; say("risk","tartışma",`Tamam, stop %${fx(sdMin*100,1)}; pozisyon boyu buna göre.`); }
   }
   /* ---- hacim analisti (volume.js) ve strateji doğrulayıcı (tfcheck.js): son stopla (tartışmadan sonra) ---- */
   const vm=volMember(A,dir), tm=tfMember(A,dir,{r,lv:ag.liq.v,q,sd,costR:(BOT_CFG_DEF.feeTaker*2+BOT_CFG_DEF.slip)/sd});
-  set("vol",vm.v,vm.c,vm.txt); say("vol","açılış",vm.say); set("check",tm.v,tm.c,tm.txt); say("check","açılış",tm.say);
+  set("vol",vm.v,vm.c,vm.txt); say("vol","açılış",vm.say); uy("vol"); set("check",tm.v,tm.c,tm.txt); say("check","açılış",tm.say);
   // faktör analisti Kaan (factors.js): araştırma ekibinin ölçülmüş kurallarından oy; izlemedeki faktörler yalnız kayda geçer
   const fm=facMember(A,dir,{now:opts.now}); set("fac",fm.v,fm.c,fm.txt); say("fac","açılış",fm.say);
   // sıralama modeli Ozan (rankmodel.js): coinin önümüzdeki 4/12 saatte evrendeki yeri; tahmin defterinde kanıtlanana kadar gölge oy (yazılır, puana girmez)
@@ -184,15 +188,16 @@ function committee(A, dir, c24, opts){
   // Burak'ın elinde eşleşen aday ya da kaçınılacak kalıp yoksa çekimserdir: ağırlığı 0, puanı sulandırmaz
   const labIdle=!best&&!bad;
   // çekimserler: verisi olmayan üye puana girmez, ortalamayı sulandırmaz (Tolga: lider verisi yok; Burak: eşleşen kalıp yok; Onur: coinde K3 kanıtı yok; Arda: BTC verisi yok; Murat: kayıt yok)
-  const abst={copy:!cs||!(((cs[dir]||{}).w||0)+((cs[isL?"short":"long"]||{}).w||0)>0),lab:labIdle,quant:n<3,macro:!B,audit:!au.w,vol:!!vm.abst,check:!!tm.abst,fac:!!fm.abst,rank:!!rk.abst};
-  const pre=DESK.map(d=>{ const a=ag[d.id]; const m=clamp((AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1)*(typeof fcMult==='function'?fcMult(d.id):1),0.5,1.5); return {id:d.id,name:d.name,role:d.role,v:a.v,c:a.c,txt:a.txt,abst:!!abst[d.id],base:d.id==="audit"?(au.w?d.w:0):d.w,m,idle:d.id==="rank"&&!!rk.idle,shadow:d.id==="rank"&&!!rk.shadow}; });
+  const abst={copy:!cs||!(((cs[dir]||{}).w||0)+((cs[isL?"short":"long"]||{}).w||0)>0),lab:labIdle,quant:n<3,macro:!B&&!TR.macro,audit:!au.w,vol:!!vm.abst&&!TR.vol,check:!!tm.abst,fac:!!fm.abst,rank:!!rk.abst};
+  // modelle oy veren üye: katsayı UYE_CFG.w, Murat'ın ve tahmin defterinin çarpanı yok (o çarpanlar kural oyunun geçmişinden)
+  const pre=DESK.map(d=>{ const a=ag[d.id]; const md=!!TR[d.id]; const m=md?1:clamp((AUD&&AUD.mult[d.id]?AUD.mult[d.id].m:1)*(typeof fcMult==='function'?fcMult(d.id):1),0.5,1.5); return {id:d.id,name:d.name,role:d.role,v:a.v,c:a.c,txt:a.txt,abst:!!abst[d.id],base:md?UYE_CFG.w:d.id==="audit"?(au.w?d.w:0):d.w,m,idle:d.id==="rank"&&!!rk.idle,shadow:d.id==="rank"&&!!rk.shadow,model:md}; });
   /* ---- 3. tur: ikna turu (fon toplantısı): tez, karşı tez, sonra kararsızlar en ikna edici argümana göre oyunu günceller ---- */
   const T=comTally(pre,opts);
   if(!veto) comTalkLines(T,D).forEach(x=>say(x.id,x.stage,x.text));
-  const agents=T.L.map(a=>({id:a.id,k:a.name+" · "+a.role.split(" ")[0],name:a.name,role:a.role,w:a.w,v:+a.v.toFixed(2),v0:+a.v0.toFixed(2),c:+a.c.toFixed(2),abst:a.abst,txt:a.txt,...(a.idle?{idle:true}:{}),...(a.shadow?{shadow:true}:{})}));
+  const agents=T.L.map(a=>({id:a.id,k:a.name+" · "+a.role.split(" ")[0],name:a.name,role:a.role,w:a.w,v:+a.v.toFixed(2),v0:+a.v0.toFixed(2),c:+a.c.toFixed(2),abst:a.abst,txt:a.txt,...(a.idle?{idle:true}:{}),...(a.shadow?{shadow:true}:{}),...(a.model?{model:true}:{})}));
   let num=0,den=0,yes=T.yes,no=T.no; for(const a of agents){ num+=a.w*a.v*a.c; den+=a.w; }
   let score=den?num/den:0;
-  if(!veto&&score>=opts.threshold-0.04&&score<opts.threshold&&yes>=opts.minYes&&ag.mom.v>0&&!abst.mom){ say("mom","ikna",`Eşiğin dibindeyiz (${pts(score)}), ${yes} evet var. Ben küçük boyla girerim; fırsatı kaçırmayalım.`); const m=agents.find(a=>a.id==="mom"); m.v=+Math.min(1,m.v+0.15).toFixed(2); num=0; for(const a of agents) num+=a.w*a.v*a.c; score=num/den; }
+  if(!veto&&score>=opts.threshold-0.04&&score<opts.threshold&&yes>=opts.minYes&&ag.mom.v>0&&!abst.mom&&!TR.mom){ say("mom","ikna",`Eşiğin dibindeyiz (${pts(score)}), ${yes} evet var. Ben küçük boyla girerim; fırsatı kaçırmayalım.`); const m=agents.find(a=>a.id==="mom"); m.v=+Math.min(1,m.v+0.15).toFixed(2); num=0; for(const a of agents) num+=a.w*a.v*a.c; score=num/den; }
   // yerel dil modeli (llm.js): yalnız ayarda açık ve tahmin defterinde becerisi kanıtlanmışsa (llmWeight > 0) küçük ağırlıkla puana girer
   const LV=typeof lmdVote==='function'&&sym?lmdVote(sym,dir,"giris"):null; if(LV&&LV.w>0){ score=(score*den+LV.w*LV.v*LV.c)/(den+LV.w); say("risk","ikna",`Yapay zekâ masası ${LV.act} diyor (oy ${LV.v>0?"+":""}${fx(LV.v,2)}, ağırlık ${fx(LV.w,2)}): ${LV.why}`); }
   score=+score.toFixed(3);
@@ -209,6 +214,7 @@ function committee(A, dir, c24, opts){
   const feat={px:A.px,c24:r4(c24),trend:A.trend,trendScore:A.trendScore,st:A.st,stage:r?r.stage:null,grade:r?r.grade:null,kz:r&&r.kz||null,pool:r&&r.pool?r.pool.name:null,poolW:r&&r.pool?r.pool.w:null,rsOk:!!(q&&q.rsOk),rsStage:q?q.stage:null,
     of,tk30:r4(A.tk30),oiCase:A.oiCase||null,oiBloat:!!A.oiBloat,noTaker:!!A.noTaker,btc:B?{ch4:r4(B.ch4),ch24:r4(B.ch24),bias:B.bias,agree:!!B.agree,ok:!!B.ok,dump:!!B.dump}:null,fund:r4(A.fund),crowd:crowd||null,
     ldV:r4(cv),ldN:cs?((cs.long&&cs.long.n)||0)+((cs.short&&cs.short.n)||0):0,k3n:n,k3sum:r4(sum),atrRel:r4(atrRel),sd:r4(sd),costR:r4(costR),wind:A.score,volRel:r4(A.volRel),climax:!!A.climax,capit:!!A.capit,distrib:!!A.distrib,accum:!!A.accum,runR,lab:best?best.key:null,labAvoid:bad?bad.key:null,
+    uye:Object.fromEntries(Object.keys(TR).map(id=>[id,r4(ag[id].v)])), // modelle oy veren üyelerin açılış oyu
     fac:Object.fromEntries(Object.entries(fm.f).map(([id,x])=>[id,r4(x.v*x.c)]))}; // her faktörün görüşü (oy × güven): tahmin defteri "f:<id>" olarak puanlar
   return {dir,score,yes,no,n:T.nAct,veto,agents,talk,plan,decision,changed:chg,feat,pre:opts.raw?pre:undefined};
 }

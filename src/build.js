@@ -64,8 +64,8 @@ if(!eng.includes('function auditRun')) throw new Error('auditor insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'committee.js','utf8')+`
 // backtest: every completed sequence in the history`);
 if(!eng.includes('function committee')) throw new Error('committee insert failed');
-eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'volume.js','utf8')+'\n'+rd(P+'tfcheck.js','utf8')+'\n'+rd(P+'factors.js','utf8')+'\n'+rd(P+'rankmodel.js','utf8')+'\n'+rd(P+'rankmodel-data.js','utf8')+`\n// backtest: every completed sequence in the history`);
-if(!eng.includes('function volMember')||!eng.includes('function tfMember')||!eng.includes('function facMember')||!eng.includes('function rkMember')||!eng.includes('const RK_MODEL')) throw new Error('volume/tfcheck/rankmodel insert failed');
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'volume.js','utf8')+'\n'+rd(P+'tfcheck.js','utf8')+'\n'+rd(P+'factors.js','utf8')+'\n'+rd(P+'rankmodel.js','utf8')+'\n'+rd(P+'rankmodel-data.js','utf8')+'\n'+rd(P+'uyemodel.js','utf8')+'\n'+rd(P+'uyemodel-data.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function volMember')||!eng.includes('function tfMember')||!eng.includes('function facMember')||!eng.includes('function rkMember')||!eng.includes('const RK_MODEL')||!eng.includes('function uyeVote')||!eng.includes('const UYE_MODEL')) throw new Error('volume/tfcheck/rankmodel insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'forecast.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function fcObserve')) throw new Error('forecast insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'goal.js','utf8')+`\n// backtest: every completed sequence in the history`);
@@ -78,8 +78,14 @@ eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P
 if(!eng.includes('function dipClose')) throw new Error('dip insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'turtle.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function ttClose')) throw new Error('turtle insert failed');
+// Ichimoku sepeti (11 Ekim 2026, test #65): turtle.js TT_TRADFI'yi kullanır, bu yüzden ondan sonra
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'ichi.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function icClose')) throw new Error('ichi insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'kovner.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function kovClose')) throw new Error('kovner insert failed');
+// kalite short sepeti (11 Ekim 2026, test #52): rankmodel.js rkPredict'i ve dip.js DAY_MS'i kullanır, bu yüzden onlardan sonra
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'kshort.js','utf8')+'\n'+rd(P+'kshort-data.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function ksScan')||!eng.includes('const KS_MODEL')) throw new Error('kshort insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'account.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function acctStart')) throw new Error('account insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'leaders.js','utf8')+`\n// backtest: every completed sequence in the history`);
