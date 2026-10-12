@@ -59,6 +59,19 @@ const E=loadEngine({fetch});
   ok(!!g2&&g2!==g,'sessiz akış yeniden açıldı');
   g2.emit({stream:'!markPrice@arr@1s',data:[{e:'markPriceUpdate',E:NOW,s:'C3USDT',p:'10.6',i:'10.3',P:'10.3',r:'0.0001',T:NOW+3600e3}]});
   const k0=E.wsdSummary().kick; NOW+=5e3; E.wsdWatch(NOW); ok(g2.readyState===1&&E.wsdSummary().kick===k0,'konuşan akışa dokunulmadı');
+  // abonelik seli (12 Ekim 2026): 120 coin aynı anda istenince tek tek SUBSCRIBE gitmez; ≤50 akışlık mesajlar, aralarında ≥500 ms
+  const nc={streams:new Set(['aaausdt@kline_1m']),syms:new Set(),ws:null,tries:0,sent:new Set()}; E.wsd.conns.push(nc);
+  E.wsdOpen(nc); E.wsdSub(nc,'bbbusdt@kline_1m'); // bağlanırken eklendi: URL'de yok
+  await new Promise(r=>setTimeout(r,20)); const lws=nc.ws; const tSub=[]; const send0=lws.send.bind(lws); lws.send=m=>{ tSub.push(realNow()); send0(m); };
+  const many=Array.from({length:120},(_,i)=>'z'+i+'usdt@kline_1m'); for(const st of many) E.wsdSub(nc,st);
+  const sync=lws.sent.length;
+  await new Promise(r=>setTimeout(r,2000));
+  const msgs=lws.sent.map(m=>JSON.parse(m)); const params=msgs.flatMap(m=>m.params); const gaps=tSub.slice(1).map((t,i)=>t-tSub[i]);
+  ok(sync<=1,'abonelikler anında tek tek gönderilmedi ('+sync+')');
+  ok(msgs.every(m=>m.method==='SUBSCRIBE'&&m.params.length<=50),'SUBSCRIBE mesajları en çok 50 akış ('+msgs.map(m=>m.params.length).join('+')+')');
+  ok(new Set(params).size===params.length&&many.every(st=>params.includes(st)),'120 akışın hepsi bir kez abone edildi ('+msgs.length+' mesaj)');
+  ok(params.includes('bbbusdt@kline_1m')&&!params.includes('aaausdt@kline_1m'),'bağlanırken eklenen akış açılınca gönderildi, URL\'deki yeniden gönderilmedi');
+  ok(gaps.every(g=>g>=450),'mesajlar arası ≥500 ms ('+gaps.join(', ')+' ms)');
   console.log('özet',JSON.stringify(E.wsdSummary()));
   Date.now=realNow; console.log('wsdata-test errors',JSON.stringify(errors)); process.exit(errors.length?1:0);
 })().catch(e=>{ console.error(e); process.exit(1); });
