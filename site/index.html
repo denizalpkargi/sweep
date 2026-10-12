@@ -1368,7 +1368,9 @@ const DESK=[
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1.1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 // eşik, asgari evet ve katsayılar tests/backtest-masa.js ile seçildi (6 Ekim 2026, 24 coin × 6 ay, 169 bin toplantı); v: ayar sürümü (comMigrate)
-const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{longBtc24Max:null,r7dMin:0},l24:{holdH:24,btc24Max:0,rankMin:0.1}};
+const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{longBtc24Max:null,r7dMin:0},l24:{holdH:24,btc24Max:0,rankMin:0.1},uye:false};
+// uye: eğitilmiş üyelerin model oyu (uyemodel.js). 12 Ekim 2026: arşivde örneklem dışı dilimlerle (tests/masa-oos-karar-report.md, 2024-06 → 2026-10)
+// model oylu masa girişlerde −0,047R, kural masası −0,027R; model oylu masa rastgele ikizden ayrışmadı (fazladan long). Varsayılan kapalı, kural oyu.
 // 10 Ekim 2026 akşamı, 24 saatlik long (test #47; kullanıcı araştırma döngüsünün önerisiyle "devam edelim" dedi; arastirma/dongu/2026-10-10-test44-birlesim.md):
 // long yalnız BTC son 24 saatte düşmüşken (btc24Max) ve Ozan coini evrenin en kötü onluğunda görmüyorsa (rankMin; gölgede olsa da veto); pozisyon hedefsiz,
 // stop aynı, holdH saat sonra zaman çıkışı, masanın pozisyon kararları ve dinamik hedef/stop uygulanmaz (plan.h24 → pozisyon h24). Arşivde (2020-06 → 2026-10,
@@ -1490,7 +1492,7 @@ function committee(A, dir, c24, opts){
   say("risk","açılış",veto?`Daha dinlemeden söyleyeyim: ${veto}. Bu masadan ${D} çıkmaz.`:`Stop ${fx(sd*100,2)}% ile 20x'e sığıyor, likidasyon uzak. Boyu risk yüzdesinden hesaplarım. Önce sizi dinleyeyim.`);
   // eğitilmiş üyeler (uyemodel.js, 11 Ekim 2026): model varsa ve coin evrendeyse Kerem, Emre, Baran, Mert, Arda, Can (ve aşağıda Serkan, Yusuf) kural oyu yerine modelle oy verir;
   // kural okuması metinde kalır, Can'ın vetosu kuraldır. Tartışmadaki kurallı itirazlar modelle oy veren üyenin oyunu değiştirmez.
-  const TR={}; const uy=id=>{ if(id==="risk"&&veto) return; const u=typeof uyeVote==="function"?uyeVote(id,dir,sym,A,opts.now):null; if(!u) return; TR[id]=1; ag[id]={id,v:clamp(u.v,-1,1),c:u.c,txt:u.txt+" · kural: "+ag[id].txt}; say(id,"açılış",u.say); };
+  const TR={}; const uy=id=>{ if(!opts.uye||(id==="risk"&&veto)) return; const u=typeof uyeVote==="function"?uyeVote(id,dir,sym,A,opts.now):null; if(!u) return; TR[id]=1; ag[id]={id,v:clamp(u.v,-1,1),c:u.c,txt:u.txt+" · kural: "+ag[id].txt}; say(id,"açılış",u.say); };
   const liqRule=ag.liq.v; // Kerem modelle konuşsa da Yusuf kuralın şartlarını kural okumasıyla denetler
   for(const id of ["liq","trend","mom","flow","macro","risk"]) uy(id);
   /* ---- 2. tur: tartışma (oyları gerçekten değiştirir) ---- */
