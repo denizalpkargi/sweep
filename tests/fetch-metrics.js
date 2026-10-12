@@ -16,17 +16,19 @@ const U=JSON.parse(fs.readFileSync(path.join(ARCH,'universe.json'),'utf8')).mont
 const want={}; for(const m in U){ const t0=Date.UTC(+m.slice(0,4),+m.slice(5,7)-1,1), t1=Date.UTC(+m.slice(0,4),+m.slice(5,7),1);
   for(const s of U[m].slice(0,TOP)){ const set=(want[s]=want[s]||new Set()); for(let t=Math.max(FIRST,t0-3*DAY);t<Math.min(t1,Date.now()-DAY);t+=DAY) set.add(new Date(t).toISOString().slice(0,10)); } }
 (async()=>{
-  fs.mkdirSync(OUT,{recursive:true}); const jobs=[]; const rows={}; let fail=0, miss=0;
-  for(const s in want){ const f=path.join(OUT,s+'.csv'); const have=new Set(); rows[s]=[];
-    if(fs.existsSync(f)) for(const l of fs.readFileSync(f,'utf8').split('\n')) if(l){ rows[s].push(l); have.add(new Date(+l.split(',')[0]).toISOString().slice(0,10)); }
-    for(const d of want[s]) if(!have.has(d)) jobs.push([s,d]); }
-  console.log('coin',Object.keys(want).length,'indirilecek gün',jobs.length); let i=0, done=0; const t0=Date.now();
-  await Promise.all(Array.from({length:CONC},async()=>{ while(i<jobs.length){ const [s,d]=jobs[i++];
-    try{ const b=await get(`${S3}/data/futures/um/daily/metrics/${s}/${s}-metrics-${d}.zip`); if(!b){ miss++; }
-      else for(const l of unzip(b).split(/\r?\n/)){ const r=l.split(','); if(!/^\d{4}-/.test(r[0])) continue; const t=Date.parse(r[0].replace(' ','T')+'Z');
-        rows[s].push([t,r[2],r[3],r[4],r[5],r[6],r[7]].map(x=>x===''?'':x).join(',')); } }catch(e){ fail++; }
-    if(++done%5000===0) console.log(`  ${done}/${jobs.length} (${((Date.now()-t0)/1000).toFixed(0)} sn)`); } }));
-  for(const s in rows){ const seen=new Set(); const a=rows[s].filter(l=>{ const t=l.slice(0,l.indexOf(',')); if(seen.has(t)) return false; seen.add(t); return true; }).sort((x,y)=>+x.split(',')[0]-+y.split(',')[0]);
-    if(a.length) fs.writeFileSync(path.join(OUT,s+'.csv'),a.join('\n')); }
+  // coin coin (12 Ekim 2026): ilk 100'de tüm satırları bellekte tutmak 4 GB'ı aşıyordu; her coin bitince yazılır ve bellekten çıkar, kesilirse kaldığı yerden sürer
+  fs.mkdirSync(OUT,{recursive:true}); let fail=0, miss=0, done=0, total=0; const t0=Date.now();
+  const haveOf=f=>{ const have=new Set(); if(fs.existsSync(f)) for(const l of fs.readFileSync(f,'utf8').split('\n')) if(l) have.add(new Date(+l.slice(0,l.indexOf(','))).toISOString().slice(0,10)); return have; };
+  const todo=[]; for(const s in want){ const have=haveOf(path.join(OUT,s+'.csv')); const days=[...want[s]].filter(d=>!have.has(d)); if(days.length){ todo.push([s,days]); total+=days.length; } }
+  console.log('coin',Object.keys(want).length,'eksik coin',todo.length,'indirilecek gün',total);
+  for(const [s,days] of todo){ const add=[]; let i=0;
+    await Promise.all(Array.from({length:CONC},async()=>{ while(i<days.length){ const d=days[i++];
+      try{ const b=await get(`${S3}/data/futures/um/daily/metrics/${s}/${s}-metrics-${d}.zip`); if(!b){ miss++; }
+        else for(const l of unzip(b).split(/\r?\n/)){ const r=l.split(','); if(!/^\d{4}-/.test(r[0])) continue; const t=Date.parse(r[0].replace(' ','T')+'Z');
+          add.push([t,r[2],r[3],r[4],r[5],r[6],r[7]].map(x=>x===''?'':x).join(',')); } }catch(e){ fail++; }
+      if(++done%5000===0) console.log(`  ${done}/${total} (${((Date.now()-t0)/1000).toFixed(0)} sn)`); } }));
+    if(!add.length) continue; const f=path.join(OUT,s+'.csv'); const old=fs.existsSync(f)?fs.readFileSync(f,'utf8').split('\n').filter(Boolean):[];
+    const seen=new Set(); const a=old.concat(add).filter(l=>{ const t=l.slice(0,l.indexOf(',')); if(seen.has(t)) return false; seen.add(t); return true; }).sort((x,y)=>+x.slice(0,x.indexOf(','))-+y.slice(0,y.indexOf(',')));
+    fs.writeFileSync(f,a.join('\n')); }
   console.log('bitti · arşivde olmayan gün',miss,'· hata',fail);
 })().catch(e=>{ console.error(e); process.exit(1); });
