@@ -86,6 +86,9 @@ if(!eng.includes('function kovClose')) throw new Error('kovner insert failed');
 // kalite short sepeti (11 Ekim 2026, test #52): rankmodel.js rkPredict'i ve dip.js DAY_MS'i kullanır, bu yüzden onlardan sonra
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'kshort.js','utf8')+'\n'+rd(P+'kshort-data.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function ksScan')||!eng.includes('const KS_MODEL')) throw new Error('kshort insert failed');
+// sinyal günlüğü ve canlı isabet (12 Ekim 2026): rkScore (rankmodel.js) ve r7dOf (committee.js) kullanır
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'signals.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function sgObserve')) throw new Error('signals insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'account.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function acctStart')) throw new Error('account insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'leaders.js','utf8')+`\n// backtest: every completed sequence in the history`);

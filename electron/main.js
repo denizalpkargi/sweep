@@ -17,9 +17,11 @@ const log=(...a)=>logLine('info',a.join(' '));
 // Botun 10 dk'lık durum özeti (ui.js botDigest): logs/bot-YYYY-MM-DD.jsonl satırları + son hali logs/bot-status.json; uzaktan izleme için.
 function botStatus(json){ try{ if(!logDir){ logDir=path.join(app.getPath('userData'),'logs'); fs.mkdirSync(logDir,{recursive:true}); } const d=new Date(); fs.appendFileSync(path.join(logDir,'bot-'+d.toISOString().slice(0,10)+'.jsonl'),json+'\n'); fs.writeFileSync(path.join(logDir,'bot-status.json'),json); }catch(e){} }
 // Likidasyon kaydı (wsdata.js wsdLiqFlush, 12 Ekim 2026): dakikalık coin özetleri logs/akis-YYYY-MM-DD.jsonl; arşivde olmayan veri, pruneLogs silmez.
+// Sinyal günlüğü (signals.js sgLog, 12 Ekim 2026): tarayıcının her sinyali ve 24 sa sonucu logs/sinyal-YYYY-MM-DD.jsonl; pruneLogs silmez.
+function sigLine(json){ try{ if(!logDir){ logDir=path.join(app.getPath('userData'),'logs'); fs.mkdirSync(logDir,{recursive:true}); } fs.appendFileSync(path.join(logDir,'sinyal-'+new Date().toISOString().slice(0,10)+'.jsonl'),json+'\n'); }catch(e){} }
 function akisLine(json){ try{ if(!logDir){ logDir=path.join(app.getPath('userData'),'logs'); fs.mkdirSync(logDir,{recursive:true}); } fs.appendFileSync(path.join(logDir,'akis-'+new Date().toISOString().slice(0,10)+'.jsonl'),json+'\n'); }catch(e){} }
 const logErr=(...a)=>logLine('error',a.map(x=>x&&x.stack?x.stack:String(x)).join(' '));
-function pruneLogs(){ try{ const cut=Date.now()-14*864e5; for(const f of fs.readdirSync(logDir)){ if(f.startsWith('akis-')) continue; const p=path.join(logDir,f); if(fs.statSync(p).mtimeMs<cut) fs.unlinkSync(p); } }catch(e){} }
+function pruneLogs(){ try{ const cut=Date.now()-14*864e5; for(const f of fs.readdirSync(logDir)){ if(f.startsWith('akis-')||f.startsWith('sinyal-')) continue; const p=path.join(logDir,f); if(fs.statSync(p).mtimeMs<cut) fs.unlinkSync(p); } }catch(e){} }
 
 // Ana süreçte yakalanmamış hata uygulamayı düşürmesin: kaydet ve devam et.
 process.on('uncaughtException',e=>logErr('uncaughtException',e));
@@ -125,7 +127,7 @@ function create(){
   const wc=win.webContents;
 
   // Sayfadaki hata ve uyarılar da günlüğe düşsün.
-  wc.on('console-message',(e,...a)=>{ const lv=e.level!==undefined?e.level:a[0], msg=e.message!==undefined?e.message:a[1], line=e.lineNumber!==undefined?e.lineNumber:a[2]; if(typeof msg==='string'&&msg.startsWith('SWEEP · durum ')){ botStatus(msg.slice(14)); return; } if(typeof msg==='string'&&msg.startsWith('SWEEP · akis ')){ akisLine(msg.slice(13)); return; } const err=lv==='error'||lv===3, warn=lv==='warning'||lv===2; if(err||warn) logLine(err?'page-error':'page-warn',msg+(line?' @'+line:'')); });
+  wc.on('console-message',(e,...a)=>{ const lv=e.level!==undefined?e.level:a[0], msg=e.message!==undefined?e.message:a[1], line=e.lineNumber!==undefined?e.lineNumber:a[2]; if(typeof msg==='string'&&msg.startsWith('SWEEP · durum ')){ botStatus(msg.slice(14)); return; } if(typeof msg==='string'&&msg.startsWith('SWEEP · akis ')){ akisLine(msg.slice(13)); return; } if(typeof msg==='string'&&msg.startsWith('SWEEP · sinyal ')){ sigLine(msg.slice(15)); return; } const err=lv==='error'||lv===3, warn=lv==='warning'||lv===2; if(err||warn) logLine(err?'page-error':'page-warn',msg+(line?' @'+line:'')); });
   wc.on('did-fail-load',(e,code,desc)=>logErr('did-fail-load',code,desc));
 
   // Sayfa süreci çökerse (bellek, GPU, Windows) pencere boş kalmasın: kaydet ve yeniden yükle; arka arkaya çökerse bekleyip pencereyi baştan kur.

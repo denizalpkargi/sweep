@@ -254,38 +254,58 @@ function renderStats(A){
 /* ---- feed ---- */
 const feed={items:[],seen:{}}; try{ const f=JSON.parse(LS("st-feed")||"{}"); if(Array.isArray(f.items)) feed.items=f.items.slice(0,60); feed.seen=f.seen||{}; }catch(e){}
 function feedSave(){ LS("st-feed",JSON.stringify({items:feed.items.slice(0,60),seen:feed.seen})); }
-const KIND={entry:"GİRİŞ",near:"YAKIN",zone:"BÖLGE",sweep:"SÜPÜRME",liq:"LİKİDASYON",breakout:"KIRILIM",rejim:"REJİM"};
+const KIND={entry:"GİRİŞ",near:"YAKIN",zone:"MSS",sweep:"SÜPÜRME",liq:"LİKİDASYON",breakout:"KIRILIM",rejim:"REJİM"};
 function pushSignal(s){
   const key=s.sym+"|"+s.dir+"|"+s.kind; const now=Date.now(); if(feed.seen[key]&&now-feed.seen[key]<2*3600e3) return false; feed.seen[key]=now;
   for(const k in feed.seen) if(now-feed.seen[k]>12*3600e3) delete feed.seen[k];
+  const sig=s.sig; delete s.sig; let rec=null; try{ rec=sgAdd({...s,sig},now); }catch(e){}
+  if(rec){ s.stop=rec.stop; s.sd=rec.sd; s.tags=rec.tags; }
   feed.items.unshift({...s,t:now,fresh:true}); feed.items=feed.items.slice(0,60); feedSave();
+  if(s.kind==="zone"&&s.grade==="A"){ toast(`<b>${s.sym.replace("USDT","")} ${s.dir==="long"?"long":"short"}</b> · MSS · kırılımda giriş · not A`); beep(); notify(`SWEEP · ${s.sym.replace("USDT","")} ${s.dir==="long"?"LONG":"SHORT"} kırılım`,s.meta); }
   if(s.kind==="entry"){ toast(`<b>${s.sym.replace("USDT","")} ${s.dir==="long"?"long":"short"}</b> · giriş izni · not ${s.grade} · ${s.meta}`); beep(); notify(`SWEEP · ${s.sym.replace("USDT","")} ${s.dir==="long"?"LONG":"SHORT"} giriş`,s.meta); }
   return true;
 }
 function renderFeed(){
   const el=$("feed"); if(!feed.items.length){ el.innerHTML='<li class="empty" style="display:block;border:0;background:transparent">Tarayıcı ilk turunu bitirince sinyaller burada akar. Giriş izni (yeşil), yakın (sarı), bölge bekleyen (mavi), süpürme (mor).</li>'; return; }
   const now=Date.now();
-  el.innerHTML=feed.items.map(s=>`<li class="k-${s.kind}" data-s="${s.sym}" data-d="${s.dir}"><span class="kind">${KIND[s.kind]}</span><span class="sym">${now-s.t<10*60e3?'<span class="new"></span>':""}${s.sym.replace("USDT","")} <span class="${s.dir==="long"?"up":"down"}" style="font-weight:600">${s.dir==="long"?"LONG":"SHORT"}</span></span><span class="when">${tl(s.t)}</span><span class="meta">${s.grade?chip(GRADE_CLS[s.grade]+" sm","Not "+s.grade):""}${s.kz?chip("cyan sm",s.kz):""}${s.cons?chip(CONS_TXT[s.cons][0]+" sm",CONS_TXT[s.cons][1]):""}<span>${s.meta||""}</span></span></li>`).join("");
+  el.innerHTML=feed.items.map(s=>`<li class="k-${s.kind}" data-s="${s.sym}" data-d="${s.dir}"><span class="kind">${KIND[s.kind]}</span><span class="sym">${now-s.t<10*60e3?'<span class="new"></span>':""}${s.sym.replace("USDT","")} <span class="${s.dir==="long"?"up":"down"}" style="font-weight:600">${s.dir==="long"?"LONG":"SHORT"}</span></span><span class="when">${tl(s.t)}</span><span class="meta">${s.grade?chip(GRADE_CLS[s.grade]+" sm","Not "+s.grade):""}${s.kz?chip("cyan sm",s.kz):""}${s.cons?chip(CONS_TXT[s.cons][0]+" sm",CONS_TXT[s.cons][1]):""}<span>${s.meta||""}</span>${sgRiskTxt(s)}${(s.tags||[]).map(t=>chip("neutral sm",SG_TAGS[t]||t)).join("")}</span></li>`).join("");
 }
+// stop ve boy: bakiyenin %1'i riskte kaç $ nominal, seçili kaldıraçta likidasyon stoptan önce mi (12 Ekim 2026; gerçek dökümde zararın tamamı stopsuz üç işlemdi)
+function sgRiskTxt(s){ if(!s.stop||!s.sd) return ""; const sd=s.sd, lev=state.lev||+(($("lev")||{}).value)||0, bal=state.bal||+(($("bal")||{}).value)||0; let t=`stop ${fmtP(s.stop)} (%${fx(sd*100,2)})`;
+  if(bal>0) t+=` · %1 risk: ${fx(bal*0.01/sd,0)} $ nominal`; const mx=Math.max(1,Math.floor(0.6/sd)); if(lev&&lev>mx) t+=` · <span class="down">${lev}x'te likidasyon stoptan önce, en çok ${mx}x</span>`;
+  return `<span>${t}</span>`; }
 function signalsFromRows(rows){
   let n=0;
   for(const r of rows){
     for(const [dir,stage,grade,ok,base,kz,cons,rr,px]of[["long",r.stageL,r.gradeL,r.pickHC,r.pick,r.kzL,r.consL,r.rrL,r.px],["short",r.stageS,r.gradeS,r.pickHCS,r.pickS,r.kzS,r.consS,r.rrS,r.px]]){
-      const hc=state.strat==="hc"; const okNow=hc?ok:base; const tier=cons?cons.tier:null;
-      if(okNow) n+=pushSignal({sym:r.s,dir,kind:"entry",grade,kz,cons:tier,meta:`fiyat ${fmtP(px)} · oran 1'e ${fx(rr,1)}`});
-      else if(hc&&base){ const miss=[]; if(!(grade==="A"||(grade==="B"&&tier==="proven"))) miss.push("not "+grade); if(!kz) miss.push("seans dışı"); if(!(tier==="proven"||tier==="promising")) miss.push("coin kanıtsız"); n+=pushSignal({sym:r.s,dir,kind:"near",grade,kz,cons:tier,meta:"AMD dizisi tamam · eksik: "+(miss.join(", ")||"disiplin")}); }
-      else if(stage==="waitEntry"&&(grade==="A"||grade==="B")) n+=pushSignal({sym:r.s,dir,kind:"zone",grade,kz,cons:tier,meta:"MSS oldu · OTE'ye dönüş bekleniyor · limit emir"});
-      else if(stage==="waitMSS"&&r.deep) n+=pushSignal({sym:r.s,dir,kind:"sweep",kz,cons:tier,meta:"havuz süpürüldü · yapı kırılımı bekleniyor"});
-      const br=dir==="long"?r.brL:r.brS; if(br&&br.aligned&&(br.grade==="A"||br.grade==="B")&&(br.stage==="entry"||br.stage==="waitRetest")) n+=pushSignal({sym:r.s,dir,kind:"breakout",grade:br.grade,meta:br.stage==="entry"?"kutu kırıldı · fiyat FVG'de · kurulum 2 girişi":"kutu kırıldı · FVG'ye geri test bekleniyor"});
-      const rp=dir==="long"?r.rsPlanL:r.rsPlanS; if(rp&&(rp.stage==="entry"||rp.stage==="waitEntry")) n+=pushSignal({sym:r.s,dir,kind:"rejim",grade:rp.grade,kz:rp.kz,meta:rp.stage==="entry"?"rejim kapıları tamam · fiyat OTE'de · kurulum 3 girişi":"rejim kapıları tamam · OTE'ye dönüş bekleniyor · limit emir"});
+      const hc=state.strat==="hc"; const okNow=hc?ok:base; const tier=cons?cons.tier:null; const F=dir==="long"?r.sigL:r.sigS; const sg=kind=>({px:r.px,sig:sgPick(F,kind)});
+      if(okNow) n+=pushSignal({sym:r.s,dir,kind:"entry",grade,kz,cons:tier,meta:`fiyat ${fmtP(px)} · oran 1'e ${fx(rr,1)} · OTE dönüşü (arşivde dolanlar zayıf)`,...sg("entry")});
+      else if(hc&&base){ const miss=[]; if(!(grade==="A"||(grade==="B"&&tier==="proven"))) miss.push("not "+grade); if(!kz) miss.push("seans dışı"); if(!(tier==="proven"||tier==="promising")) miss.push("coin kanıtsız"); n+=pushSignal({sym:r.s,dir,kind:"near",grade,kz,cons:tier,meta:"AMD dizisi tamam · eksik: "+(miss.join(", ")||"disiplin"),...sg("near")}); }
+      else if(stage==="waitEntry"&&(grade==="A"||grade==="B")) n+=pushSignal({sym:r.s,dir,kind:"zone",grade,kz,cons:tier,meta:`MSS oldu · kırılımda market giriş, fiyat ${fmtP(px)} (OTE'ye limit emir arşivde ters seçilim)`,...sg("zone")});
+      else if(stage==="waitMSS"&&r.deep) n+=pushSignal({sym:r.s,dir,kind:"sweep",kz,cons:tier,meta:"havuz süpürüldü · yapı kırılımı bekleniyor",...sg("sweep")});
+      const br=dir==="long"?r.brL:r.brS; if(br&&br.aligned&&(br.grade==="A"||br.grade==="B")&&(br.stage==="entry"||br.stage==="waitRetest")) n+=pushSignal({sym:r.s,dir,kind:"breakout",grade:br.grade,meta:br.stage==="entry"?"kutu kırıldı · fiyat FVG'de · kurulum 2 girişi":"kutu kırıldı · FVG'ye geri test bekleniyor",...sg("breakout")});
+      const rp=dir==="long"?r.rsPlanL:r.rsPlanS; if(rp&&(rp.stage==="entry"||rp.stage==="waitEntry")) n+=pushSignal({sym:r.s,dir,kind:"rejim",grade:rp.grade,kz:rp.kz,meta:rp.stage==="entry"?"rejim kapıları tamam · fiyat OTE'de · kurulum 3 girişi":"rejim kapıları tamam · OTE'ye dönüş bekleniyor · limit emir",...sg("rejim")});
     }
   }
   return n;
 }
-function signalsFromA(A){
-  for(const d of (state.mode==="both"?["long","short"]:[state.mode])){ const G=hcGates(A,d); const r=G.r; if(G.all) pushSignal({sym:state.sym,dir:d,kind:"entry",grade:r.grade,kz:r.kz,cons:A.cons?A.cons[d].tier:null,meta:`10/10 kapı · fiyat ${fmtP(A.px)} · oran 1'e ${fx(r.rr1,1)}`});
-    const b=A.br&&A.br[d]; if(b&&b.stage==="entry"&&b.aligned&&(b.grade==="A"||b.grade==="B")) pushSignal({sym:state.sym,dir:d,kind:"breakout",grade:b.grade,kz:b.kz,meta:`fiyat FVG'de ${fmtP(b.fvg[0])} – ${fmtP(b.fvg[1])} · stop ${fmtP(b.stop)} · 2R ${fmtP(b.r2)}`});
-    const q=A.rs&&A.rs[d]; if(q&&q.rsOk&&(q.stageLive||q.stage)==="entry") pushSignal({sym:state.sym,dir:d,kind:"rejim",grade:q.grade,kz:q.kz,meta:`kurulum 3 · limit ${fmtP(q.entry)} · stop ${fmtP(q.stop)} (${fx(q.sd*100,2)}%) · 1,5R ${fmtP(q.tp1)} · koşucu ${fmtP(q.run)}`}); }
+function signalsFromA(A,f){
+  for(const d of (state.mode==="both"?["long","short"]:[state.mode])){ const G=hcGates(A,d); const r=G.r; const F=sgFeat(A,d,f&&f.t24?+f.t24.priceChangePercent:NaN,state.sym); const sg=kind=>({px:A.px,sig:sgPick(F,kind)}); if(G.all) pushSignal({sym:state.sym,dir:d,kind:"entry",grade:r.grade,kz:r.kz,cons:A.cons?A.cons[d].tier:null,meta:`10/10 kapı · fiyat ${fmtP(A.px)} · oran 1'e ${fx(r.rr1,1)}`,...sg("entry")});
+    const b=A.br&&A.br[d]; if(b&&b.stage==="entry"&&b.aligned&&(b.grade==="A"||b.grade==="B")) pushSignal({sym:state.sym,dir:d,kind:"breakout",grade:b.grade,kz:b.kz,meta:`fiyat FVG'de ${fmtP(b.fvg[0])} – ${fmtP(b.fvg[1])} · stop ${fmtP(b.stop)} · 2R ${fmtP(b.r2)}`,...sg("breakout")});
+    const q=A.rs&&A.rs[d]; if(q&&q.rsOk&&(q.stageLive||q.stage)==="entry") pushSignal({sym:state.sym,dir:d,kind:"rejim",grade:q.grade,kz:q.kz,meta:`kurulum 3 · limit ${fmtP(q.entry)} · stop ${fmtP(q.stop)} (${fx(q.sd*100,2)}%) · 1,5R ${fmtP(q.tp1)} · koşucu ${fmtP(q.run)}`,...sg("rejim")}); }
+}
+
+/* ---- sinyal isabeti (signals.js) ---- */
+function renderSigStats(){
+  const el=$("sigStats"); if(!el) return; const S=sgStats(); const pc=(x,d=2)=>isFinite(x)?`<span class="${x>0?"up":x<0?"down":""}">${x>0?"+":""}${fx(x*100,d)}%</span>`:"—";
+  const rv=x=>isFinite(x)?`<span class="${x>0?"up":x<0?"down":""}">${x>0?"+":""}${fx(x,2)}R</span>`:"—"; const nm={...KIND,zone:"MSS"};
+  const since=S.first?new Date(S.first).toLocaleDateString("tr-TR"):"—";
+  if(!S.all.n){ el.innerHTML=`Henüz sonuçlanan sinyal yok. Bekleyen ${S.open}, kayıt başlangıcı ${since}. İlk sonuçlar sinyalden 24 saat sonra gelir.`; return; }
+  const row=(lab,o)=>`<tr><td>${lab}</td><td class="num">${o.n}</td><td class="num">${isFinite(o.win)?"%"+Math.round(o.win*100):"—"}</td><td class="num">${pc(o.h4)}</td><td class="num">${pc(o.h12)}</td><td class="num">${pc(o.h24)}</td><td class="num">${rv(o.R)}</td><td class="num">${isFinite(o.hit1)?"%"+Math.round(o.hit1*100):"—"}</td></tr>`;
+  const head=`<tr><th></th><th>n</th><th>24 sa artı</th><th>4 sa</th><th>12 sa</th><th>24 sa</th><th>stoplu R</th><th>önce 1R</th></tr>`;
+  const t1=`<table class="t">${head}${row("<b>Hepsi</b>",S.all)}${S.rows.map(r=>row(`${nm[r.kind]||r.kind}${r.grade!=="-"?" · "+r.grade:""}`,r)).join("")}</table>`;
+  const t2=S.tags.length?`<table class="t"><tr><th>gölge etiket</th><th>n</th><th>etiketli R</th><th>n</th><th>etiketsiz R</th></tr>${S.tags.map(t=>`<tr><td>${SG_TAGS[t.tag]}</td><td class="num">${t.n}</td><td class="num">${rv(t.R)}</td><td class="num">${t.n0}</td><td class="num">${rv(t.R0)}</td></tr>`).join("")}</table>`:"";
+  el.innerHTML=`${t1}${t2}<p class="hint">Kayıt ${since} tarihinden beri · bekleyen ${S.open} · mum boşluğu yüzünden ölçülemeyen ${S.gap}. 100 sinyalin altındaki farklar büyük ölçüde şans; bir etiketin süzgece dönüşmesi için iki ayrı dönemde de etiketsizden kötü kalması gerekir.</p>`;
 }
 
 /* ---- watch & proven ---- */
@@ -313,7 +333,7 @@ async function runScan(){
     const cand=out.filter(r=>DEEP_STAGES.has(r.stageL)||DEEP_STAGES.has(r.stageS)||r.pick||r.pickS).sort((a,b)=>b.qv-a.qv).slice(0,24);
     if(cand.length){ let d2=0; const q2=[...cand]; const w2=async()=>{ while(q2.length){ await hold(); const r=q2.shift(); try{ const deep=await scanDeep(r); if(deep) Object.assign(r,deep); }catch(e){} d2++; bar.style.width=(63+d2/cand.length*37)+"%"; st.textContent=`${d2}/${cand.length} aday derin tarandı`; } }; await Promise.all(Array.from({length:2},w2)); }
     scan.rows=out; const now=Date.now(); scan.at=now; const prev={}; out.forEach(r=>prev[r.s]={score:r.score,t:now}); scan.prev=prev; LS("rp-scan-prev",JSON.stringify(prev));
-    const n=signalsFromRows(out); renderFeed(); renderWatch(); renderScanTable(); try{ botDecide("scan"); }catch(e){ console.error("SWEEP · bot",e); } try{ lmdScanAsk(out); }catch(e){} ksScanRun(out);
+    const n=signalsFromRows(out); renderFeed(); renderWatch(); if(!$("sigWrap").hidden) renderSigStats(); renderScanTable(); try{ botDecide("scan"); }catch(e){ console.error("SWEEP · bot",e); } try{ lmdScanAsk(out); }catch(e){} ksScanRun(out);
     st.textContent=`${out.length} coin · ${new Date().toLocaleTimeString("tr-TR")}${failed?" · "+failed+" okunamadı":""}${n?" · "+n+" yeni sinyal":""}`;
   }catch(e){ st.textContent="tarama hatası: "+e.message; }
   finally{ scan.running=false; $("scanNow").disabled=false; setTimeout(()=>bar.style.width="0",600); }
@@ -372,7 +392,7 @@ async function tick(){
     ui.loading=false;
     const A=analyze(f,state.slow); state.lastA=A;
     consPut(s,A); pickDir(A);
-    const parts=[["Başlık",()=>renderHead(A,f)],["Grafik",()=>renderChart(A,f)],["Akış",()=>renderFlow(A,f)],["Kapılar",()=>{ const G=renderGates(A); renderPlan(A,G); }],["Bağlam",()=>renderCtx(A)],["Kurulum 2",()=>renderBR(A)],["Kurulum 3",()=>renderRS(A)],["Kutu",()=>renderBoxCard(A)],["Sinyal",()=>{ signalsFromA(A); renderFeed(); }],["Bant",()=>renderTape(A)],["Çekmece",()=>renderDrawer(A)]];
+    const parts=[["Başlık",()=>renderHead(A,f)],["Grafik",()=>renderChart(A,f)],["Akış",()=>renderFlow(A,f)],["Kapılar",()=>{ const G=renderGates(A); renderPlan(A,G); }],["Bağlam",()=>renderCtx(A)],["Kurulum 2",()=>renderBR(A)],["Kurulum 3",()=>renderRS(A)],["Kutu",()=>renderBoxCard(A)],["Sinyal",()=>{ signalsFromA(A,f); renderFeed(); }],["Bant",()=>renderTape(A)],["Çekmece",()=>renderDrawer(A)]];
     const fails=[]; for(const [n,fn] of parts){ try{ fn(); }catch(e){ fails.push(n+": "+e.message); console.error("SWEEP · "+n,e); } }
     const eb=$("errbox"); if(fails.length){ eb.hidden=false; eb.textContent="Bazı kartlar çizilemedi → "+fails.join(" | "); } else eb.hidden=true;
     $("dot").className=fails.length?"busy":"ok"; $("stamp").textContent=new Date().toLocaleTimeString("tr-TR")+" · "+(state.every/1000)+" sn";
@@ -415,8 +435,8 @@ $("bell").addEventListener("click",async()=>{ if(!("Notification" in window)){ t
 $("snd").addEventListener("click",()=>{ ui.snd=!ui.snd; $("snd").setAttribute("aria-pressed",String(ui.snd)); LS("st-snd",ui.snd?1:0); if(ui.snd) beep(); });
 $("helpAll").addEventListener("click",()=>{ const on=$("helpAll").getAttribute("aria-pressed")!=="true"; $("helpAll").setAttribute("aria-pressed",String(on)); document.querySelectorAll(".card").forEach(c=>c.classList.toggle("hint-open",on)); });
 document.querySelectorAll(".card .q").forEach(b=>b.addEventListener("click",()=>b.closest(".card").classList.toggle("hint-open")));
-$("tabFeed").addEventListener("click",()=>{ $("tabFeed").setAttribute("aria-selected","true"); $("tabWatch").setAttribute("aria-selected","false"); $("feedWrap").hidden=false; $("watchWrap").hidden=true; });
-$("tabWatch").addEventListener("click",()=>{ $("tabFeed").setAttribute("aria-selected","false"); $("tabWatch").setAttribute("aria-selected","true"); $("feedWrap").hidden=true; $("watchWrap").hidden=false; renderWatch(); });
+const leftTab=k=>{ for(const [b,w] of [["tabFeed","feedWrap"],["tabWatch","watchWrap"],["tabSig","sigWrap"]]){ $(b).setAttribute("aria-selected",b===k?"true":"false"); $(w).hidden=b!==k; } if(k==="tabWatch") renderWatch(); if(k==="tabSig") renderSigStats(); };
+for(const k of ["tabFeed","tabWatch","tabSig"]) $(k).addEventListener("click",()=>leftTab(k));
 $("feed").addEventListener("click",e=>{ const li=e.target.closest("li[data-s]"); if(li) openSym(li.dataset.s,li.dataset.d); });
 ["watch","proven"].forEach(id=>$(id).addEventListener("click",e=>{ const li=e.target.closest("li[data-s]"); if(li) openSym(li.dataset.s,li.dataset.d); }));
 $("scanBody").addEventListener("click",e=>{ const tr=e.target.closest("tr[data-s]"); if(tr) openSym(tr.dataset.s,tr.dataset.d); });
