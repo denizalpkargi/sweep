@@ -14,7 +14,7 @@ const E=loadEngine({patch:s=>s.replace(/const UYE_MODEL=[^\n]*;/,()=>'const UYE_
 for(let i=0;i<20;i++) E.rkScore('S'+i+'USDT',fakeA(1+i*0.07),now);
 let seen=0, both=0;
 for(let i=0;i<20;i++){ const a=fakeA(1+i*0.07), sym='S'+i+'USDT';
-  const L=E.committee(a,'long',0,{sym,now,lf:false,l24:false}), S=E.committee(a,'short',0,{sym,now,lf:false,l24:false});
+  const L=E.committee(a,'long',0,{sym,now,lf:false,l24:false,uye:true}), S=E.committee(a,'short',0,{sym,now,lf:false,l24:false,uye:true});
   const tl=L.agents.find(x=>x.id==='trend'), ts=S.agents.find(x=>x.id==='trend'), ml=L.agents.find(x=>x.id==='mom'), fl=L.agents.find(x=>x.id==='flow');
   ok(tl.model&&ml.model,'Emre ve Baran modelle oy vermeli '+sym); ok(!fl.model,'Mert modelde yok, kural oyu '+sym);
   ok(tl.w===E.UYE_CFG.w,'model oyunun katsayısı UYE_CFG.w'); ok(/^model \(trend\)/.test(tl.txt)&&/kural:/.test(tl.txt),'metinde model ve kural okuması');
@@ -24,6 +24,7 @@ for(let i=0;i<20;i++){ const a=fakeA(1+i*0.07), sym='S'+i+'USDT';
   const kl=L.agents.find(x=>x.id==='liq'), yl=L.agents.find(x=>x.id==='check'); ok(kl.model&&/^model \(likidite\)/.test(kl.txt),'Kerem modelle oy vermeli '+sym); ok(yl.model&&!yl.abst,'Yusuf modelle oy vermeli, çekimser değil '+sym);
   if(kl.v0) seen++; }
 ok(seen>5,'model oyları sıfırdan farklı olmalı'); 
+{ const a=fakeA(1.07), C=E.committee(a,'long',0,{sym:'S1USDT',now,lf:false,l24:false,uye:false}); ok(!C.agents.find(x=>x.id==='trend').model,'uye:false: kural oyu'); }
 // 2b) ukFeat: Kerem 192 mumdan sonrası için pencereden bağımsız, Yusuf EMA penceresi sabit (uzun dizi aynı sonucu verir); kapanmamış mum kullanılmaz
 { const k15=mk(9e5,1500,1.3,end15), k1h=mk(36e5,300,1.3,Math.floor(now/36e5)*36e5+36e5), k4h=mk(144e5,300,1.3,Math.floor(now/144e5)*144e5+144e5), k1d=mk(864e5,400,1.3,Math.floor(now/864e5)*864e5+864e5);
   const big=E.ukFeat({k15,k1h,k4h,k1d},now), small=E.ukFeat({k15:k15.slice(-200),k1h:k1h.slice(-60),k4h:k4h.slice(-60),k1d:k1d.slice(-120)},now);
@@ -32,16 +33,16 @@ ok(seen>5,'model oyları sıfırdan farklı olmalı');
   const later=E.ukFeat({k15,k1h,k4h,k1d},now+5*6e4); ok(later&&later.every((v,j)=>Object.is(v,big[j])||Math.abs(v-big[j])<1e-12),'aynı 15 dk içinde sonuç değişmemeli (kapanmamış mum yok)'); }
 // 3) evren dışındaki coin: kural oyu
 for(let i=20;i<32;i++) E.rkScore('S'+i+'USDT',fakeA(1+i*0.07),now); // evren 30 coinle dolsun
-const far=fakeA(9); far.src.k15L=far.src.k15L.map(x=>({...x,q:x.q*1e-6})); const C=E.committee(far,'long',0,{sym:'FARUSDT',now,lf:false,l24:false}); ok(!C.agents.find(x=>x.id==='trend').model,'evren dışında kural oyu');
+const far=fakeA(9); far.src.k15L=far.src.k15L.map(x=>({...x,q:x.q*1e-6})); const C=E.committee(far,'long',0,{sym:'FARUSDT',now,lf:false,l24:false,uye:true}); ok(!C.agents.find(x=>x.id==='trend').model,'evren dışında kural oyu');
 // 3b) evren genişliği (12 Ekim 2026): top 100 ailesi hacimce 31–100. coinde de oy verir, top 30 ailesi vermez; sıra kendi evreninde
 const fake100={at:'test',fams:{trend:{top:100,models:{4:stump('z30d'),12:stump('x_z30d')}},mom:{models:{4:stump('z1'),12:stump('x_z1')}}}};
 const E2=loadEngine({patch:s=>s.replace(/const UYE_MODEL=[^\n]*;/,()=>'const UYE_MODEL='+JSON.stringify(fake100)+';')});
 ok(E2.uyeTop('trend')===100&&E2.uyeTop('mom')===30,'aile evren genişliği');
 for(let i=0;i<40;i++) E2.rkScore('S'+i+'USDT',fakeA(1+i*0.07),now); // hacim tohumla artar: S10–S39 ilk 30, S0–S9 31–40.
-{ const a=fakeA(1+2*0.07), L=E2.committee(a,'long',0,{sym:'S2USDT',now,lf:false,l24:false}); const tl=L.agents.find(x=>x.id==='trend'), ml=L.agents.find(x=>x.id==='mom');
+{ const a=fakeA(1+2*0.07), L=E2.committee(a,'long',0,{sym:'S2USDT',now,lf:false,l24:false,uye:true}); const tl=L.agents.find(x=>x.id==='trend'), ml=L.agents.find(x=>x.id==='mom');
   ok(tl.model,'top 100 ailesi 31–100. coinde modelle oy vermeli'); ok(!ml.model,'top 30 ailesi 31–100. coinde kural oyu'); ok(/40 coin içinde/.test(tl.txt),'top 100 ailesi 40 coin içinde sıralar: '+tl.txt);
   const R=E2.rkScore('S2USDT',a,now); ok(R&&R.out&&R.fam&&R.fam.trend&&!R.fam.mom,'Ozan evren dışında, aile sonucu yine döner'); }
-{ const a=fakeA(1+20*0.07), L=E2.committee(a,'long',0,{sym:'S20USDT',now,lf:false,l24:false}); ok(L.agents.find(x=>x.id==='trend').model&&L.agents.find(x=>x.id==='mom').model,'ilk 30 coinde iki aile de modelle'); }
+{ const a=fakeA(1+20*0.07), L=E2.committee(a,'long',0,{sym:'S20USDT',now,lf:false,l24:false,uye:true}); ok(L.agents.find(x=>x.id==='trend').model&&L.agents.find(x=>x.id==='mom').model,'ilk 30 coinde iki aile de modelle'); }
 // 4) Python ↔ JS (bilgisayarda dışa aktarıldıysa); ilk 100 ailesi kendi satırlarıyla (P.rows100)
 const M=E0.UYE_MODEL; const par=path.join(__dirname,'data','uye-parity.json');
 if(M&&fs.existsSync(par)){ const P=JSON.parse(fs.readFileSync(par,'utf8')); let worst=0,n=0;
