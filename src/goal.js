@@ -52,6 +52,11 @@ const posR=(p,px)=>{ const r0=p.risk0||Math.abs(p.entry-(p.stop0||p.stop)); retu
 /* --- 2. çok aşamalı giriş ---
    x: {sym,dir,score,yes,veto,sd,feat,com?} · ctx: {cfg,bal,start,eq,peak,goalHit,positions,trades,now,thr,minYes,aud,lev}
    döner: {ok, need (teminat açığı $), slot (yer yok), stages:[{k,who,st:"ok"|"warn"|"fail",txt}], riskUsd, notional, margin, warn, grade, gs} */
+/* Aynı varlık (12 Ekim 2026; kullanıcı "ekle" dedi): masa PAXG ve XAUT'a (ikisi de tokenleştirilmiş altın) aynı anda long girmişti; "aynı coin" kuralı
+   farklı sembolü yakalamıyordu. Aynı dayanak varlığın sembolleri tek coin sayılır (aşama 4). Yeni ikiz bulununca listeye eklenir. */
+const ASSET_TWINS={altın:["PAXGUSDT","XAUTUSDT","XAUUSDT"],NVDA:["NVDAUSDT","NVDLUSDT"]};
+const ASSET_OF=(()=>{ const m={}; for(const k in ASSET_TWINS) for(const s of ASSET_TWINS[k]) m[s]=k; return m; })();
+function assetKey(sym){ return ASSET_OF[sym]||sym; }
 function entryStages(x, ctx){
   const cfg=ctx.cfg, now=ctx.now||Date.now(), isL=x.dir==="long", f=x.feat||(x.com&&x.com.feat)||{}, au=ctx.aud||null; const st=[]; const add=(k,who,s,txt)=>st.push({k,who,st:s,txt});
   const gs=goalState(ctx,cfg); const off=au&&au.off||{};
@@ -74,7 +79,7 @@ function entryStages(x, ctx){
   const pos=ctx.positions||[]; const same=pos.filter(p=>p.dir===x.dir); const cap=Math.min(cfg.maxSameDir||9,au&&au.maxSameDir?au.maxSameDir:9);
   const opens=pos.map(p=>({t:p.openT,dir:p.dir})).concat((ctx.trades||[]).map(t=>({t:t.openT,dir:t.dir}))); const lastSame=Math.max(0,...opens.filter(o=>o.dir===x.dir).map(o=>o.t||0));
   const lastLoss=(ctx.trades||[]).filter(t=>t.r<0).reduce((a,t)=>Math.max(a,t.closeT||0),0); const gapLoss=cfg.aggr?0:Math.max(cfg.lossGapMin||0,au&&au.pauseMin||0);
-  let f4=null; if(pos.some(p=>p.sym===x.sym)) f4="bu coinde zaten pozisyon var"; else if(same.length>=cap) f4=`zaten ${same.length} ${x.dir} açık (sınır ${cap}); hepsi BTC ile birlikte hareket eder`;
+  let f4=null; const twin=pos.find(p=>assetKey(p.sym)===assetKey(x.sym)); if(twin) f4=twin.sym===x.sym?"bu coinde zaten pozisyon var":`${twin.sym.replace("USDT","")} ile aynı varlık (${assetKey(x.sym)}), orada zaten pozisyon var`; else if(same.length>=cap) f4=`zaten ${same.length} ${x.dir} açık (sınır ${cap}); hepsi BTC ile birlikte hareket eder`;
   else if(lastSame&&now-lastSame<cfg.dirGapMin*60e3) f4=`${Math.round((now-lastSame)/60e3)} dk önce aynı yönde giriş yapıldı; aynı bahsi ikinci kez oynamamak için ${cfg.dirGapMin} dk ara`;
   else if(lastLoss&&now-lastLoss<gapLoss*60e3) f4=`son kayıp ${Math.round((now-lastLoss)/60e3)} dk önce; ${gapLoss} dk soğuma`;
   /* aşama 3: risk ve teminat bütçesi */

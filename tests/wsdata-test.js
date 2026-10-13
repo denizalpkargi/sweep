@@ -59,6 +59,30 @@ const E=loadEngine({fetch});
   ok(!!g2&&g2!==g,'sessiz akış yeniden açıldı');
   g2.emit({stream:'!markPrice@arr@1s',data:[{e:'markPriceUpdate',E:NOW,s:'C3USDT',p:'10.6',i:'10.3',P:'10.3',r:'0.0001',T:NOW+3600e3}]});
   const k0=E.wsdSummary().kick; NOW+=5e3; E.wsdWatch(NOW); ok(g2.readyState===1&&E.wsdSummary().kick===k0,'konuşan akışa dokunulmadı');
+  // likidasyon kaydı: genel akışta !forceOrder@arr, dakika kapanınca "SWEEP · akis" satırı (zorla alış = short likidasyonu)
+  ok(g2.url.includes('!forceOrder@arr'),'genel akışta likidasyonlar var');
+  const said=[]; const ci=console.info; console.info=m=>said.push(m);
+  const lm=Math.floor(NOW/6e4)*6e4;
+  g2.emit({stream:'!forceOrder@arr',data:{e:'forceOrder',E:NOW,o:{s:'C3USDT',S:'BUY',q:'2',p:'10.5',ap:'10.6',z:'2',T:lm+1000}}});
+  g2.emit({stream:'!forceOrder@arr',data:{e:'forceOrder',E:NOW,o:{s:'C3USDT',S:'SELL',q:'1',p:'10.4',ap:'10.4',z:'1',T:lm+2000}}});
+  g2.emit({stream:'!forceOrder@arr',data:{e:'forceOrder',E:NOW,o:{s:'C3BUSD',S:'SELL',q:'1',p:'1',ap:'1',z:'1',T:lm+2000}}});
+  E.wsdLiqFlush(lm+30e3); ok(said.length===0,'bitmemiş dakika yazılmaz');
+  E.wsdLiqFlush(lm+61e3); console.info=ci;
+  const ln=said.find(m=>m.startsWith('SWEEP · akis ')); const j=ln&&JSON.parse(ln.slice(13));
+  ok(j&&j.t===lm&&JSON.stringify(j.l)===JSON.stringify({C3USDT:[21,10,2]}),'dakikalık likidasyon satırı: '+ln);
+  // abonelik seli (12 Ekim 2026): 120 coin aynı anda istenince tek tek SUBSCRIBE gitmez; ≤50 akışlık mesajlar, aralarında ≥500 ms
+  const nc={streams:new Set(['aaausdt@kline_1m']),syms:new Set(),ws:null,tries:0,sent:new Set()}; E.wsd.conns.push(nc);
+  E.wsdOpen(nc); E.wsdSub(nc,'bbbusdt@kline_1m'); // bağlanırken eklendi: URL'de yok
+  await new Promise(r=>setTimeout(r,20)); const lws=nc.ws; const tSub=[]; const send0=lws.send.bind(lws); lws.send=m=>{ tSub.push(realNow()); send0(m); };
+  const many=Array.from({length:120},(_,i)=>'z'+i+'usdt@kline_1m'); for(const st of many) E.wsdSub(nc,st);
+  const sync=lws.sent.length;
+  await new Promise(r=>setTimeout(r,2000));
+  const msgs=lws.sent.map(m=>JSON.parse(m)); const params=msgs.flatMap(m=>m.params); const gaps=tSub.slice(1).map((t,i)=>t-tSub[i]);
+  ok(sync<=1,'abonelikler anında tek tek gönderilmedi ('+sync+')');
+  ok(msgs.every(m=>m.method==='SUBSCRIBE'&&m.params.length<=50),'SUBSCRIBE mesajları en çok 50 akış ('+msgs.map(m=>m.params.length).join('+')+')');
+  ok(new Set(params).size===params.length&&many.every(st=>params.includes(st)),'120 akışın hepsi bir kez abone edildi ('+msgs.length+' mesaj)');
+  ok(params.includes('bbbusdt@kline_1m')&&!params.includes('aaausdt@kline_1m'),'bağlanırken eklenen akış açılınca gönderildi, URL\'deki yeniden gönderilmedi');
+  ok(gaps.every(g=>g>=450),'mesajlar arası ≥500 ms ('+gaps.join(', ')+' ms)');
   console.log('özet',JSON.stringify(E.wsdSummary()));
   Date.now=realNow; console.log('wsdata-test errors',JSON.stringify(errors)); process.exit(errors.length?1:0);
 })().catch(e=>{ console.error(e); process.exit(1); });

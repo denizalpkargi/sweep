@@ -11,6 +11,10 @@ ok(Math.abs(E.goalRisk(E.goalState({start:100,eq:196},cfg),196,cfg)-196*0.03*0.7
 const ag=[{id:"liq",v:0.8},{id:"flow",v:0.5}]; const X=(o)=>({sym:"AUSDT",dir:"long",score:0.5,yes:6,veto:null,sd:0.015,feat:{btc:{ch4:0.002,ch24:0.01,bias:"up",ok:true,dump:false}},com:{agents:ag},...o});
 const ctx=(o)=>({cfg,bal:100,start:100,eq:100,peak:100,positions:[],trades:[],now,thr:0.3,minYes:4,aud:null,lev:20,px:()=>1,...o});
 let es=E.entryStages(X(),ctx()); ok(es.ok&&es.stages.length===5&&es.grade==="A"&&Math.abs(es.riskUsd-100*es.riskPct)<1e-9&&es.riskUsd>3&&es.riskUsd<10,'temiz long: '+E.stagesTxt(es));
+// aynı varlık (12 Ekim 2026): PAXG'de long açıkken XAUT (ikisi de altın) girilmez; ilgisiz coin girilebilir
+{ const pp=[{sym:"PAXGUSDT",dir:"long",openT:now-3600e3,e:1,stop:0.98,q:1,lev:20}];
+  const e1=E.entryStages(X({sym:"XAUTUSDT"}),ctx({positions:pp})); ok(!e1.ok&&/aynı varlık/.test(E.stagesTxt(e1)),'PAXG açıkken XAUT girilmez: '+E.stagesTxt(e1));
+  const e2=E.entryStages(X({sym:"BUSDT",dir:"short"}),ctx({positions:pp})); ok(!/aynı varlık|bu coinde/.test(E.stagesTxt(e2)),'ilgisiz coin aynı varlık sayılmaz: '+E.stagesTxt(e2)); }
 // masanın güveni: eşikte taban (%3), güçlü ve oybirliğiyle %10, not C'de taban
 const ag10=Array.from({length:10},(_,i)=>({id:i===0?"liq":i===1?"flow":"a"+i,v:0.8}));
 es=E.entryStages(X({score:0.3,yes:4,com:{agents:ag10}}),ctx()); ok(es.ok&&es.riskPct<0.045,'eşikte güven düşük, risk tabana yakın: %'+(es.riskPct*100).toFixed(2));

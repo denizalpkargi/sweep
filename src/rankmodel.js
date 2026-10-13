@@ -76,17 +76,19 @@ function rkScore(sym,A,now){
   if(typeof RK_MODEL==="undefined"||!RK_MODEL||!sym||!A) return null; const mm=rkMemo.get(A); if(mm&&mm.sym===sym) return mm.res; const res=rkScore0(sym,A,now); rkMemo.set(A,{sym,res}); return res; }
 function rkScore0(sym,A,now){
   now=now||Date.now(); const raw=rkFeatA(A,now); if(!raw) return null;
-  rkCache[sym]={t:now,raw,lq:raw[RK_FEATS.indexOf("lq24")]};
+  rkCache[sym]={t:now,raw,lq:raw[RK_FEATS.indexOf("lq24")],ex:typeof ukFeatA==="function"?ukFeatA(A,now):null};
   const fresh=Object.entries(rkCache).filter(([k,x])=>now-x.t<=RK_CFG.maxAgeMin*6e4&&isFinite(x.lq)).sort((p,q)=>q[1].lq-p[1].lq);
   for(const [k,x] of Object.entries(rkCache)) if(now-x.t>RK_CFG.maxAgeMin*6e4*6) delete rkCache[k];
-  const uni=fresh.slice(0,RK_CFG.top); const inU=uni.some(([k])=>k===sym); if(!inU) return {sym,out:true,n:uni.length,rank:fresh.findIndex(([k])=>k===sym)+1};
-  if(uni.length<RK_CFG.minN) return {sym,few:true,n:uni.length};
+  // eğitilmiş üyeler (uyemodel.js): her aile kendi evren genişliğinde (ilk 30 ya da ilk 100); Ozan'ın evreni dışındaki coinde de hesaplanır
+  const fam=typeof uyeScores==="function"?uyeScores(fresh,sym):null;
+  const uni=fresh.slice(0,RK_CFG.top); const inU=uni.some(([k])=>k===sym); if(!inU) return {sym,out:true,n:uni.length,rank:fresh.findIndex(([k])=>k===sym)+1,fam};
+  if(uni.length<RK_CFG.minN) return {sym,few:true,n:uni.length,fam};
   const col=k=>{ const i=RK_FEATS.indexOf(k); return uni.map(([,x])=>x.raw[i]); }; const cols={}; for(const k of RK_XS) cols[k]=col(k);
   const xsOf=raw=>{ const o={}; for(const k of RK_XS) o["x_"+k]=rkPct(raw[RK_FEATS.indexOf(k)],cols[k]); return o; };
-  const out={sym,n:uni.length}; const rows=uni.map(([,x])=>({raw:x.raw,xs:xsOf(x.raw)})); const me=uni.findIndex(([k])=>k===sym);
+  const out={sym,n:uni.length}; const rows=uni.map(([,x])=>({raw:x.raw,xs:xsOf(x.raw),ex:x.ex||null})); const me=uni.findIndex(([k])=>k===sym);
   for(const h of Object.keys(RK_MODEL.models)){ const M=RK_MODEL.models[h]; const sc=rows.map(r=>rkPredict(M,rkRow(M,r.raw,r.xs))); out["s"+h]=sc[me]; out["p"+h]=rkPct(sc[me],sc); }
   const ps=Object.keys(RK_MODEL.models).map(h=>out["p"+h]).filter(isFinite); out.p=ps.length?ps.reduce((s,v)=>s+v,0)/ps.length:NaN;
-  if(typeof uyeScores==="function") out.fam=uyeScores(uni,rows,me); // eğitilmiş üyeler (uyemodel.js): aynı evren ve değişkenler
+  out.fam=fam;
   return out;
 }
 // tahmin defterinde kanıt: ≥ 200 sonuç ve çarpan > 1 → oy puana girer; o zamana dek gölge
