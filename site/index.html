@@ -2193,6 +2193,43 @@ function fcVoteFor(dir,feat){ const L=(FC||fcLoad()).learn; if(!L||!L.lessons.le
   const hits=L.lessons.filter(l=>l.dir===dir&&f[l.k]===l.v); if(!hits.length) return {hits:[],v:0,c:0};
   return {hits,v:-0.4,c:Math.min(0.8,0.4+Math.max(...hits.map(h=>h.n))/200),txt:hits.map(h=>`${h.k} ${h.v}: ${h.n} tahminde isabet %${Math.round(h.hit*100)} (taban %${Math.round(h.base*100)})`).join(" · ")}; }
 
+/* Gölge kural masası ve sonrası kaydı (13 Ekim 2026; kullanıcı "botta eğitilmiş modeller koşsun" dedi, kural masası paralel izlenir).
+   Bot model oylu masayla işlem açar; aynı tarama satırında kural oylu masa (committee(…,{uye:false}), satırda comR) da hesaplanır, işlem açmaz.
+   Giriş kapısını (plan, puan ≥ eşik, evet ≥ asgari, veto yok) geçen her karar coin+yön+masa başına 60 dk'da bir kaydedilir: "model", "rule";
+   ikisi aynı anda geçtiyse kayıtta both. Botun açtığı işlemler "trade". Her kaydın 15 dk / 1 sa / 4 sa sonraki fiyatı yönde % olarak yazılır
+   (r[h]; R = r ÷ plan stop uzaklığı sd, stopsuz tutulsaydı). Elde tutma/soğuma ve aşamalar (bütçe, korelasyon) kayda girmez: masanın yön bilgisi ölçülür.
+   Fiyat: ekranlı uygulamada canlı akış, ekransızda tüm coin ticker; vade geçince ilk görülen fiyat alınır, gecikme (dk) kayıtta d[h]. */
+const SH_DEF={hz:[15,60,240],gapMin:60,max:3000,lateMax:0.5};
+const SH_KEY="st-shadow"; let SH=null;
+function shLoad(){ if(SH) return SH; try{ SH=JSON.parse(localStorage.getItem(SH_KEY)||"null"); }catch(e){} if(!SH||!Array.isArray(SH.pend)) SH={pend:[],done:[],last:{}}; return SH; }
+function shSave(){ try{ localStorage.setItem(SH_KEY,JSON.stringify(SH||shLoad())); }catch(e){} }
+function shReset(){ SH={pend:[],done:[],last:{}}; shSave(); return SH; }
+const shGate=(c,thr,minYes)=>!!(c&&c.plan&&!c.veto&&c.score>=thr&&c.yes>=minYes);
+const shR4=v=>isFinite(v)?Math.round(v*1e4)/1e4:null;
+function shAdd(rec,now,noSave){ const S=shLoad(); now=now||Date.now(); if(!(rec.px>0)) return false;
+  S.pend.push({k:rec.k,sym:rec.sym,dir:rec.dir,t:now,px:rec.px,sd:shR4(rec.sd),score:shR4(rec.score),yes:rec.yes,both:rec.both?1:0,r:{},d:{}}); if(!noSave) shSave(); return true; }
+/* rows: tarama satırları (com, comR, px). pxOf(sym): taze fiyat ya da NaN (vade ölçümü yalnız bununla; kayıtta yoksa satırın fiyatı). Dönüş: {add, res, fin: biten kayıtlar}. */
+function shTick(rows,pxOf,now,thr,minYes){ const S=shLoad(); now=now||Date.now(); let add=0, res=0;
+  for(const r of rows||[]){ if(!r||!r.com) continue; const px=pxOf(r.s)||r.px;
+    for(const dir of ["long","short"]){ const m=r.com[dir], q=(r.comR||{})[dir]||m; const gm=shGate(m,thr,minYes), gr=shGate(q,thr,minYes); if(!(px>0)) continue;
+      for(const [k,c,g] of [["model",m,gm],["rule",q,gr]]){ if(!g) continue; const lk=k+"|"+r.s+"|"+dir; if(S.last[lk]&&now-S.last[lk]<SH_DEF.gapMin*6e4) continue;
+        S.last[lk]=now; shAdd({k,sym:r.s,dir,px,sd:c.plan.sd,score:c.score,yes:c.yes,both:gm&&gr},now,true); add++; } } }
+  const keep=[], fin=[];
+  for(const p of S.pend){ const px=pxOf(p.sym); let open=false;
+    for(const h of SH_DEF.hz){ if(p.r[h]!==undefined) continue; const due=p.t+h*6e4; if(now<due){ open=true; continue; }
+      const late=(now-due)/6e4; if(late>h*SH_DEF.lateMax){ p.r[h]=null; p.d[h]=Math.round(late); res++; continue; } // çok geç: ölçülmedi
+      if(!(px>0)){ open=true; continue; } const mv=(p.dir==="long"?px/p.px-1:1-px/p.px)*100; p.r[h]=shR4(mv); p.d[h]=Math.round(late); res++; }
+    if(open) keep.push(p); else { S.done.push(p); fin.push(p); } }
+  S.pend=keep; if(S.done.length>SH_DEF.max) S.done=S.done.slice(-SH_DEF.max);
+  for(const k in S.last) if(now-S.last[k]>SH_DEF.gapMin*6e4) delete S.last[k];
+  if(add||res) shSave(); return {add,res,fin}; }
+/* özet: masa (model, rule, both = ikisinin birlikte geçtiği kararlar, model·tek / rule·tek = yalnız o masanın geçtiği, yön kırılımı, trade) × ufuk: n, ort. yönde %, ort. R (stopsuz), isabet (yönde > 0) */
+function shSum(S,since){ S=S||shLoad(); const out={}; const all=[...S.done,...S.pend].filter(p=>!since||p.t>=since);
+  const add=(key,p)=>{ const o=out[key]||(out[key]={n:0}); o.n++; for(const h of SH_DEF.hz){ const v=p.r[h]; if(v==null) continue; const z=o["h"+h]||(o["h"+h]={n:0,s:0,sr:0,nr:0,w:0}); z.n++; z.s+=v; if(v>0) z.w++; if(p.sd>0){ z.sr+=v/100/p.sd; z.nr++; } } };
+  for(const p of all){ add(p.k,p); if(p.both&&p.k==="model") add("both",p); if(p.k!=="trade"){ add(p.k+"·"+p.dir,p); if(!p.both) add(p.k+"·tek",p); } }
+  for(const o of Object.values(out)) for(const h of SH_DEF.hz){ const z=o["h"+h]; if(!z) continue; o["h"+h]={n:z.n,pct:shR4(z.s/z.n),R:z.nr?shR4(z.sr/z.nr):null,hit:shR4(z.w/z.n)}; }
+  return {pend:S.pend.length,done:S.done.length,by:out}; }
+
 /* ---------- Usta trader katmanı: 200 $ hedefi, çok aşamalı giriş, teminat yönetimi, dinamik hedef/stop (6 Ekim 2026) ----------
    Ekransız bot (headless/bot.js), arayüzdeki kâğıt bot (ui.js) ve tekrar oynatma testi (tests/replay-goal.js) aynı fonksiyonları kullanır.
    Kurallı; hiçbir şey gerçek emir göndermez.
@@ -3566,12 +3603,17 @@ async function scanOne(u){
 }
 function planOf(r,k){ if(!r||!r.zone||!(r.grade==="A"||r.grade==="B")) return null; return {stage:r.stage,grade:r.grade,kz:r.kz||null,entry:r.entry,stop:r.stop,t1:r.t1,t2:r.t2,rr1:r.rr1,rr2:isFinite(r.rr2)?r.rr2:null,expires:(k&&r.mss!=null&&k[r.mss]?k[r.mss].t:Date.now())+17*9e5}; }
 function brPlanOf(r,k){ if(!r||!r.fvg) return null; return {stage:r.stage,grade:r.grade,aligned:!!r.aligned,kz:r.kz||null,entry:r.entry,stop:r.stop,t1:r.r2,t2:r.r3,expires:(k&&k[r.bo]?k[r.bo].t:Date.now())+25*9e5}; }
+/* gölge kural masası (shadow.js): model oyu kullanıldıysa aynı satırda kural oylu masa da hesaplanır, işlem açmaz */
+function comPair(A,u){ const c24=+u.t24.priceChangePercent, sym=u.t24.symbol; const com={long:committee(A,"long",c24,{sym}),short:committee(A,"short",c24,{sym})};
+  const lite=c=>({score:c.score,yes:c.yes,veto:c.veto||null,plan:c.plan?{sd:c.plan.sd}:null}); const comR={};
+  for(const d of ["long","short"]){ const u0=com[d].feat&&com[d].feat.uye; comR[d]=u0&&Object.keys(u0).length?lite(committee(A,d,c24,{sym,uye:false})):lite(com[d]); }
+  return {com,comR}; }
 function rowOf(A,u){
   const s=u.t24.symbol; const p=scan.prev[s]; const delta=(p && Date.now()-p.t<90*60e3)?A.score-p.score:NaN;
   const cached=scan.cons[s]; const consL=A.cons?A.cons.long:(cached?cached.L:null), consS=A.cons?A.cons.short:(cached?cached.S:null);
   const L=A.amd&&A.amd.long, S=A.amd&&A.amd.short;
   return {s,px:A.px,c24:+u.t24.priceChangePercent,score:A.score,delta,setup:A.setup,pick:A.pick,setupS:A.setupS,pickS:A.pickS,pickHC:A.pickHC,pickHCS:A.pickHCS,deep:!!A.amdStats,
-    gradeL:L?L.grade:null,stageL:L?L.stage:null,kzL:L?L.kz||null:null,gradeS:S?S.grade:null,stageS:S?S.stage:null,kzS:S?S.kz||null:null,consL,consS,brL:A.br?{stage:A.br.long.stage,grade:A.br.long.grade,aligned:A.br.long.aligned}:null,brS:A.br?{stage:A.br.short.stage,grade:A.br.short.grade,aligned:A.br.short.aligned}:null,rrL:L&&isFinite(L.rr1)?L.rr1:NaN,rrS:S&&isFinite(S.rr1)?S.rr1:NaN,planL:planOf(L,A.src.k15L),planS:planOf(S,A.src.k15L),brPlanL:brPlanOf(A.br&&A.br.long,A.src.k15L),brPlanS:brPlanOf(A.br&&A.br.short,A.src.k15L),rsL:A.rs?{stage:A.rs.long.stage,grade:A.rs.long.grade,ok:A.rs.long.rsOk}:null,rsS:A.rs?{stage:A.rs.short.stage,grade:A.rs.short.grade,ok:A.rs.short.rsOk}:null,rsPlanL:rsPlanOf(A.rs&&A.rs.long,A.src.k15L),rsPlanS:rsPlanOf(A.rs&&A.rs.short,A.src.k15L),com:{long:committee(A,"long",+u.t24.priceChangePercent,{sym:u.t24.symbol}),short:committee(A,"short",+u.t24.priceChangePercent,{sym:u.t24.symbol})},
+    gradeL:L?L.grade:null,stageL:L?L.stage:null,kzL:L?L.kz||null:null,gradeS:S?S.grade:null,stageS:S?S.stage:null,kzS:S?S.kz||null:null,consL,consS,brL:A.br?{stage:A.br.long.stage,grade:A.br.long.grade,aligned:A.br.long.aligned}:null,brS:A.br?{stage:A.br.short.stage,grade:A.br.short.grade,aligned:A.br.short.aligned}:null,rrL:L&&isFinite(L.rr1)?L.rr1:NaN,rrS:S&&isFinite(S.rr1)?S.rr1:NaN,planL:planOf(L,A.src.k15L),planS:planOf(S,A.src.k15L),brPlanL:brPlanOf(A.br&&A.br.long,A.src.k15L),brPlanS:brPlanOf(A.br&&A.br.short,A.src.k15L),rsL:A.rs?{stage:A.rs.long.stage,grade:A.rs.long.grade,ok:A.rs.long.rsOk}:null,rsS:A.rs?{stage:A.rs.short.stage,grade:A.rs.short.grade,ok:A.rs.short.rsOk}:null,rsPlanL:rsPlanOf(A.rs&&A.rs.long,A.src.k15L),rsPlanS:rsPlanOf(A.rs&&A.rs.short,A.src.k15L),...comPair(A,u),
     maxLevL:A.maxLevL,maxLevS:A.maxLevS,capit:A.capit,trend:A.trend,distR:isFinite(A.distR)?A.distR*100:NaN,distS:isFinite(A.distS)?A.distS*100:NaN,fund:A.fund*100,oi1h:A.oi1h*100,volRel:A.volRel,qv:+u.t24.quoteVolume,bo:A.bo,climax:A.climax,distrib:A.distrib};
 }
 // ikinci geçiş: AMD dizisi ilerlemiş adaylar 15 günlük 15 dakikalık geçmişle yeniden analiz edilir (tutarlılık + tam havuz haritası)
@@ -3900,7 +3942,7 @@ async function runScan(){
     const cand=out.filter(r=>DEEP_STAGES.has(r.stageL)||DEEP_STAGES.has(r.stageS)||r.pick||r.pickS).sort((a,b)=>b.qv-a.qv).slice(0,24);
     if(cand.length){ let d2=0; const q2=[...cand]; const w2=async()=>{ while(q2.length){ await hold(); const r=q2.shift(); try{ const deep=await scanDeep(r); if(deep) Object.assign(r,deep); }catch(e){} d2++; bar.style.width=(63+d2/cand.length*37)+"%"; st.textContent=`${d2}/${cand.length} aday derin tarandı`; } }; await Promise.all(Array.from({length:2},w2)); }
     scan.rows=out; const now=Date.now(); scan.at=now; const prev={}; out.forEach(r=>prev[r.s]={score:r.score,t:now}); scan.prev=prev; LS("rp-scan-prev",JSON.stringify(prev));
-    const n=signalsFromRows(out); renderFeed(); renderWatch(); renderScanTable(); try{ botDecide("scan"); }catch(e){ console.error("SWEEP · bot",e); } try{ lmdScanAsk(out); }catch(e){} ksScanRun(out);
+    const n=signalsFromRows(out); renderFeed(); renderWatch(); renderScanTable(); try{ botDecide("scan"); }catch(e){ console.error("SWEEP · bot",e); } shRun(); try{ lmdScanAsk(out); }catch(e){} ksScanRun(out);
     st.textContent=`${out.length} coin · ${new Date().toLocaleTimeString("tr-TR")}${failed?" · "+failed+" okunamadı":""}${n?" · "+n+" yeni sinyal":""}`;
   }catch(e){ st.textContent="tarama hatası: "+e.message; }
   finally{ scan.running=false; $("scanNow").disabled=false; setTimeout(()=>bar.style.width="0",600); }
@@ -4161,8 +4203,12 @@ function botOpenMarket(x,es){
   bot.positions.push({sym:x.sym,dir:x.dir,model:"KOMİTE",grade:x.grade,agents:x.com.agents,talk:x.com.talk,entry:fill,stop,t1,t2,rr1:1.5,rr2:x.com.plan?x.com.plan.rr2:3,lev,notional,margin,risk,risk0:Math.abs(fill-stop),stop0:stop,qty,qty0:qty,fees:fee,openT:Date.now(),expiresAt:Date.now()+((x.com.plan&&x.com.plan.holdH)||cfg.holdH)*3600e3,stage:"open",hi:fill,lo:fill,realized:0,score:x.score,yes:x.yes,votes,
     entry0:fill,stages:es?es.stages:null,warn:es?es.warn:0,quality:es?es.grade:null,mode:es?es.gs.mode:null,freed:!!x.freed,decs:[],xs:[],labHold:!!(x.com.plan&&x.com.plan.holdH&&!h24),h24,bk0:bookRec(bot.book[x.sym],px),bkx:[]});
   botLog("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · Can'ın kararı · puan ${ptsT(x.score)} · ${x.yes}/${DESK.length} evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · ${h24?`hedef yok, ${x.com.plan.holdH} saat sonra çıkış`:`1,5R ${fmtP(t1)} · 3R ${fmtP(t2)}`} · ${lev}x · pozisyon ${fmtB(notional)} · teminat ${fmtB(margin)} · risk ${fmtB(risk)}${es?` · not ${es.grade}${x.freed?" · yer açılarak":""}`:""}. Oylar: ${votes.join(", ")}.${es?" Aşamalar: "+stagesTxt(es):""}`);
+  try{ shAdd({k:"trade",sym:x.sym,dir:x.dir,px,sd,score:x.score,yes:x.yes}); }catch(e){}
   botSave(); botWsSync(); return true;
 }
+/* gölge kural masası (shadow.js): kural oylu masanın kapıyı geçen kararları ve botun işlemleri, 15 dk / 1 sa / 4 sa sonraki fiyatla; işlem açmaz */
+function shRun(){ try{ const now=Date.now(), fresh=scan.at&&now-scan.at<10*60e3;
+  shTick(fresh?scan.rows:[],s=>botLivePx(s),now,botThr(),botMinYes()); }catch(e){ console.warn("SWEEP · gölge masa: "+e.message); } }
 /* --- karar döngüsü: tarama bitince ve her dakika --- */
 function botDecide(reason){
   if(!bot.on) return; const d=botDay(); const now=Date.now(); const cfg=bot.cfg;
@@ -4719,7 +4765,7 @@ setTimeout(()=>{ if(dip.s.cfg.on) dipRun(); },12000); setInterval(()=>{ if(dip.s
 setTimeout(()=>{ if(trend.s.cfg.on) trendRun({}); },8000); setInterval(()=>{ if(trend.s.cfg.on) trendRun({}); },5*60e3);
 setInterval(()=>{ botManage().then(()=>{ bot.manErr=null; },e=>{ const m=String(e&&e.stack||e).slice(0,300); if(bot.manErr!==m) console.warn("SWEEP · pozisyon toplantısı hata: "+m); bot.manErr=m; }); },30000);
 setInterval(botPoll,3000);
-setInterval(()=>{ if(bot.on){ botDecide("tick"); if(ui.drawerTab==="bot") renderBot(); } },60000);
+setInterval(()=>{ if(bot.on){ botDecide("tick"); if(ui.drawerTab==="bot") renderBot(); } shRun(); },60000);
 /* --- durum özeti (6 Ekim 2026, gece nöbeti): Electron bunu %APPDATA%/SWEEP/logs/bot-YYYY-MM-DD.jsonl dosyasına yazar; uzaktan izlemek için. Anahtar/hesap bilgisi yok. --- */
 wsd.on=true; wsdStart(); // WebSocket veri katmanı (src/wsdata.js): tarama ve masa REST yerine akıştan beslenir
 const botDig={lastN:null,lastT:0};
@@ -4741,7 +4787,7 @@ function botDigest(){ try{ const now=Date.now(); if(botDig.lastN==null) botDig.l
       logTypes:types,log:logs.filter(l=>l.type!=="skip"||/bayat|boş|hata/.test(l.text)).slice(-25).map(l=>new Date(l.t).toISOString().slice(11,16)+" "+l.type+" "+l.sym+" "+String(l.text).slice(0,260)),lastSkip:(logs.filter(l=>l.type==="skip").pop()||{}).text||null,
       votes:{n:(bot.lastVotes||[]).length,abst:ab,yes,top:(bot.lastVotes||[]).slice(0,5).map(v=>v.sym+" "+v.dir+" "+pts(v.score)+" "+v.yes+"e"+(v.go?" go":"")+(v.veto?" veto":""))},
       fc:{pend:F.pend.length,done:F.done.length,base:L?r2(L.base):null,go:L&&L.go?{n:L.go.n,hit:r2(L.go.hit)}:null,buckets:L?L.buckets.filter(b=>b.n).map(b=>b.t+":"+b.n+"/"+(b.hit!=null?Math.round(b.hit*100):"-")):[],lessons:L?L.lessons.length:0,goBy:botDigGo(F),top:fcTop(F,5).map(x=>({...x,t:new Date(x.t).toISOString(),score:pts(x.score)}))},
-      aud:AUD?{lessons:(AUD.lessons||[]).map(l=>l.k)}:null,caps:{maxPos:bot.cfg.maxPos,maxSameDir:bot.cfg.maxSameDir},man:{err:bot.manErr||null,busyMin:bot._managing?Math.round((now-(bot._manT||now))/6e4):null},lmd:typeof lmd!=="undefined"?{...lmd.stats,q:lmd.q.length,busy:lmd.busy,err:lmd.err,wait:lmdReady()}:null,wsd:wsdSummary(),restCoolMin:rest.cool>now?Math.round((rest.cool-now)/6e4):0,used:rest.used};
+      aud:AUD?{lessons:(AUD.lessons||[]).map(l=>l.k)}:null,caps:{maxPos:bot.cfg.maxPos,maxSameDir:bot.cfg.maxSameDir},man:{err:bot.manErr||null,busyMin:bot._managing?Math.round((now-(bot._manT||now))/6e4):null},lmd:typeof lmd!=="undefined"?{...lmd.stats,q:lmd.q.length,busy:lmd.busy,err:lmd.err,wait:lmdReady()}:null,wsd:wsdSummary(),shadow:(()=>{ try{ return shSum(); }catch(e){ return null; } })(),restCoolMin:rest.cool>now?Math.round((rest.cool-now)/6e4):0,used:rest.used};
     botDig.lastT=now; console.info("SWEEP · durum "+JSON.stringify(out)); }catch(e){ console.warn("SWEEP · durum özeti yazılamadı: "+e.message); } }
 setTimeout(botDigest,90e3); setInterval(botDigest,10*60e3);
 /* Canlı panel (electron/live.js): telefondan açılan salt okunur sayfa bunu birkaç saniyede bir ister. Anahtar, emir ya da ayar yok. */
