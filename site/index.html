@@ -1368,7 +1368,7 @@ const DESK=[
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1.1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 // eşik, asgari evet ve katsayılar tests/backtest-masa.js ile seçildi (6 Ekim 2026, 24 coin × 6 ay, 169 bin toplantı); v: ayar sürümü (comMigrate)
-const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{longBtc24Max:null,r7dMin:0},l24:{holdH:24,btc24Max:0,rankMin:0.1},uye:false};
+const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{longBtc24Max:null,r7dMin:0},l24:{holdH:24,btc24Max:0,rankMin:0.1},uye:true};
 // uye: eğitilmiş üyelerin model oyu (uyemodel.js). 12 Ekim 2026: arşivde örneklem dışı dilimlerle (tests/masa-oos-karar-report.md, 2024-06 → 2026-10)
 // model oylu masa girişlerde −0,047R, kural masası −0,027R; model oylu masa rastgele ikizden ayrışmadı (fazladan long). Varsayılan kapalı, kural oyu.
 // 10 Ekim 2026 akşamı, 24 saatlik long (test #47; kullanıcı araştırma döngüsünün önerisiyle "devam edelim" dedi; arastirma/dongu/2026-10-10-test44-birlesim.md):

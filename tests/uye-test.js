@@ -24,7 +24,7 @@ for(let i=0;i<20;i++){ const a=fakeA(1+i*0.07), sym='S'+i+'USDT';
   const kl=L.agents.find(x=>x.id==='liq'), yl=L.agents.find(x=>x.id==='check'); ok(kl.model&&/^model \(likidite\)/.test(kl.txt),'Kerem modelle oy vermeli '+sym); ok(yl.model&&!yl.abst,'Yusuf modelle oy vermeli, çekimser değil '+sym);
   if(kl.v0) seen++; }
 ok(seen>5,'model oyları sıfırdan farklı olmalı'); 
-{ const a=fakeA(1.07), C=E.committee(a,'long',0,{sym:'S1USDT',now,lf:false,l24:false}); ok(!C.agents.find(x=>x.id==='trend').model,'varsayılan (COM_DEF.uye false): kural oyu'); }
+{ const a=fakeA(1.07), C=E.committee(a,'long',0,{sym:'S1USDT',now,lf:false,l24:false,uye:false}); ok(!C.agents.find(x=>x.id==='trend').model,'uye:false: kural oyu'); }
 // 2b) ukFeat: Kerem 192 mumdan sonrası için pencereden bağımsız, Yusuf EMA penceresi sabit (uzun dizi aynı sonucu verir); kapanmamış mum kullanılmaz
 { const k15=mk(9e5,1500,1.3,end15), k1h=mk(36e5,300,1.3,Math.floor(now/36e5)*36e5+36e5), k4h=mk(144e5,300,1.3,Math.floor(now/144e5)*144e5+144e5), k1d=mk(864e5,400,1.3,Math.floor(now/864e5)*864e5+864e5);
   const big=E.ukFeat({k15,k1h,k4h,k1d},now), small=E.ukFeat({k15:k15.slice(-200),k1h:k1h.slice(-60),k4h:k4h.slice(-60),k1d:k1d.slice(-120)},now);
