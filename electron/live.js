@@ -6,7 +6,7 @@
 const http=require('http'), crypto=require('crypto'), fs=require('fs'), path=require('path'), {spawn}=require('child_process');
 const PORT=8787;
 
-module.exports=function startLive({app,getWin,log,logErr}){
+module.exports=function startLive({app,getWin,pageEval,log,logErr}){
   const ud=app.getPath('userData'), cfgF=path.join(ud,'live.json'), urlF=path.join(ud,'logs','live-url.txt');
   let cfg={}; try{ cfg=JSON.parse(fs.readFileSync(cfgF,'utf8'))||{}; }catch(e){}
   if(!/^[0-9a-f]{32}$/.test(cfg.secret||'')){ cfg.secret=crypto.randomBytes(16).toString('hex'); try{ fs.writeFileSync(cfgF,JSON.stringify(cfg)); }catch(e){ logErr('live.json',e); } }
@@ -18,7 +18,7 @@ module.exports=function startLive({app,getWin,log,logErr}){
     if(cache&&Date.now()-cacheT<1500) return cache;
     const w=getWin(); if(!w||w.isDestroyed()) return null;
     const js='(()=>{ try{ return window.sweepLive?JSON.stringify(window.sweepLive()):null; }catch(e){ return JSON.stringify({err:String(e&&e.message||e)}); } })()';
-    let out=await Promise.race([w.webContents.executeJavaScript(js,true),new Promise(r=>setTimeout(()=>r(null),4000))]).catch(()=>null);
+    let out=await pageEval(w,js,4000).catch(()=>null);
     if(out&&typeof out!=='string') out=JSON.stringify(out);
     if(out){ cache=out; cacheT=Date.now(); } return out;
   }

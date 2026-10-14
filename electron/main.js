@@ -94,11 +94,24 @@ ipcMain.on('sweep-restore',(e,q)=>{
   e.returnValue=out;
 });
 ipcMain.on('sweep-restored',(e,r)=>{ if(r&&r.err) logErr('geri yükleme',r.err); else log('geri yüklendi:',r&&r.n,'kayıt',r&&r.from||''); });
+/* Sayfada kod çalıştırma (13 Ekim 2026): webContents.executeJavaScript ana çerçeve yükleniyor görünürken 'did-stop-loading'i bekler;
+   11 Ekim 06:44'ten sonra (büyük olasılıkla bu yüzden) yedek her dakika 'zaman aşımı' verip 2 gün yazılmadı (kapanış sorusu ve canlı panel de aynı yoldan).
+   Artık istek IPC ile preload.js'e gider, o da sayfada webFrame.executeJavaScript ile çalıştırıp sonucu döner (yükleme durumunu beklemez). */
+let evalSeq=0; const evalWait=new Map();
+ipcMain.on('sweep-eval-res',(e,r)=>{ const p=r&&evalWait.get(r.id); if(!p) return; evalWait.delete(r.id); clearTimeout(p.tm); if(r.err) p.reject(new Error(r.err)); else p.resolve(r.out); });
+function pageEval(w,js,ms){
+  return new Promise((resolve,reject)=>{
+    if(!w||w.isDestroyed()) return reject(new Error('pencere yok'));
+    const id=++evalSeq, tm=setTimeout(()=>{ evalWait.delete(id); reject(new Error('zaman aşımı')); },ms);
+    evalWait.set(id,{resolve,reject,tm});
+    try{ w.webContents.send('sweep-eval',{id,js}); }catch(err){ clearTimeout(tm); evalWait.delete(id); reject(err); }
+  });
+}
 let backupBusy=false;
 function backupState(why){
   if(backupBusy||!win||win.isDestroyed()) return Promise.resolve(); backupBusy=true;
   const js='(()=>{const o={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(/^(st|rp)-/.test(k)&&k!=="st-acct"&&k!=="st-llm-key")o[k]=localStorage.getItem(k);}return JSON.stringify(o);})()';
-  return Promise.race([win.webContents.executeJavaScript(js,true),new Promise((_,j)=>setTimeout(()=>j(new Error('zaman aşımı')),15000))])
+  return pageEval(win,js,15000)
     .then(txt=>{ const data=JSON.parse(txt); if(!data['st-bot']) return; // boş kayıt iyi yedeği ezmesin
       const d=stateDir(), f=path.join(d,'state.json'), tmp=f+'.tmp';
       fs.writeFileSync(tmp,JSON.stringify({t:Date.now(),why,data}));
@@ -152,7 +165,7 @@ function create(){
       log('Windows pencereyi kapatmak istedi; bot için açık kalıyor'); return; }
     if(asking) return;
     // sayfa çökmüş/donmuşsa yanıt gelmeyebilir: 1,5 sn sonra sormadan devam
-    Promise.race([wc.executeJavaScript('(()=>{try{const b=JSON.parse(localStorage.getItem("st-bot")||"{}");return {on:!!b.on,n:(b.positions||[]).length};}catch(e){return {on:false,n:0};}})()',true),new Promise(r=>setTimeout(()=>r({on:false,n:0}),1500))])
+    pageEval(win,'(()=>{try{const b=JSON.parse(localStorage.getItem("st-bot")||"{}");return {on:!!b.on,n:(b.positions||[]).length};}catch(e){return {on:false,n:0};}})()',1500)
       .catch(()=>({on:false,n:0}))
       .then(s=>{
         if(!s.on&&!s.n) return 0;
@@ -203,7 +216,7 @@ app.whenReady().then(()=>{
   corsBridge();
   create();
   // Telefondan salt okunur canlı panel (gizli adres + Cloudflare tüneli); bkz. live.js.
-  try{ liveSrv=startLive({app,getWin:()=>win,log,logErr}); }catch(e){ logErr('live',e); }
+  try{ liveSrv=startLive({app,getWin:()=>win,pageEval,log,logErr}); }catch(e){ logErr('live',e); }
   setInterval(memWatch,10*60e3); setTimeout(memWatch,60e3);
   setInterval(()=>backupState('dakikalık'),60e3);
   app.on('activate',()=>{ if(BrowserWindow.getAllWindows().length===0) create(); });

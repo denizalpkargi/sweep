@@ -72,7 +72,11 @@ function rkFeatA(A,now){ now=now||Date.now(); const s=A&&A.src; if(!s||!s.k15L) 
     oi:ts(s.oi5raw,"sumOpenInterestValue"),tp:ts(s.tp5,"longShortRatio"),gl:ts(s.gl5,"longShortRatio"),fr:isFinite(s.fr)?s.fr:A.fund}); }
 // coinin değişkenlerini önbelleğe yazar ve evren içinde puanlar; dönen {p4,p12,p,n} yüzdelik dilimler (0–1) ya da null
 const rkMemo=new WeakMap(); // aynı analiz (A) için long ve short toplantısı bir kez hesaplar
+// yalnız geriye dönük test (tests/masa-archive.js --oos): (sym,now) → rkScore0 biçiminde sonuç; canlıdaki model arşivin tamamıyla eğitildiği için
+// arşivde onun yerine ileriye yürüyen eğitimin örneklem dışı dilimleri verilir. Canlıda null.
+let rkOverride=null;
 function rkScore(sym,A,now){
+  if(rkOverride) return sym?rkOverride(sym,now):null;
   if(typeof RK_MODEL==="undefined"||!RK_MODEL||!sym||!A) return null; const mm=rkMemo.get(A); if(mm&&mm.sym===sym) return mm.res; const res=rkScore0(sym,A,now); rkMemo.set(A,{sym,res}); return res; }
 function rkScore0(sym,A,now){
   now=now||Date.now(); const raw=rkFeatA(A,now); if(!raw) return null;
