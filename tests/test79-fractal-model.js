@@ -1,4 +1,4 @@
-// Test listesi #78 (15 Ekim 2026): "Simple Fractals" / TTrades Fractal Model (ICT ailesi), kullanıcı "teste alalım" dedi.
+// Test listesi #79 (15 Ekim 2026): "Simple Fractals" / TTrades Fractal Model (ICT ailesi), kullanıcı "teste alalım" dedi.
 // Kural (TTrades'in herkese açık anlatımından mekanikleştirildi; Simple Fractals'ın kendi kuralları ücretli içerikte):
 //   Üst zaman dilimi (ÜZD: 1 sa, 4 sa ya da 1 g, 15 dk mumlardan UTC hizalı) — C1, C2, C3 ardışık mumlar.
 //   Long kurulumu (short tersi): C2 C1'in dibini süpürür (C2 dip < C1 dip) ve C1 aralığının içine kapanır (C1 dip < C2 kapanış ≤ C1 tepe).
@@ -14,7 +14,7 @@
 // Maliyet R cinsinden: taker+kayma gidiş-dönüş %0,16 ÷ stop yüzdesi (girişler market). Fonlama yok (≤ 8 sa).
 // Veri: tests/data/sm/15m/<SYM>.csv (tests/sm-fetch.js; S3 arşivi buluttan 403), sabit 20 likit perp → hayatta kalan seçimi, kanıt değil.
 // Dönemler: 1 = 2020-06 → 05/2023, 2 = 06/2023 → bugün, Y = son 12 ay; yıl yıl ayrıca.
-// Kullanım: node tests/test78-fractal-model.js [--dir tests/data/sm/15m] → tests/test78-fractal-model-report.md
+// Kullanım: node tests/test79-fractal-model.js [--dir tests/data/sm/15m] → tests/test79-fractal-model-report.md
 const fs=require('fs'), path=require('path');
 const arg=(k,d)=>{ const i=process.argv.indexOf('--'+k); return i<0?d:process.argv[i+1]; };
 const DIR=arg('dir',path.join(__dirname,'data','sm','15m'));
@@ -77,7 +77,7 @@ const cell=o=>{ if(!o||!o.n) return '—'; const m=o.s/o.n, mt=o.st/o.n, sd=Math
   return `n ${o.n} · ${fx(m)} / **${fx(mt)}** R · t ${fx(tt,1)} · kazanma %${f0(100*o.w/o.n)} · hedef %${f0(100*o.hedef/o.n)} stop %${f0(100*o.stop/o.n)} · stop %${f0(100*o.sp/o.n,2)} · oran ${f0(o.rr/o.n,1)}`; };
 const refCell=o=>{ if(!o||!o.n) return '—'; const m=o.s/o.n, sd=Math.sqrt(Math.max(0,o.s2/o.n-m*m)); return `n ${o.n} · ${fx(m*100,3)} % · t ${fx(sd>0?m/sd*Math.sqrt(o.n):NaN,1)}`; };
 const P=(...a)=>ST[a.join('|')];
-const out=[`# Test #78 · Fractal Model (Simple Fractals / TTrades), arşiv testi · ${new Date().toISOString().slice(0,10)}`,'',
+const out=[`# Test #79 · Fractal Model (Simple Fractals / TTrades), arşiv testi · ${new Date().toISOString().slice(0,10)}`,'',
   `Sabit ${coins} likit perp (tests/data/sm, www.binance.com/fapi; hayatta kalan seçimi), 15 dk mumlar, 2020-06 → bugün. Kural dosyanın başında. Hücre: n · brüt / **taker** R (gidiş-dönüş %0,16 ÷ stop) · t (taker) · kazanma · hedef/stop payı · ortalama stop % · ortalama hedef oranı. Dönemler: 1 = 2020-06 → 05/2023, 2 = 06/2023 → bugün, Y = son 12 ay. Önceden seçilen ana varyant: CISD, swing stop, zaman stopu C3 sonu, filtresiz.`,'',
   `Kurulum sayısı: `+Object.entries(NS).map(([k,v])=>`${k} ${v.toLocaleString('tr-TR')}`).join(' · '),''];
 for(const [hn] of HTFS){ out.push(`## ÜZD ${hn}`,'',`Stopsuz (CISD girişi VWAP → C3 sonu VWAP, maliyetsiz): süpürme 1: ${refCell(REF[[hn,'süpürme','1'].join('|')])} · 2: ${refCell(REF[[hn,'süpürme','2'].join('|')])} · Y: ${refCell(REF[[hn,'süpürme','Y'].join('|')])}; süpürmesiz 1: ${refCell(REF[[hn,'süpürmesiz','1'].join('|')])} · 2: ${refCell(REF[[hn,'süpürmesiz','2'].join('|')])}`,'',
@@ -92,4 +92,4 @@ out.push('## Yıl yıl · taker R','','| Varyant | '+YRS.join(' | ')+' |','|---|
 for(const v of [['1 sa','süpürme','CISD','swing','C3','hepsi'],['1 sa','süpürme','CISD','swing','C3','günlük + NY'],['1 sa','süpürme','CISD','swing+%1,5','C4','hepsi'],['4 sa','süpürme','CISD','swing','C3','hepsi'],['4 sa','süpürme','CISD','swing+%1,5','C4','hepsi'],['4 sa','süpürme','CISD','swing','C3','günlük yön'],['1 g','süpürme','CISD','swing','C3','hepsi'],['1 g','süpürme','CISD','swing+%1,5','C4','hepsi']])
   out.push(`| ${v.join(' · ')} | `+YRS.map(y=>{ const o=P(...v,'y'+y); return o?`${o.n} · ${fx(o.st/o.n)}`:'—'; }).join(' | ')+' |');
 out.push('');
-fs.writeFileSync(path.join(__dirname,'test78-fractal-model-report.md'),out.join('\n')+'\n'); console.log(out.join('\n'));
+fs.writeFileSync(path.join(__dirname,'test79-fractal-model-report.md'),out.join('\n')+'\n'); console.log(out.join('\n'));
