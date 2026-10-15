@@ -83,6 +83,20 @@ const E=loadEngine({fetch});
   ok(new Set(params).size===params.length&&many.every(st=>params.includes(st)),'120 akışın hepsi bir kez abone edildi ('+msgs.length+' mesaj)');
   ok(params.includes('bbbusdt@kline_1m')&&!params.includes('aaausdt@kline_1m'),'bağlanırken eklenen akış açılınca gönderildi, URL\'deki yeniden gönderilmedi');
   ok(gaps.every(g=>g>=450),'mesajlar arası ≥500 ms ('+gaps.join(', ')+' ms)');
+  // uyanış (15 Ekim 2026): bekçi turları arasında ≥60 sn boşluk → akışlar kapanır, 10 sn açılmaz, sonra ≥3 sn arayla; REST 90 sn bekler
+  { const warn=console.warn; const said=[]; console.warn=m=>said.push(m);
+    E.wsdWatch(NOW); const nS=sockets.length, live=[E.wsd.glob,...E.wsd.conns].filter(c=>c&&c.ws).length;
+    NOW+=8*3600e3; E.wsdWatch(NOW); console.warn=warn;
+    ok(said.some(m=>m.startsWith('SWEEP · uyanış')),'uyanış günlüğe yazıldı');
+    ok(E.wsd.hold===NOW+E.WSD_CFG.wakeHold&&E.wsd.pace>E.wsd.hold,'REST bekletmesi kuruldu');
+    ok([E.wsd.glob,...E.wsd.conns].every(c=>!c||!c.ws),'uyanışta '+live+' akış kapatıldı');
+    await new Promise(r=>setTimeout(r,2300)); ok(sockets.length===nS,'ilk 10 sn yeni bağlantı açılmadı');
+    const w=[E.wsd.glob,...E.wsd.conns].filter(c=>c&&c.waitOpen).length; ok(w===live,'kapatılan akışlar sırada ('+w+')');
+    const d1=E.wsdSlot(), d2=E.wsdSlot(); ok(d1>=10e3&&d2-d1===E.WSD_CFG.openGap,'açılışlar arası '+(d2-d1)+' ms');
+    ok(E.wsdWake('ağ geri geldi',NOW+30e3)===false,'"online" aynı uyanışta ikinci kez kapatmadı');
+    const c0=calls.length; let done=false; E.j('/futures/data/openInterestHist?symbol=WAKEUSDT&period=5m&limit=2').then(()=>done=true,()=>done=true);
+    await new Promise(r=>setTimeout(r,50)); ok(!done&&calls.length===c0,'bekletme sürerken REST isteği gitmedi');
+    for(const c of [E.wsd.glob,...E.wsd.conns]) if(c&&c.waitOpen){ clearTimeout(c.waitOpen); c.waitOpen=null; } E.wsd.hold=0; E.wsd.pace=0; }
   console.log('özet',JSON.stringify(E.wsdSummary()));
   Date.now=realNow; console.log('wsdata-test errors',JSON.stringify(errors)); process.exit(errors.length?1:0);
 })().catch(e=>{ console.error(e); process.exit(1); });

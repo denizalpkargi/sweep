@@ -479,7 +479,11 @@ const K = k => k.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5],q:+x[7]
    yazılır; Electron bunu logs/akis-YYYY-MM-DD.jsonl'e koyar. Binance bu akışta coin başına saniyede en çok bir likidasyon gönderir (anlık görüntü). */
 const WSD_URL="wss://fstream.binance.com/market/stream?streams=";
 const WSD_IV={"1m":6e4,"3m":18e4,"5m":3e5,"15m":9e5,"30m":18e5,"1h":36e5,"2h":72e5,"4h":144e5,"6h":216e5,"8h":288e5,"12h":432e5,"1d":864e5};
-const WSD_CFG={perConn:150,maxSyms:240,staleMax:3*3600e3,respMax:3000,fresh:30e3,subBatch:50,subGap:500};
+const WSD_CFG={perConn:150,maxSyms:240,staleMax:3*3600e3,respMax:3000,fresh:30e3,subBatch:50,subGap:500,wakeGap:60e3,wakeFirst:10e3,wakeHold:90e3,openGap:3e3,wakePace:5*60e3,restGap:300};
+/* Uyanış (15 Ekim 2026): bilgisayar 22:15–06:49 UTC uyudu; uyanınca ağ gelmeden tüm akışlar aynı anda yeniden açıldı (06:49:03 ve 06:49:10 kod 1006),
+   06:49:16'da REST mum isteği 418 aldı (20.003 sn, dakikalık ağırlık 112; 9 Ekim'deki uyanış yasağıyla aynı desen). Bekçi 10 sn'lik turlar arasında
+   ≥60 sn boşluk görürse (ya da tarayıcı "online" derse) uyanış sayılır: akışlar ilk 10 sn açılmaz, sonra en az 3 sn arayla tek tek açılır;
+   REST istekleri 90 sn bekler, sonraki 5 dk en az 300 ms arayla gider (tarama işçileri hepsini birden göndermesin). */
 const wsd={on:false,k:{},tick:{},tickT:0,mark:{},markT:0,glob:null,conns:[],resp:new Map(),stat:{hit:0,rest:0,stale:0,msg:0,respHit:0,kick:0,liq:0,liqMin:0},watch:null,liq:{}};
 // likidasyon: wsd.liq[dakika][sym] = [zorla alış $, zorla satış $, adet]
 function wsdLiq(o){ if(!o||!o.s||!o.s.endsWith("USDT")) return; const v=(+o.ap||+o.p)*(+o.z||+o.q); if(!(v>0)) return; const m=Math.floor((+o.T||Date.now())/6e4)*6e4;
@@ -509,7 +513,9 @@ function wsdMsg(conn,ev){ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; 
   else if(st.startsWith("!markPrice@arr")){ for(const x of d) wsd.mark[x.s]=WSD_M(x); wsd.markT=now; }
   else if(st==="!forceOrder@arr") wsdLiq(d.o);
   else if(st.endsWith("@kline_1m")&&d.k) wsdOnKline(d.s||d.k.s,d.k); }
-function wsdOpen(conn){ if(typeof WebSocket==="undefined") return; const streams=[...conn.streams]; if(!streams.length) return;
+function wsdSlot(){ const now=Date.now(); if(!(now<wsd.hold)) return 0; const t=Math.max(now,wsd.nextOpen||0,(wsd.wakeT||0)+WSD_CFG.wakeFirst); wsd.nextOpen=t+WSD_CFG.openGap; return t-now; }
+function wsdOpen(conn){ if(typeof WebSocket==="undefined") return; if(conn.waitOpen) return; const d=wsdSlot(); if(d>0){ conn.waitOpen=setTimeout(()=>{ conn.waitOpen=null; if(wsd.on&&!conn.ws) wsdOpenNow(conn); },d); return; } wsdOpenNow(conn); }
+function wsdOpenNow(conn){ const streams=[...conn.streams]; if(!streams.length) return;
   let ws; try{ ws=new WebSocket(WSD_URL+streams.join("/")); }catch(e){ return; } conn.ws=ws; conn.sent=new Set(streams); conn.openT=Date.now(); conn.lastMsg=0;
   ws.onopen=()=>{ conn.tries=0; conn.openT=Date.now(); wsdQueue(conn); }; // bağlanırken eklenen akışlar URL'de yoktu
   ws.onmessage=ev=>wsdMsg(conn,ev);
@@ -520,9 +526,12 @@ function wsdOpen(conn){ if(typeof WebSocket==="undefined") return; const streams
    yeniden bağlanılmıyor, tarama 30–90 dk bayat kalıyordu. Mesaj gelmeyen soket (genel akış 30 sn, mum akışı 90 sn; bağlanamayan 30 sn)
    kapatılıp hemen yeniden açılır. Yalnız WebSocket; REST'e istek atmaz. */
 function wsdKill(conn,why){ const ws=conn.ws; if(!ws) return; ws.onclose=null; ws.onmessage=null; ws.onerror=null; try{ ws.close(); }catch(e){}
-  for(const s of conn.syms){ const x=wsd.k[s]; if(x) x.wsSince=0; } conn.ws=null; wsd.stat.kick++; try{ console.warn("SWEEP · akış yenileniyor ("+why+")"); }catch(e){}
+  for(const s of conn.syms){ const x=wsd.k[s]; if(x) x.wsSince=0; } conn.ws=null; wsd.stat.kick++; if(!(Date.now()<wsd.hold)) try{ console.warn("SWEEP · akış yenileniyor ("+why+")"); }catch(e){}
   const wait=Math.min(60e3,2e3*Math.pow(2,conn.kicks=(conn.kicks||0)+1)-2e3); setTimeout(()=>{ if(wsd.on&&!conn.ws) wsdOpen(conn); },wait); }
-function wsdWatch(now){ now=now||Date.now(); wsdLiqFlush(now); for(const c of [wsd.glob,...wsd.conns]){ if(!c||!c.ws) continue; const rs=c.ws.readyState;
+function wsdWake(why,now){ now=now||Date.now(); if(now-(wsd.wakeT||0)<120e3) return false; wsd.wakeT=now; wsd.hold=now+WSD_CFG.wakeHold; wsd.pace=wsd.hold+WSD_CFG.wakePace; wsd.nextOpen=0; wsd.stat.wake=(wsd.stat.wake||0)+1;
+  try{ console.warn("SWEEP · uyanış ("+why+"): akışlar kademeli açılıyor, REST "+Math.round(WSD_CFG.wakeHold/1e3)+" sn bekliyor"); }catch(e){}
+  wsdKickAll(why); return true; }
+function wsdWatch(now){ now=now||Date.now(); const gap=wsd.watchT?now-wsd.watchT:0; wsd.watchT=now; if(gap>WSD_CFG.wakeGap&&wsdWake("uykudan uyanış, "+Math.round(gap/6e4)+" dk",now)) return; wsdLiqFlush(now); for(const c of [wsd.glob,...wsd.conns]){ if(!c||!c.ws) continue; const rs=c.ws.readyState;
     if(rs===0&&now-c.openT>30e3){ wsdKill(c,"bağlanamadı"); continue; }
     if(rs!==1) continue; const quiet=now-(c.lastMsg||c.openT), lim=c===wsd.glob?30e3:90e3;
     if(quiet>lim) wsdKill(c,"sustu "+Math.round(quiet/1e3)+" sn"); else if(c.lastMsg) c.kicks=0; } }
@@ -543,7 +552,7 @@ function wsdSub(conn,stream){ conn.streams.add(stream); if(conn.unsub) conn.unsu
   if(conn.ws){ if(conn.ws.readyState===1&&!conn.sent.has(stream)) wsdQueue(conn); } else wsdOpen(conn); }
 function wsdUnsub(conn,stream){ conn.streams.delete(stream); if(conn.ws&&conn.ws.readyState===1&&conn.sent.has(stream)){ conn.sent.delete(stream); (conn.unsub||(conn.unsub=new Set())).add(stream); wsdQueue(conn); } }
 function wsdStart(){ if(!wsd.on||wsd.glob||typeof WebSocket==="undefined") return; wsd.glob={streams:new Set(["!ticker@arr","!markPrice@arr@1s","!forceOrder@arr"]),syms:new Set(),ws:null,tries:0,sent:new Set()}; wsdOpen(wsd.glob);
-  if(!wsd.watch){ wsd.watch=setInterval(()=>wsdWatch(),10e3); try{ window.addEventListener("online",()=>wsdKickAll("ağ geri geldi")); }catch(e){} } }
+  if(!wsd.watch){ wsd.watch=setInterval(()=>wsdWatch(),10e3); try{ window.addEventListener("online",()=>wsdWake("ağ geri geldi")); }catch(e){} } }
 function wsdWant(s){ if(!wsd.on||typeof WebSocket==="undefined") return; wsdStart(); const st=wsdStore(s); st.req=Date.now(); if(st.conn) return;
   const all=Object.keys(wsd.k).filter(x=>wsd.k[x].conn);
   if(all.length>=WSD_CFG.maxSyms){ const old=all.sort((a,b)=>wsd.k[a].req-wsd.k[b].req)[0]; const o=wsd.k[old]; wsdUnsub(o.conn,old.toLowerCase()+"@kline_1m"); o.conn.syms.delete(old); delete wsd.k[old]; }
@@ -596,7 +605,11 @@ async function j(path){
 async function jRest(path){
   for(let g=0;g<20;g++){ const now=Date.now(); if(now<rest.cool){ if(rest.cool-now>60e3) throw new Error(path.split("?")[0]+" → Binance yasağı/hız sınırı, "+Math.round((rest.cool-now)/6e4)+" dk kaldı (akıştaki ve saklanan veri kullanılıyor)"); await restSleep(rest.cool-now); continue; }
     // dakikalık ağırlık 2400: 1800'ü geçtiyse dakika dolana kadar bekle (429'a varmadan)
-    if(rest.used>=1800&&Math.floor(rest.usedT/6e4)===Math.floor(now/6e4)){ await restSleep(6e4-now%6e4+500); continue; } break; }
+    if(rest.used>=1800&&Math.floor(rest.usedT/6e4)===Math.floor(now/6e4)){ await restSleep(6e4-now%6e4+500); continue; }
+    // uykudan uyanış (wsdWake): ağ ve akışlar oturana kadar REST yok, sonra istekler arası en az 300 ms
+    if(now<wsd.hold){ await restSleep(wsd.hold-now+Math.random()*5e3); continue; }
+    if(now<wsd.pace){ const t=Math.max(now,rest.nextT||0); rest.nextT=t+WSD_CFG.restGap; if(t>now){ await restSleep(t-now); } }
+    break; }
   let r; rest.fly=(rest.fly||0)+1; try{ r=await fetch(BASE+path); }catch(e){ throw new Error(path.split("?")[0]+" → bağlantı kurulamadı ("+e.message+")"); } finally{ rest.fly--; }
   try{ const w=+r.headers.get("x-mbx-used-weight-1m"); if(w){ rest.used=w; rest.usedT=Date.now(); } }catch(e){}
   if(r.status===429||r.status===418){ const ra=+(r.headers.get("retry-after")||0);
@@ -4075,13 +4088,13 @@ function wsConnect(sym){
   ws.onopen=()=>{ live.tries=0; live.ok=true; wsStatus(true); };
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } live.msgs++; live.lastMsg=Date.now(); const d=m.data||m; const st=m.stream||""; try{ wsDispatch(st,d); }catch(e){ console.error("SWEEP · ws",e); } };
   ws.onerror=()=>{};
-  ws.onclose=()=>{ live.ok=false; wsStatus(false,"bağlantı koptu, yeniden deneniyor"); if(live.wantSym!==sym) return; const wait=Math.min(30000,1000*Math.pow(2,live.tries++)); clearTimeout(live.timer); live.timer=setTimeout(()=>{ if(live.wantSym===sym) wsConnect(sym); },wait); };
+  ws.onclose=()=>{ live.ok=false; wsStatus(false,"bağlantı koptu, yeniden deneniyor"); if(live.wantSym!==sym) return; const wait=Math.min(30000,1000*Math.pow(2,live.tries++)); clearTimeout(live.timer); live.timer=setTimeout(()=>{ if(live.wantSym===sym) wsConnect(sym); },wait+wsdSlot()); };
 }
 // /market yolundaki piyasa akışları (src/wsdata.js WSD_URL): seçili coinin 15 dk mumu, mark/fonlama, likidasyonlar
 let liveWs2=null;
 function wsMarket(sym,streams){ if(liveWs2){ try{ liveWs2.onclose=null; liveWs2.close(); }catch(e){} liveWs2=null; } let ws; try{ ws=new WebSocket(WSD_URL+streams.join("/")); }catch(e){ return; } liveWs2=ws;
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } const d=m.data||m; const st=m.stream||""; try{ wsDispatch(st,d); }catch(e){ console.error("SWEEP · ws",e); } };
-  ws.onerror=()=>{}; ws.onclose=()=>{ if(liveWs2!==ws) return; liveWs2=null; setTimeout(()=>{ if(live.wantSym===sym&&!liveWs2) wsMarket(sym,streams); },5000); }; }
+  ws.onerror=()=>{}; ws.onclose=()=>{ if(liveWs2!==ws) return; liveWs2=null; setTimeout(()=>{ if(live.wantSym===sym&&!liveWs2) wsMarket(sym,streams); },5000+wsdSlot()); }; }
 function wsStatus(ok,txt){ const el=$("wsDot"); if(!el) return; el.className="wsdot "+(ok?"ok":"off"); el.title=ok?"Canlı akış bağlı (WebSocket)":"Canlı akış kapalı · "+(txt||""); const lbl=$("wsTxt"); if(lbl) lbl.textContent=ok?"canlı":"canlı yok"; }
 function wsDispatch(stream,d){
   if(stream.endsWith("@aggTrade")||stream.endsWith("@trade")){ const p=+d.p,q=+d.q,v=p*q,sell=!!d.m; live.px=p; live.cvd+=sell?-v:v; if(v>=tapeMin()) tapePush({t:d.T,kind:sell?"sell":"buy",p,v}); onLivePrice(); }
@@ -4258,12 +4271,12 @@ function botWsSync(){
   if(bot.ws){ try{ bot.ws.onclose=null; bot.ws.close(); }catch(e){} bot.ws=null; } if(botWs2){ try{ botWs2.onclose=null; botWs2.close(); }catch(e){} botWs2=null; } bot.wsKey=key; if(!syms.length) return;
   let ws; try{ ws=new WebSocket(WS_BASE+syms.map(s=>s.toLowerCase()).flatMap(s=>[`${s}@trade`,`${s}@bookTicker`]).join("/")); }catch(e){ return; } bot.ws=ws; bot.wsAt=Date.now();
   // mark fiyatı ve fonlama yalnız /market yolunda akıyor: eski yolda sessizdi, 5 Ekim'den beri kâğıt pozisyonlardan fonlama kesilmiyordu
-  try{ botWs2=new WebSocket(WSD_URL+syms.map(s=>s.toLowerCase()+"@markPrice@1s").join("/")); botWs2.onmessage=ev=>ws.onmessage(ev); botWs2.onerror=()=>{}; const me=botWs2; botWs2.onclose=()=>{ if(botWs2!==me) return; botWs2=null; setTimeout(()=>{ if(bot.wsKey===key&&!botWs2){ bot.wsKey=null; botWsSync(); } },5000); }; }catch(e){}
+  try{ botWs2=new WebSocket(WSD_URL+syms.map(s=>s.toLowerCase()+"@markPrice@1s").join("/")); botWs2.onmessage=ev=>ws.onmessage(ev); botWs2.onerror=()=>{}; const me=botWs2; botWs2.onclose=()=>{ if(botWs2!==me) return; botWs2=null; setTimeout(()=>{ if(bot.wsKey===key&&!botWs2){ bot.wsKey=null; botWsSync(); } },5000+wsdSlot()); }; }catch(e){}
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } const d=m.data||m; const st=m.stream||""; const sym=(d.s||st.split("@")[0]||"").toUpperCase(); if(!sym) return;
     if(st.endsWith("@aggTrade")||st.endsWith("@trade")){ bot.src="ws"; bot._lastTrade[sym]=Date.now(); botOnPrice(sym,+d.p,d.T); }
     else if(st.endsWith("@bookTicker")){ const b=+d.b,a=+d.a; if(b>0&&a>0){ bot.book[sym]={b,a}; const now=Date.now(); if(!bot._lastTrade[sym]||now-bot._lastTrade[sym]>3000){ bot.src="ws"; botOnPrice(sym,(b+a)/2,now); } } }
     else if(st.endsWith("@markPrice@1s")){ if(+d.p>0){ bot.mark[sym]=+d.p; bot.lastMark=Date.now(); bot.lastTick=Date.now(); } const T=+d.T; const f=bot.fund[sym]||{r:0,T:0}; if(f.T&&T>f.T+60e3&&Date.now()>=f.T-5000) botFunding(sym,f.r); bot.fund[sym]={r:+d.r,T}; } };
-  ws.onclose=()=>{ if(bot.wsKey===key&&bot.on) setTimeout(()=>{ if(bot.wsKey===key){ bot.ws=null; bot.wsKey=null; botWsSync(); } },3000); };
+  ws.onclose=()=>{ if(bot.wsKey===key&&bot.on) setTimeout(()=>{ if(bot.wsKey===key){ bot.ws=null; bot.wsKey=null; botWsSync(); } },3000+wsdSlot()); }; // uyanışta kademeli (wsdSlot)
 }
 function botFunding(sym,rate){ for(const p of bot.positions){ if(p.sym!==sym) continue; const fee=p.notional*rate*(p.dir==="long"?1:-1); bot.bal-=fee; p.fees+=fee; botLog("fund",p.sym,`Fonlama ${fx(rate*100,4)}% → ${fee>=0?"ödendi":"alındı"} ${fmtB(Math.abs(fee))}.`); } }
 function botOnPrice(sym,px,T){
@@ -4923,7 +4936,7 @@ if(acct.key&&acct.secret&&acct.remember){ acctStart(acct.key,acct.secret,true).t
   sessionTick(); ui.sessTimer=setInterval(sessionTick,15000);
   setInterval(()=>{ if(live.ws&&live.ok&&Date.now()-live.lastMsg>25000){ wsStatus(false,"akış sustu, yenileniyor"); try{ live.ws.close(); }catch(e){} } },10000);
   // bot akışı da susabiliyor (uyku/ağ kopması, onclose gelmiyor): mark 30 sn gelmezse bağlantıyı baştan kur (en çok 30 sn'de bir; REST'e gitmez)
-  setInterval(()=>{ const now=Date.now(); if(bot.ws&&(bot.positions.length||bot.orders.length)&&now-Math.max(bot.lastMark||0,bot.wsAt||0)>30000&&now-(bot.wsKick||0)>30000){ bot.wsKick=now; bot.wsKey=null; botWsSync(); } },10000);
+  setInterval(()=>{ const now=Date.now(); if(bot.ws&&!(now<wsd.hold)&&(bot.positions.length||bot.orders.length)&&now-Math.max(bot.lastMark||0,bot.wsAt||0)>30000&&now-(bot.wsKick||0)>30000){ bot.wsKick=now; bot.wsKey=null; botWsSync(); } },10000);
   renderFeed(); renderWatch(); renderJournal(); scheduleScan();
   setTimeout(()=>{ ldRefresh(false).catch(()=>{}); },3000); setInterval(()=>{ ldRefresh(false).catch(()=>{}); },10*60e3);
   sel.posProvider=()=>bot.positions.map(p=>({sym:p.sym,dir:p.dir})); // Tolga açık pozisyonlarımızın coininde liderleri izler

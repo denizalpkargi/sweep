@@ -29,7 +29,11 @@ async function j(path){
 async function jRest(path){
   for(let g=0;g<20;g++){ const now=Date.now(); if(now<rest.cool){ if(rest.cool-now>60e3) throw new Error(path.split("?")[0]+" → Binance yasağı/hız sınırı, "+Math.round((rest.cool-now)/6e4)+" dk kaldı (akıştaki ve saklanan veri kullanılıyor)"); await restSleep(rest.cool-now); continue; }
     // dakikalık ağırlık 2400: 1800'ü geçtiyse dakika dolana kadar bekle (429'a varmadan)
-    if(rest.used>=1800&&Math.floor(rest.usedT/6e4)===Math.floor(now/6e4)){ await restSleep(6e4-now%6e4+500); continue; } break; }
+    if(rest.used>=1800&&Math.floor(rest.usedT/6e4)===Math.floor(now/6e4)){ await restSleep(6e4-now%6e4+500); continue; }
+    // uykudan uyanış (wsdWake): ağ ve akışlar oturana kadar REST yok, sonra istekler arası en az 300 ms
+    if(now<wsd.hold){ await restSleep(wsd.hold-now+Math.random()*5e3); continue; }
+    if(now<wsd.pace){ const t=Math.max(now,rest.nextT||0); rest.nextT=t+WSD_CFG.restGap; if(t>now){ await restSleep(t-now); } }
+    break; }
   let r; rest.fly=(rest.fly||0)+1; try{ r=await fetch(BASE+path); }catch(e){ throw new Error(path.split("?")[0]+" → bağlantı kurulamadı ("+e.message+")"); } finally{ rest.fly--; }
   try{ const w=+r.headers.get("x-mbx-used-weight-1m"); if(w){ rest.used=w; rest.usedT=Date.now(); } }catch(e){}
   if(r.status===429||r.status===418){ const ra=+(r.headers.get("retry-after")||0);
