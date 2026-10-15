@@ -68,6 +68,8 @@ eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P
 if(!eng.includes('function volMember')||!eng.includes('function tfMember')||!eng.includes('function facMember')||!eng.includes('function rkMember')||!eng.includes('const RK_MODEL')||!eng.includes('function uyeVote')||!eng.includes('const UYE_MODEL')) throw new Error('volume/tfcheck/rankmodel insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'forecast.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function fcObserve')) throw new Error('forecast insert failed');
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'shadow.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function shTick')) throw new Error('shadow insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'goal.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function entryStages')) throw new Error('goal insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'llmdesk.js','utf8')+`\n// backtest: every completed sequence in the history`);
@@ -116,8 +118,13 @@ rep(`  A.amdL=amdGo(A.amd.long); A.amdS=amdGo(A.amd.short);`,`  A.amdL=amdGo(A.a
 // --- bot planları satırlara ---
 rep(`function rowOf(A,u){`,`function planOf(r,k){ if(!r||!r.zone||!(r.grade==="A"||r.grade==="B")) return null; return {stage:r.stage,grade:r.grade,kz:r.kz||null,entry:r.entry,stop:r.stop,t1:r.t1,t2:r.t2,rr1:r.rr1,rr2:isFinite(r.rr2)?r.rr2:null,expires:(k&&r.mss!=null&&k[r.mss]?k[r.mss].t:Date.now())+17*9e5}; }
 function brPlanOf(r,k){ if(!r||!r.fvg) return null; return {stage:r.stage,grade:r.grade,aligned:!!r.aligned,kz:r.kz||null,entry:r.entry,stop:r.stop,t1:r.r2,t2:r.r3,expires:(k&&k[r.bo]?k[r.bo].t:Date.now())+25*9e5}; }
+/* gölge kural masası (shadow.js): model oyu kullanıldıysa aynı satırda kural oylu masa da hesaplanır, işlem açmaz */
+function comPair(A,u){ const c24=+u.t24.priceChangePercent, sym=u.t24.symbol; const com={long:committee(A,"long",c24,{sym}),short:committee(A,"short",c24,{sym})};
+  const lite=c=>({score:c.score,yes:c.yes,veto:c.veto||null,plan:c.plan?{sd:c.plan.sd}:null}); const comR={};
+  for(const d of ["long","short"]){ const u0=com[d].feat&&com[d].feat.uye; comR[d]=u0&&Object.keys(u0).length?lite(committee(A,d,c24,{sym,uye:false})):lite(com[d]); }
+  return {com,comR}; }
 function rowOf(A,u){`);
-rep(`rrL:L&&isFinite(L.rr1)?L.rr1:NaN,rrS:S&&isFinite(S.rr1)?S.rr1:NaN,`,`rrL:L&&isFinite(L.rr1)?L.rr1:NaN,rrS:S&&isFinite(S.rr1)?S.rr1:NaN,planL:planOf(L,A.src.k15L),planS:planOf(S,A.src.k15L),brPlanL:brPlanOf(A.br&&A.br.long,A.src.k15L),brPlanS:brPlanOf(A.br&&A.br.short,A.src.k15L),rsL:A.rs?{stage:A.rs.long.stage,grade:A.rs.long.grade,ok:A.rs.long.rsOk}:null,rsS:A.rs?{stage:A.rs.short.stage,grade:A.rs.short.grade,ok:A.rs.short.rsOk}:null,rsPlanL:rsPlanOf(A.rs&&A.rs.long,A.src.k15L),rsPlanS:rsPlanOf(A.rs&&A.rs.short,A.src.k15L),com:{long:committee(A,"long",+u.t24.priceChangePercent,{sym:u.t24.symbol}),short:committee(A,"short",+u.t24.priceChangePercent,{sym:u.t24.symbol})},`);
+rep(`rrL:L&&isFinite(L.rr1)?L.rr1:NaN,rrS:S&&isFinite(S.rr1)?S.rr1:NaN,`,`rrL:L&&isFinite(L.rr1)?L.rr1:NaN,rrS:S&&isFinite(S.rr1)?S.rr1:NaN,planL:planOf(L,A.src.k15L),planS:planOf(S,A.src.k15L),brPlanL:brPlanOf(A.br&&A.br.long,A.src.k15L),brPlanS:brPlanOf(A.br&&A.br.short,A.src.k15L),rsL:A.rs?{stage:A.rs.long.stage,grade:A.rs.long.grade,ok:A.rs.long.rsOk}:null,rsS:A.rs?{stage:A.rs.short.stage,grade:A.rs.short.grade,ok:A.rs.short.rsOk}:null,rsPlanL:rsPlanOf(A.rs&&A.rs.long,A.src.k15L),rsPlanS:rsPlanOf(A.rs&&A.rs.short,A.src.k15L),...comPair(A,u),`);
 
 
 // --- hız: tek seferde çek, ağır istatistikleri mumlar değişene kadar ezberle ---

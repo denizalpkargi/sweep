@@ -313,7 +313,7 @@ async function runScan(){
     const cand=out.filter(r=>DEEP_STAGES.has(r.stageL)||DEEP_STAGES.has(r.stageS)||r.pick||r.pickS).sort((a,b)=>b.qv-a.qv).slice(0,24);
     if(cand.length){ let d2=0; const q2=[...cand]; const w2=async()=>{ while(q2.length){ await hold(); const r=q2.shift(); try{ const deep=await scanDeep(r); if(deep) Object.assign(r,deep); }catch(e){} d2++; bar.style.width=(63+d2/cand.length*37)+"%"; st.textContent=`${d2}/${cand.length} aday derin tarandı`; } }; await Promise.all(Array.from({length:2},w2)); }
     scan.rows=out; const now=Date.now(); scan.at=now; const prev={}; out.forEach(r=>prev[r.s]={score:r.score,t:now}); scan.prev=prev; LS("rp-scan-prev",JSON.stringify(prev));
-    const n=signalsFromRows(out); renderFeed(); renderWatch(); renderScanTable(); try{ botDecide("scan"); }catch(e){ console.error("SWEEP · bot",e); } try{ lmdScanAsk(out); }catch(e){} ksScanRun(out);
+    const n=signalsFromRows(out); renderFeed(); renderWatch(); renderScanTable(); try{ botDecide("scan"); }catch(e){ console.error("SWEEP · bot",e); } shRun(); try{ lmdScanAsk(out); }catch(e){} ksScanRun(out);
     st.textContent=`${out.length} coin · ${new Date().toLocaleTimeString("tr-TR")}${failed?" · "+failed+" okunamadı":""}${n?" · "+n+" yeni sinyal":""}`;
   }catch(e){ st.textContent="tarama hatası: "+e.message; }
   finally{ scan.running=false; $("scanNow").disabled=false; setTimeout(()=>bar.style.width="0",600); }
@@ -574,8 +574,12 @@ function botOpenMarket(x,es){
   bot.positions.push({sym:x.sym,dir:x.dir,model:"KOMİTE",grade:x.grade,agents:x.com.agents,talk:x.com.talk,entry:fill,stop,t1,t2,rr1:1.5,rr2:x.com.plan?x.com.plan.rr2:3,lev,notional,margin,risk,risk0:Math.abs(fill-stop),stop0:stop,qty,qty0:qty,fees:fee,openT:Date.now(),expiresAt:Date.now()+((x.com.plan&&x.com.plan.holdH)||cfg.holdH)*3600e3,stage:"open",hi:fill,lo:fill,realized:0,score:x.score,yes:x.yes,votes,
     entry0:fill,stages:es?es.stages:null,warn:es?es.warn:0,quality:es?es.grade:null,mode:es?es.gs.mode:null,freed:!!x.freed,decs:[],xs:[],labHold:!!(x.com.plan&&x.com.plan.holdH&&!h24),h24,bk0:bookRec(bot.book[x.sym],px),bkx:[]});
   botLog("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · Can'ın kararı · puan ${ptsT(x.score)} · ${x.yes}/${DESK.length} evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · ${h24?`hedef yok, ${x.com.plan.holdH} saat sonra çıkış`:`1,5R ${fmtP(t1)} · 3R ${fmtP(t2)}`} · ${lev}x · pozisyon ${fmtB(notional)} · teminat ${fmtB(margin)} · risk ${fmtB(risk)}${es?` · not ${es.grade}${x.freed?" · yer açılarak":""}`:""}. Oylar: ${votes.join(", ")}.${es?" Aşamalar: "+stagesTxt(es):""}`);
+  try{ shAdd({k:"trade",sym:x.sym,dir:x.dir,px,sd,score:x.score,yes:x.yes}); }catch(e){}
   botSave(); botWsSync(); return true;
 }
+/* gölge kural masası (shadow.js): kural oylu masanın kapıyı geçen kararları ve botun işlemleri, 15 dk / 1 sa / 4 sa sonraki fiyatla; işlem açmaz */
+function shRun(){ try{ const now=Date.now(), fresh=scan.at&&now-scan.at<10*60e3;
+  shTick(fresh?scan.rows:[],s=>botLivePx(s),now,botThr(),botMinYes()); }catch(e){ console.warn("SWEEP · gölge masa: "+e.message); } }
 /* --- karar döngüsü: tarama bitince ve her dakika --- */
 function botDecide(reason){
   if(!bot.on) return; const d=botDay(); const now=Date.now(); const cfg=bot.cfg;
@@ -1132,7 +1136,7 @@ setTimeout(()=>{ if(dip.s.cfg.on) dipRun(); },12000); setInterval(()=>{ if(dip.s
 setTimeout(()=>{ if(trend.s.cfg.on) trendRun({}); },8000); setInterval(()=>{ if(trend.s.cfg.on) trendRun({}); },5*60e3);
 setInterval(()=>{ botManage().then(()=>{ bot.manErr=null; },e=>{ const m=String(e&&e.stack||e).slice(0,300); if(bot.manErr!==m) console.warn("SWEEP · pozisyon toplantısı hata: "+m); bot.manErr=m; }); },30000);
 setInterval(botPoll,3000);
-setInterval(()=>{ if(bot.on){ botDecide("tick"); if(ui.drawerTab==="bot") renderBot(); } },60000);
+setInterval(()=>{ if(bot.on){ botDecide("tick"); if(ui.drawerTab==="bot") renderBot(); } shRun(); },60000);
 /* --- durum özeti (6 Ekim 2026, gece nöbeti): Electron bunu %APPDATA%/SWEEP/logs/bot-YYYY-MM-DD.jsonl dosyasına yazar; uzaktan izlemek için. Anahtar/hesap bilgisi yok. --- */
 wsd.on=true; wsdStart(); // WebSocket veri katmanı (src/wsdata.js): tarama ve masa REST yerine akıştan beslenir
 const botDig={lastN:null,lastT:0};
@@ -1154,7 +1158,7 @@ function botDigest(){ try{ const now=Date.now(); if(botDig.lastN==null) botDig.l
       logTypes:types,log:logs.filter(l=>l.type!=="skip"||/bayat|boş|hata/.test(l.text)).slice(-25).map(l=>new Date(l.t).toISOString().slice(11,16)+" "+l.type+" "+l.sym+" "+String(l.text).slice(0,260)),lastSkip:(logs.filter(l=>l.type==="skip").pop()||{}).text||null,
       votes:{n:(bot.lastVotes||[]).length,abst:ab,yes,top:(bot.lastVotes||[]).slice(0,5).map(v=>v.sym+" "+v.dir+" "+pts(v.score)+" "+v.yes+"e"+(v.go?" go":"")+(v.veto?" veto":""))},
       fc:{pend:F.pend.length,done:F.done.length,base:L?r2(L.base):null,go:L&&L.go?{n:L.go.n,hit:r2(L.go.hit)}:null,buckets:L?L.buckets.filter(b=>b.n).map(b=>b.t+":"+b.n+"/"+(b.hit!=null?Math.round(b.hit*100):"-")):[],lessons:L?L.lessons.length:0,goBy:botDigGo(F),top:fcTop(F,5).map(x=>({...x,t:new Date(x.t).toISOString(),score:pts(x.score)}))},
-      aud:AUD?{lessons:(AUD.lessons||[]).map(l=>l.k)}:null,caps:{maxPos:bot.cfg.maxPos,maxSameDir:bot.cfg.maxSameDir},man:{err:bot.manErr||null,busyMin:bot._managing?Math.round((now-(bot._manT||now))/6e4):null},lmd:typeof lmd!=="undefined"?{...lmd.stats,q:lmd.q.length,busy:lmd.busy,err:lmd.err,wait:lmdReady()}:null,wsd:wsdSummary(),restCoolMin:rest.cool>now?Math.round((rest.cool-now)/6e4):0,used:rest.used};
+      aud:AUD?{lessons:(AUD.lessons||[]).map(l=>l.k)}:null,caps:{maxPos:bot.cfg.maxPos,maxSameDir:bot.cfg.maxSameDir},man:{err:bot.manErr||null,busyMin:bot._managing?Math.round((now-(bot._manT||now))/6e4):null},lmd:typeof lmd!=="undefined"?{...lmd.stats,q:lmd.q.length,busy:lmd.busy,err:lmd.err,wait:lmdReady()}:null,wsd:wsdSummary(),shadow:(()=>{ try{ return shSum(); }catch(e){ return null; } })(),restCoolMin:rest.cool>now?Math.round((rest.cool-now)/6e4):0,used:rest.used};
     botDig.lastT=now; console.info("SWEEP · durum "+JSON.stringify(out)); }catch(e){ console.warn("SWEEP · durum özeti yazılamadı: "+e.message); } }
 setTimeout(botDigest,90e3); setInterval(botDigest,10*60e3);
 /* Canlı panel (electron/live.js): telefondan açılan salt okunur sayfa bunu birkaç saniyede bir ister. Anahtar, emir ya da ayar yok. */

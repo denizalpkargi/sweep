@@ -69,6 +69,7 @@ function createBot(E, opt){
     bot.positions.push(p);
     log("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · puan ${ptsT(x.score)} · ${x.yes}/${E.DESK.length} evet · not ${p.quality||"—"}${x.freed?" · yer açılarak":""} · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · ${h24?`hedef yok, ${x.com.plan.holdH} saat sonra çıkış`:`1,5R ${fmtP(t1)} · 3R ${fmtP(t2)}`} · ${lev}x · pozisyon ${fmtB(notional)} · risk ${fmtB(risk)}. Oylar: ${votes.join(", ")}.${es?" Aşamalar: "+E.stagesTxt(es):""}`,
       {id:p.id,dir:p.dir,px,fill,stop,t1,t2,sd:r4(sd),notional:r4(notional),margin:r4(margin),risk:r4(risk),score:x.score,yes:x.yes,agents:p.agents,feat:p.feat,stages:p.stages,warn:p.warn,quality:p.quality,mode:p.mode,freed:p.freed});
+    try{ E.shAdd({k:"trade",sym:x.sym,dir:x.dir,px,sd,score:x.score,yes:x.yes}); }catch(e){}
     save(); opt.onPositions&&opt.onPositions(); return true;
   }
 
@@ -172,6 +173,6 @@ function createBot(E, opt){
   }
 
   audit(null);
-  return {bot,rt,log,save,audit,equity,goal:gsNow,goalWatch,decide,onPrice,funding,manage,openMarket,closeAt,candidates,syms:()=>Array.from(new Set(bot.positions.map(p=>p.sym))).sort()};
+  return {bot,rt,log,save,thr,minYes,audit,equity,goal:gsNow,goalWatch,decide,onPrice,funding,manage,openMarket,closeAt,candidates,syms:()=>Array.from(new Set(bot.positions.map(p=>p.sym))).sort()};
 }
 module.exports={createBot};
