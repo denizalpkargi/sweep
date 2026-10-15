@@ -55,6 +55,20 @@
    "t": 2.0,
    "kaynak": "t ≈ 1,5–2 (üst uç)",
    "aile": "proje"
+  },
+  {
+   "id": "#76",
+   "ad": "Perp primi L−S 1 g",
+   "t": 0.9,
+   "kaynak": "test76-baz-report tüm dönem",
+   "aile": "günlük aile"
+  },
+  {
+   "id": "#77",
+   "ad": "Kategori LS 30 g",
+   "t": 0.6,
+   "kaynak": "test77-kategori-report tüm dönem",
+   "aile": "günlük aile"
   }
  ],
  "kayit": [
@@ -849,6 +863,22 @@
    "n_varyant": 21,
    "tahmin": false,
    "kanit": "sepet-suzgec-report: 3 sepet × 7 satır"
+  },
+  {
+   "id": "#76",
+   "ad": "Perp primi (baz) L−S",
+   "durum": "elendi",
+   "n_varyant": 2,
+   "tahmin": false,
+   "kanit": "test76-baz-report: 1 g ve 7 g tutuş"
+  },
+  {
+   "id": "#77",
+   "ad": "Kategori momentumu",
+   "durum": "elendi",
+   "n_varyant": 4,
+   "tahmin": false,
+   "kanit": "test77-kategori-report: 7/30 g × LO−EW/LS"
   }
  ]
 }
