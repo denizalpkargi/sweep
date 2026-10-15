@@ -1,5 +1,5 @@
-// Açılım short sepeti ve long vetosu (src/unlock.js) testi: DefiLlama takviminin ayrıştırılması, giriş / stop / açılım günü çıkışı, geç kalma,
-// en çok N, fonlama, veto penceresi, takvim yüklenmemişken etkisizlik, ulRefresh (sahte fetch).
+// Açılım short sepeti (src/unlock.js) testi: DefiLlama takviminin ayrıştırılması, giriş / stop / açılım günü çıkışı, geç kalma,
+// en çok N, fonlama, ulRefresh (sahte fetch).
 const {loadEngine}=require('./engine-node.js');
 const mem={}; const LS={getItem:k=>mem[k]??null,setItem:(k,v)=>{mem[k]=String(v);},removeItem:k=>{delete mem[k];}};
 const errors=[]; const ok=(c,m)=>{ if(!c){ errors.push(m); console.log('HATA',m); } };
@@ -19,18 +19,12 @@ ok(foo&&Math.abs(foo.size-0.035)<1e-12&&foo.day===day0,'FOO: insider + özel sat
 ok(pepe&&Math.abs(pepe.size-0.03)<1e-12,'PEPE → 1000PEPEUSDT eşleşmesi');
 ok(!ev.find(e=>e.sym==='FARUSDT'),'60 günden uzak açılım alınmaz'); ok(!ev.some(e=>/NOPE/.test(e.sym)),'Binance\'te olmayan coin alınmaz');
 ok(ev.find(e=>e.sym==='TINYUSDT').size<0.025,'küçük açılım takvimde var ama eşiğin altında');
-// 2) veto penceresi: gün −7 kapanışı (= gün −6 başı) → açılım günü kapanışı
-Object.assign(E.ulCache,{ev,at:now0,day:Math.floor(now0/D)});
-ok(!E.ulVeto('FOOUSDT',day0-6*D-1),'veto pencere açılmadan yok'); ok(E.ulVeto('FOOUSDT',day0-6*D),'veto gün −6 başında başlar');
-ok(E.ulVeto('FOOUSDT',day0+D-1),'veto açılım günü boyunca sürer'); ok(!E.ulVeto('FOOUSDT',day0+D),'veto açılım günü kapanışında biter');
-ok(!E.ulVeto('TINYUSDT',day0-D),'küçük açılımda veto yok'); ok(!E.ulVeto('BTCUSDT',day0-D),'takvimde olmayan coinde veto yok');
-E.UL_VETO.on=false; ok(!E.ulVeto('FOOUSDT',day0-D),'veto kapatılabilir'); E.UL_VETO.on=true;
 // 3) sepet: giriş, stop, açılım günü çıkışı, geç kalma
 let s=E.ulNew({maxPos:1}); const px={FOOUSDT:10,'1000PEPEUSDT':1};
 let r=E.ulStep(s,ev,px,{},day0-7*D); ok(!r.length&&!Object.keys(s.pos).length,'pencere açılmadan giriş yok');
 r=E.ulStep(s,ev,px,{},day0-6*D+60e3);
 ok(s.pos.FOOUSDT&&Math.abs(s.pos.FOOUSDT.e-10*(1-s.cfg.slip))<1e-9,'gün −6 başında FOO short (kayma dahil)');
-const p=s.pos.FOOUSDT; ok(p&&Math.abs(p.qty*p.e*s.cfg.stop-0.01*100)<0.01,'boy: bakiyenin %1\'i ÷ %20 stop'); ok(p&&Math.abs(p.stop-p.e*1.2)<1e-9,'stop girişin %20 üstü');
+const p=s.pos.FOOUSDT; ok(p&&Math.abs(p.qty*p.e*s.cfg.stop-0.005*100)<0.01,'boy: bakiyenin %0,5\'i ÷ %20 stop'); ok(p&&Math.abs(p.stop-p.e*1.2)<1e-9,'stop girişin %20 üstü');
 ok(!s.pos['1000PEPEUSDT']&&r.some(e=>e.type==='skip'&&/en çok 1/.test(e.why)),'en çok N short');
 const b0=s.bal; E.ulStep(s,ev,{FOOUSDT:9.5},{FOOUSDT:0.001},day0-5*D); ok(s.funding<0&&s.bal>b0,'short pozitif fonlamayı alır');
 E.ulStep(s,ev,{FOOUSDT:9},{},day0+D-1); ok(s.pos.FOOUSDT,'açılım günü bitmeden çıkış yok');
@@ -40,8 +34,6 @@ ok(!s.pos.FOOUSDT&&s.trades[0]&&s.trades[0].why==='stop'&&s.trades[0].R<-0.9&&s.
 s=E.ulNew(); r=E.ulStep(s,ev,px,{},day0-4*D); ok(!Object.keys(s.pos).length&&r.some(e=>/kaçtı/.test(e.why)),'giriş zamanından 1 gün sonra girilmez');
 r=E.ulStep(s,ev,px,{},day0-4*D+H); ok(!r.length,'kaçan giriş bir kez yazılır');
 s=E.ulNew({on:false}); E.ulStep(s,ev,px,{},day0-6*D+H); ok(!Object.keys(s.pos).length,'kapalı sepet girmez');
-// 4) takvim yoksa etkisiz
-const E2=loadEngine({localStorage:LS}); ok(!E2.ulVeto('FOOUSDT',day0-D),'takvim yüklenmemişken veto yok');
 // 5) ulRefresh: sahte fetch (Binance premiumIndex + DefiLlama)
 (async()=>{
   const E3=loadEngine({localStorage:LS,fetch:async(u)=>{ const body=u.includes('defillama')?idx:u.includes('premiumIndex')?[...syms].map(x=>({symbol:x,markPrice:'1',lastFundingRate:'0'})):{};

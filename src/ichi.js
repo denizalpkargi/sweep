@@ -49,7 +49,7 @@ function icClose(s,data,univ,px,now,bar0){
     if(p.dir>0?a[i].c<kij:a[i].c>kij) evs.push(icExit(s,sym,px[sym],"kapanış Kijun'un "+(p.dir>0?"altında":"üstünde"),now,bar0)); }
   s.univ=univ.slice(0,c.top);
   for(const sym of s.univ){ if(s.pos[sym]) continue; if(Object.keys(s.pos).length>=c.maxPos) break; const a=data[sym], x=px[sym]; if(!a||a.length<c.kij+c.sb+2||!(x>0)) continue;
-    if(s.busy&&s.busy[sym]>=a[a.length-1].t) continue; const sg=icSignal(a,a.length-1,c); if(!sg) continue; const d=sg.dir; if(d>0&&typeof ulVeto==="function"&&ulVeto(sym,now)) continue;
+    if(s.busy&&s.busy[sym]>=a[a.length-1].t) continue; const sg=icSignal(a,a.length-1,c); if(!sg) continue; const d=sg.dir;
     if(d>0?!(sg.stop<x):!(sg.stop>x)) continue; const e=x*(1+d*c.slip); const risk0=Math.abs(x-sg.stop)/x; if(risk0<0.0005) continue;
     const used=Object.entries(s.pos).reduce((m,[k,p])=>m+p.qty*(px[k]||p.px),0); let usd=c.risk*s.bal/risk0; usd=Math.min(usd,c.lev*s.bal-used); if(!(usd>1)) continue;
     const qty=usd/e, fee=usd*c.fee; s.bal-=fee; s.fees+=fee;

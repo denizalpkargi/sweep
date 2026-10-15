@@ -1,18 +1,16 @@
-/* ---------- Açılım short sepeti ve açılım öncesi long vetosu (15 Ekim 2026) ----------
+/* ---------- Açılım short sepeti (15 Ekim 2026) ----------
    Kanıt (tests/unlock-etkisi.py, tests/unlock-saglamlik.py; DefiLlama ücretsiz veri dosyaları + Binance 1g arşivi, fonlama ve taker dahil):
    insider / özel satış payının tek günde serbest kalması, büyüklük serbest arzın ≥ %2,5'i. Açılımdan 7 gün önce kapanışta short, açılım günü
    kapanışında kapat: 2022'den 360 olay, 64 coin, +3,16 % / işlem (medyan +4,92 %, t 3,4, kazanma %67), yarılar +1,32 (t 0,7) / +3,59 %,
    son 12 ay +5,55 %; yıllar 2022 +5,3 · 2023 −0,0 · 2024 +0,4 · 2025 +3,6 · 2026 +4,7 %. Etki son haftaya özgü (−14 → −7 ≈ 0, 0 → +7 ≈ 0),
    ilk 3 coin hariç +2,33 %, %20 stopla +2,27 %. Ama aynı coinler açılımdan uzak rastgele haftada da +1,25 % (plasebo): açılıma özgü kısım
-   ≈ +1,9 %. Portföy %1 risk, %15 stop, en çok 5 short: yıllık +7,5 %, en büyük düşüş −9,8 %. Kanıt değil, kâğıtta aday (kullanıcı "devam" dedi).
+   ≈ +1,9 %. Portföy %1 risk, %15 stop, en çok 5 short: yıllık +7,5 %, en büyük düşüş −9,8 %. Kanıt değil, kâğıtta aday. Kullanıcı yalnız sepeti
+   istedi (%0,5 risk, %20 stop, en çok 5 short); masaya ve diğer sepetlere long yasağı eklenmedi.
    Sınırlar: DefiLlama listesi bugünkü protokoller; takvim önceden bilinir varsayıldı (vesting sözleşmeleri). Canlıda büyüklük = açılan pay ÷
-   bugünkü serbest arz (circSupply; belgelenmiş eğriyle oranı medyan 1,000). Ayrı sanal bakiye, gerçek emir yok.
-   Long vetosu: aynı pencerede (açılımdan 7 gün önceki kapanıştan açılım günü kapanışına) o coinde masa (Can'ın vetosu), Kaplumbağa ve
-   Ichimoku long açmaz. Takvim yüklenmemişse (geriye dönük testler, ağ yok) hiçbir şeyi değiştirmez. */
-const UL_DEF={on:true,bal0:100,risk:0.01,maxPos:5,stop:0.20,minSize:0.025,maxSize:1,preDays:7,lev:3,exLev:20,taker:0.0005,slip:0.0003,fundDef:0.0001,late:DAY_MS};
-const UL_VETO={on:true,minSize:0.025,preDays:7};
+   bugünkü serbest arz (circSupply; belgelenmiş eğriyle oranı medyan 1,000). Ayrı sanal bakiye, gerçek emir yok. */
+const UL_DEF={on:true,bal0:100,risk:0.005,maxPos:5,stop:0.20,minSize:0.025,maxSize:1,preDays:7,lev:3,exLev:20,taker:0.0005,slip:0.0003,fundDef:0.0001,late:DAY_MS};
 const UL_KEY="st-ul", UL_URL="https://defillama-datasets.llama.fi/emissionsIndex", UL_CATS=new Set(["insiders","privateSale"]);
-const ulCache={ev:[],at:0,day:null,err:null,n:0,mapped:0};   // açılım takvimi (sepet ve veto ortak)
+const ulCache={ev:[],at:0,day:null,err:null,n:0,mapped:0};   // açılım takvimi
 function ulNew(cfg){ cfg=Object.assign({},UL_DEF,cfg||{}); return {cfg,bal:cfg.bal0,start:cfg.bal0,peak:cfg.bal0,pos:{},done:{},trades:[],log:[],fundT:0,fees:0,funding:0}; }
 function ulLoad(){ let s=null; try{ s=JSON.parse(localStorage.getItem(UL_KEY)||"null"); }catch(e){} if(!s) s=ulNew(); s.cfg=Object.assign({},UL_DEF,s.cfg||{}); s.done=s.done||{}; return s; }
 function ulSave(s){ try{ localStorage.setItem(UL_KEY,JSON.stringify(s)); }catch(e){} }
@@ -39,8 +37,6 @@ async function ulRefresh(now,force){ now=now||Date.now(); const day=Math.floor(n
   return ulCache; }
 // pencere: açılım gününden preDays − 1 gün önceki gün başı (= gün −preDays kapanışı) → açılım günü kapanışı
 const ulWin=(e,pre)=>[e.day-(pre-1)*DAY_MS,e.day+DAY_MS];
-function ulVeto(sym,now){ if(!UL_VETO.on||!ulCache.ev.length||!sym) return null; now=now||Date.now();
-  for(const e of ulCache.ev){ if(e.sym!==sym||e.size<UL_VETO.minSize) continue; const [a,b]=ulWin(e,UL_VETO.preDays); if(now>=a&&now<b) return e; } return null; }
 function ulExit(s,sym,px,why,now){ const p=s.pos[sym], c=s.cfg; const fill=px*(1+c.slip); const fee=p.qty*fill*c.taker; const pnl=p.qty*(p.e-fill);
   s.bal+=pnl-fee; s.fees+=fee; delete s.pos[sym]; const net=pnl-fee-p.fee-p.fund; const R=net/(p.qty*p.e*c.stop);
   s.trades.push({sym,t:p.t,closeT:now,e:p.e,x:fill,why,R,r:net/(p.qty*p.e),pnl:net,size:p.size,day:p.day}); if(s.trades.length>1000) s.trades.shift();

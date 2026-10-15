@@ -38,7 +38,7 @@ function ttClose(s,data,univ,px,now){
     else if(a[i].c<lo) evs.push(ttExit(s,sym,px[sym],c.exitN+" günlük dibin altında kapanış",now)); }
   const bt=ttBtcOk(data.BTCUSDT,c); s.btc=bt; s.univ=univ.slice(0,c.top);
   if(!bt||!bt.ok) return evs;
-  for(const sym of s.univ){ if(s.pos[sym]||Object.keys(s.pos).length>=c.maxPos) continue; if(typeof ulVeto==="function"&&ulVeto(sym,now)) continue; const a=data[sym], x=px[sym]; if(!a||a.length<Math.max(c.entryN,c.atrN)+2||!(x>0)) continue;
+  for(const sym of s.univ){ if(s.pos[sym]||Object.keys(s.pos).length>=c.maxPos) continue; const a=data[sym], x=px[sym]; if(!a||a.length<Math.max(c.entryN,c.atrN)+2||!(x>0)) continue;
     const i=a.length-1; if(!(a[i].c>ttHi(a,i-1,c.entryN))) continue; const N=ttAtr(a,i,c.atrN); if(!(N>0)) continue;
     const e=x*(1+c.slip), stop=e-c.stopN*N, cat=e-c.catN*N; if(!(stop>0)||a[i].c<=stop) continue; const risk0=(e-stop)/e;
     const used=Object.entries(s.pos).reduce((m,[k,p])=>m+p.qty*(px[k]||p.px),0); let usd=c.risk*s.bal/risk0; usd=Math.min(usd,c.lev*s.bal-used); if(!(usd>1)) continue;

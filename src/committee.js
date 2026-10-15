@@ -25,7 +25,7 @@ const DESK=[
   {id:"risk",name:"Can",role:"Baş trader · risk",w:1.1}];
 const COM_W={}; for(const d of DESK) COM_W[d.name+" · "+d.role.split(" ")[0]]=d.w;
 // eşik, asgari evet ve katsayılar tests/backtest-masa.js ile seçildi (6 Ekim 2026, 24 coin × 6 ay, 169 bin toplantı); v: ayar sürümü (comMigrate)
-const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{longBtc24Max:null,r7dMin:0},l24:{holdH:24,btc24Max:0,rankMin:0.1},uye:true,ul:true};
+const COM_DEF={threshold:0.35,minYes:3,v:3,stopMult:2,btc200:false,lf:{longBtc24Max:null,r7dMin:0},l24:{holdH:24,btc24Max:0,rankMin:0.1},uye:true};
 // uye: eğitilmiş üyelerin model oyu (uyemodel.js). 12 Ekim 2026: arşivde örneklem dışı dilimlerle (tests/masa-oos-karar-report.md, 2024-06 → 2026-10)
 // model oylu masa girişlerde −0,047R, kural masası −0,027R; model oylu masa rastgele ikizden ayrışmadı (fazladan long). Varsayılan kapalı, kural oyu.
 // 10 Ekim 2026 akşamı, 24 saatlik long (test #47; kullanıcı araştırma döngüsünün önerisiyle "devam edelim" dedi; arastirma/dongu/2026-10-10-test44-birlesim.md):
@@ -143,9 +143,6 @@ function committee(A, dir, c24, opts){
   const lf=opts.lf; if(!veto&&lf){ const b24=isL&&lf.longBtc24Max!=null?btc24Of(A):null;
     if(b24!=null&&b24>lf.longBtc24Max){ veto=`kayıp süzgeci: BTC 24 saatte ${pct(b24*100)}, long yok`; say("risk","açılış",`BTC son 24 saatte ${pct(b24*100)}. BTC yükselirken açtığımız longlar 2020'den beri −0,16R yazdı, düştüğü günlerdeki longlar −0,08R; long için BTC'nin geri çekilmesini bekliyoruz.`); }
     if(!veto&&lf.r7dMin!=null){ const r7=r7dOf(A); if(r7!=null&&sg*r7<lf.r7dMin){ veto=`kayıp süzgeci: 7 günlük trend karşı (${pct(r7*100)})`; say("risk","açılış",`Coin 7 günde ${pct(r7*100)}; ${D} bu trende karşı. Geçmişte bu kararlar −0,15R yazdı, girmiyoruz.`); } } }
-  // açılım vetosu (src/unlock.js, 15 Ekim 2026): büyük insider / yatırımcı açılımından önceki 7 günde long yok; takvim yüklü değilse etkisiz
-  if(!veto&&isL&&opts.ul&&!opts.raw&&typeof ulVeto==="function"){ const u=ulVeto(sym,Date.now()); if(u){ const g=Math.max(0,Math.ceil((u.day-Date.now())/864e5));
-    veto=`açılım: ${g?g+" gün sonra":"bugün"} serbest arzın %${fx(u.size*100,1)}'i açılıyor, long yok`; say("risk","açılış",`${g?g+" gün sonra":"Bugün"} ${u.name} insider/yatırımcı payının serbest arzın %${fx(u.size*100,1)}'i kadarı açılıyor. 2022'den beri böyle açılımlardan önceki haftada coin piyasadan ~%2 kötü gitti; long açmıyoruz.`); } }
   let rv=veto?-1:0.6; if(!veto){ if(isL&&A.distrib) rv-=0.4; if(!isL&&A.accum) rv-=0.4; if(isL?A.fund>0.0005:A.fund<-0.0005) rv-=0.2; if(isL&&A.climax) rv-=0.2; if(!isL&&A.capit) rv-=0.2; }
   if(typeof AUD!=="undefined"&&AUD&&AUD.summary){ const S=AUD.summary; say("audit","açılış",`Kayıtta ${S.n} kapanmış işlem: kazanma %${Math.round(S.wr*100)}, ortalama ${S.avg>=0?"+":""}${fx(S.avg,2)}R.${AUD.lessons.length?" Çıkardığımız dersler: "+AUD.lessons.map(l=>l.t.toLowerCase()).join(", ")+".":" Henüz kesin bir ders yok."} Tartışmada kurulumu bunlarla karşılaştıracağım.`); }
   set("risk",rv,0.8,veto?"VETO: "+veto:`stop ${fx(sd*100,2)}% · 20x'e sığar · fonlama ${fx(A.fund*100,4)}%`);
@@ -236,7 +233,7 @@ const PD_CFG={exit:-0.35,reduce:-0.15,hold:0.1,exitShare:0.35,tpShare:0.4,tpMinR
 const PD_ACT={"tut":0,"kâr al":1,"stop sık":2,"azalt":3,"çık":4};
 function positionReview(A, pos, orders, c24, opts){
   const dir=pos.dir; const isL=dir==="long"; const sg=isL?1:-1; c24=isFinite(c24)?c24:0;
-  const o2=Object.assign({},opts,{l24:false,ul:false}); const c=committee(A,dir,c24,o2); const opp=committee(A,isL?"short":"long",c24,o2); // pozisyon toplantısı giriş süzgecine bakmaz
+  const o2=Object.assign({},opts,{l24:false}); const c=committee(A,dir,c24,o2); const opp=committee(A,isL?"short":"long",c24,o2); // pozisyon toplantısı giriş süzgecine bakmaz
   const kb=A.src&&A.src.k15L; const atr=kb&&kb.length>20?atrAt(kb,kb.length):A.med15*A.px; const atrRel=atr/A.px;
   const px=A.px; const pnlPct=(isL?(px/pos.entry-1):(1-px/pos.entry))*100; const liqAtr=pos.liq>0?Math.abs(px-pos.liq)/atr:NaN;
   const so=(orders||[]).filter(o=>o.sym===pos.sym&&(o.ro||o.cp)); const hasStop=so.some(o=>/STOP/.test(o.type))||pos.stop>0; const hasTp=so.some(o=>/TAKE_PROFIT/.test(o.type)||(o.px>0&&!/STOP/.test(o.type)))||pos.t1>0;
