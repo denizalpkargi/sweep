@@ -446,13 +446,13 @@ function wsConnect(sym){
   ws.onopen=()=>{ live.tries=0; live.ok=true; wsStatus(true); };
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } live.msgs++; live.lastMsg=Date.now(); const d=m.data||m; const st=m.stream||""; try{ wsDispatch(st,d); }catch(e){ console.error("SWEEP · ws",e); } };
   ws.onerror=()=>{};
-  ws.onclose=()=>{ live.ok=false; wsStatus(false,"bağlantı koptu, yeniden deneniyor"); if(live.wantSym!==sym) return; const wait=Math.min(30000,1000*Math.pow(2,live.tries++)); clearTimeout(live.timer); live.timer=setTimeout(()=>{ if(live.wantSym===sym) wsConnect(sym); },wait); };
+  ws.onclose=()=>{ live.ok=false; wsStatus(false,"bağlantı koptu, yeniden deneniyor"); if(live.wantSym!==sym) return; const wait=Math.min(30000,1000*Math.pow(2,live.tries++)); clearTimeout(live.timer); live.timer=setTimeout(()=>{ if(live.wantSym===sym) wsConnect(sym); },wait+wsdSlot()); };
 }
 // /market yolundaki piyasa akışları (src/wsdata.js WSD_URL): seçili coinin 15 dk mumu, mark/fonlama, likidasyonlar
 let liveWs2=null;
 function wsMarket(sym,streams){ if(liveWs2){ try{ liveWs2.onclose=null; liveWs2.close(); }catch(e){} liveWs2=null; } let ws; try{ ws=new WebSocket(WSD_URL+streams.join("/")); }catch(e){ return; } liveWs2=ws;
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } const d=m.data||m; const st=m.stream||""; try{ wsDispatch(st,d); }catch(e){ console.error("SWEEP · ws",e); } };
-  ws.onerror=()=>{}; ws.onclose=()=>{ if(liveWs2!==ws) return; liveWs2=null; setTimeout(()=>{ if(live.wantSym===sym&&!liveWs2) wsMarket(sym,streams); },5000); }; }
+  ws.onerror=()=>{}; ws.onclose=()=>{ if(liveWs2!==ws) return; liveWs2=null; setTimeout(()=>{ if(live.wantSym===sym&&!liveWs2) wsMarket(sym,streams); },5000+wsdSlot()); }; }
 function wsStatus(ok,txt){ const el=$("wsDot"); if(!el) return; el.className="wsdot "+(ok?"ok":"off"); el.title=ok?"Canlı akış bağlı (WebSocket)":"Canlı akış kapalı · "+(txt||""); const lbl=$("wsTxt"); if(lbl) lbl.textContent=ok?"canlı":"canlı yok"; }
 function wsDispatch(stream,d){
   if(stream.endsWith("@aggTrade")||stream.endsWith("@trade")){ const p=+d.p,q=+d.q,v=p*q,sell=!!d.m; live.px=p; live.cvd+=sell?-v:v; if(v>=tapeMin()) tapePush({t:d.T,kind:sell?"sell":"buy",p,v}); onLivePrice(); }
@@ -629,12 +629,12 @@ function botWsSync(){
   if(bot.ws){ try{ bot.ws.onclose=null; bot.ws.close(); }catch(e){} bot.ws=null; } if(botWs2){ try{ botWs2.onclose=null; botWs2.close(); }catch(e){} botWs2=null; } bot.wsKey=key; if(!syms.length) return;
   let ws; try{ ws=new WebSocket(WS_BASE+syms.map(s=>s.toLowerCase()).flatMap(s=>[`${s}@trade`,`${s}@bookTicker`]).join("/")); }catch(e){ return; } bot.ws=ws; bot.wsAt=Date.now();
   // mark fiyatı ve fonlama yalnız /market yolunda akıyor: eski yolda sessizdi, 5 Ekim'den beri kâğıt pozisyonlardan fonlama kesilmiyordu
-  try{ botWs2=new WebSocket(WSD_URL+syms.map(s=>s.toLowerCase()+"@markPrice@1s").join("/")); botWs2.onmessage=ev=>ws.onmessage(ev); botWs2.onerror=()=>{}; const me=botWs2; botWs2.onclose=()=>{ if(botWs2!==me) return; botWs2=null; setTimeout(()=>{ if(bot.wsKey===key&&!botWs2){ bot.wsKey=null; botWsSync(); } },5000); }; }catch(e){}
+  try{ botWs2=new WebSocket(WSD_URL+syms.map(s=>s.toLowerCase()+"@markPrice@1s").join("/")); botWs2.onmessage=ev=>ws.onmessage(ev); botWs2.onerror=()=>{}; const me=botWs2; botWs2.onclose=()=>{ if(botWs2!==me) return; botWs2=null; setTimeout(()=>{ if(bot.wsKey===key&&!botWs2){ bot.wsKey=null; botWsSync(); } },5000+wsdSlot()); }; }catch(e){}
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } const d=m.data||m; const st=m.stream||""; const sym=(d.s||st.split("@")[0]||"").toUpperCase(); if(!sym) return;
     if(st.endsWith("@aggTrade")||st.endsWith("@trade")){ bot.src="ws"; bot._lastTrade[sym]=Date.now(); botOnPrice(sym,+d.p,d.T); }
     else if(st.endsWith("@bookTicker")){ const b=+d.b,a=+d.a; if(b>0&&a>0){ bot.book[sym]={b,a}; const now=Date.now(); if(!bot._lastTrade[sym]||now-bot._lastTrade[sym]>3000){ bot.src="ws"; botOnPrice(sym,(b+a)/2,now); } } }
     else if(st.endsWith("@markPrice@1s")){ if(+d.p>0){ bot.mark[sym]=+d.p; bot.lastMark=Date.now(); bot.lastTick=Date.now(); } const T=+d.T; const f=bot.fund[sym]||{r:0,T:0}; if(f.T&&T>f.T+60e3&&Date.now()>=f.T-5000) botFunding(sym,f.r); bot.fund[sym]={r:+d.r,T}; } };
-  ws.onclose=()=>{ if(bot.wsKey===key&&bot.on) setTimeout(()=>{ if(bot.wsKey===key){ bot.ws=null; bot.wsKey=null; botWsSync(); } },3000); };
+  ws.onclose=()=>{ if(bot.wsKey===key&&bot.on) setTimeout(()=>{ if(bot.wsKey===key){ bot.ws=null; bot.wsKey=null; botWsSync(); } },3000+wsdSlot()); }; // uyanışta kademeli (wsdSlot)
 }
 function botFunding(sym,rate){ for(const p of bot.positions){ if(p.sym!==sym) continue; const fee=p.notional*rate*(p.dir==="long"?1:-1); bot.bal-=fee; p.fees+=fee; botLog("fund",p.sym,`Fonlama ${fx(rate*100,4)}% → ${fee>=0?"ödendi":"alındı"} ${fmtB(Math.abs(fee))}.`); } }
 function botOnPrice(sym,px,T){
@@ -1294,7 +1294,7 @@ if(acct.key&&acct.secret&&acct.remember){ acctStart(acct.key,acct.secret,true).t
   sessionTick(); ui.sessTimer=setInterval(sessionTick,15000);
   setInterval(()=>{ if(live.ws&&live.ok&&Date.now()-live.lastMsg>25000){ wsStatus(false,"akış sustu, yenileniyor"); try{ live.ws.close(); }catch(e){} } },10000);
   // bot akışı da susabiliyor (uyku/ağ kopması, onclose gelmiyor): mark 30 sn gelmezse bağlantıyı baştan kur (en çok 30 sn'de bir; REST'e gitmez)
-  setInterval(()=>{ const now=Date.now(); if(bot.ws&&(bot.positions.length||bot.orders.length)&&now-Math.max(bot.lastMark||0,bot.wsAt||0)>30000&&now-(bot.wsKick||0)>30000){ bot.wsKick=now; bot.wsKey=null; botWsSync(); } },10000);
+  setInterval(()=>{ const now=Date.now(); if(bot.ws&&!(now<wsd.hold)&&(bot.positions.length||bot.orders.length)&&now-Math.max(bot.lastMark||0,bot.wsAt||0)>30000&&now-(bot.wsKick||0)>30000){ bot.wsKick=now; bot.wsKey=null; botWsSync(); } },10000);
   renderFeed(); renderWatch(); renderJournal(); scheduleScan();
   setTimeout(()=>{ ldRefresh(false).catch(()=>{}); },3000); setInterval(()=>{ ldRefresh(false).catch(()=>{}); },10*60e3);
   sel.posProvider=()=>bot.positions.map(p=>({sym:p.sym,dir:p.dir})); // Tolga açık pozisyonlarımızın coininde liderleri izler
