@@ -1,7 +1,7 @@
 // Sayfa betikleri çalışmadan önce: kayıt (localStorage) kaybolduysa ya da İndirilenler'de geri yükleme dosyası varsa ana süreçteki yedeği yaz.
 // 8 Ekim 2026: Windows SWEEP'i yazarken zorla kapatınca Chromium kayıt veritabanını sıfırladı; bot 100 $'dan, kapalı başladı.
 // 9 Ekim 2026: aynı şey st-bot silinmeden oldu (kayıt eski hâline döndü); yedeği seçmek için kayıttaki son fiyat zamanı (lastTick) da gönderilir.
-const {ipcRenderer,webFrame}=require('electron');
+const {ipcRenderer,webFrame,contextBridge}=require('electron');
 try{
   const raw=localStorage.getItem('st-bot'); let botTick=0; try{ botTick=+JSON.parse(raw).lastTick||0; }catch(_){}
   const r=ipcRenderer.sendSync('sweep-restore',{hasBot:raw!==null,botTick});
@@ -14,3 +14,6 @@ ipcRenderer.on('sweep-eval',(e,q)=>{
   try{ Promise.resolve(webFrame.executeJavaScript(String(q.js),true)).then(out=>done({out}),err=>done({err:String(err&&err.message||err)})); }
   catch(err){ done({err:String(err&&err.message||err)}); }
 });
+// Gerçek hesap emir katmanı (trade.js): sayfa yalnız niyet gönderir, anahtar ve imza ana süreçte.
+try{ const inv=n=>a=>ipcRenderer.invoke('trade-'+n,a);
+  contextBridge.exposeInMainWorld('sweepTrade',{state:inv('state'),open:inv('open'),reduce:inv('reduce'),setStop:inv('setStop'),close:inv('close'),kill:inv('kill'),rearm:inv('rearm'),checks:inv('checks')}); }catch(e){}

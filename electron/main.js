@@ -1,7 +1,8 @@
-const {app,BrowserWindow,shell,Menu,powerSaveBlocker,powerMonitor,session,crashReporter,dialog,ipcMain}=require('electron');
+const {app,BrowserWindow,shell,Menu,powerSaveBlocker,powerMonitor,session,crashReporter,dialog,ipcMain,safeStorage}=require('electron');
 const path=require('path');
 const fs=require('fs');
 const startLive=require('./live');
+const trade=require('./trade');
 
 /* ---- günlük dosyası: %APPDATA%/SWEEP/logs/sweep-YYYY-MM-DD.log (14 gün tutulur) ---- */
 // Uygulama bir daha kendi kendine kapanırsa nedeni burada görünsün: çökme, donma, bellek, Windows kapanışı/oturum sonu, uyku.
@@ -214,6 +215,8 @@ app.whenReady().then(()=>{
   // Windows kapanışı, oturum sonu, uyku: bir sonraki kapanmada neden görülsün.
   for(const ev of ['suspend','resume','shutdown','lock-screen','unlock-screen','on-ac','on-battery']) powerMonitor.on(ev,()=>log('güç olayı:',ev));
   corsBridge();
+  // Gerçek hesap emir katmanı (trade.js): anahtar ana süreçte kalır; mod trade.json'da, varsayılan "kapali".
+  try{ trade.attach({app,ipcMain,safeStorage,log}); }catch(e){ logErr('trade',e); }
   create();
   // Telefondan salt okunur canlı panel (gizli adres + Cloudflare tüneli); bkz. live.js.
   try{ liveSrv=startLive({app,getWin:()=>win,pageEval,log,logErr}); }catch(e){ logErr('live',e); }

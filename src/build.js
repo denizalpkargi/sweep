@@ -182,7 +182,7 @@ return eng;
 
 function build(){
   const eng=patchedEngine();
-  const ui=rd(P+'ui.js','utf8');
+  const ui=rd(P+'ui.js','utf8')+'\n'+rd(P+'realtrade.js','utf8');
   const head=rd(P+'term-head.html','utf8').replace('</head>',`<link rel="icon" type="image/png" href="data:image/png;base64,${rd(P+'icon192.b64','utf8')}">\n<link rel="apple-touch-icon" href="data:image/png;base64,${rd(P+'icon192.b64','utf8')}">\n</head>`);
   const body=rd(P+'term-body.html','utf8');
   const script=`(function(){\n"use strict";\n${eng}\n\n${ui}\n})();`;
