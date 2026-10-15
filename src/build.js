@@ -14,9 +14,12 @@ rep(`async function j(path){
   let r; try{ r=await fetch(BASE+path); }catch(e){ throw new Error(path.split("?")[0]+" → bağlantı kurulamadı ("+e.message+")"); }
   if(!r.ok){ let t=""; try{ t=(await r.text()).slice(0,120); }catch(e){} throw new Error(path.split("?")[0]+" → HTTP "+r.status+(t?" · "+t:"")); }`,
 `${rd(P+'wsdata.js','utf8')}
-const rest={cool:0,fails:0,used:0,usedT:0};
+const rest={cool:0,fails:0,used:0,usedT:0,pace:0,nextB:0};
+// yasak / hız sınırı bitince bekleyen bütün istekler aynı anda gitmesin (15 Ekim 2026: 5,6 sa'lik 418 bitince 18 istek aynı saniyede gitti,
+// hemen yeni 418, 19 dk sonra 7 sa'lik 418): bekleme bittikten sonra 15 dk boyunca istekler birer birer, en az 1 sn arayla
+const REST_PACE={after:15*6e4,gap:1000};
 // Binance yasağı (418) ya da hız sınırı (429) yeniden başlatmada unutulmasın: art arda açılışlar 429'u saatlik 418'e çeviriyordu (6 Ekim 2026 gecesi)
-try{ const c=+(localStorage.getItem("st-rest-cool")||0); if(c>Date.now()) rest.cool=c; }catch(e){}
+try{ const c=+(localStorage.getItem("st-rest-cool")||0); if(c>Date.now()) rest.cool=c; if(c+REST_PACE.after>Date.now()) rest.pace=c+REST_PACE.after; }catch(e){}
 const restSleep=ms=>new Promise(r=>setTimeout(r,ms));
 // önce WebSocket veri katmanı (src/wsdata.js): akıştan mum/fiyat, saklanan yanıtlar; yasakta son hâl
 async function j(path){
@@ -33,12 +36,13 @@ async function jRest(path){
     // uykudan uyanış (wsdWake): ağ ve akışlar oturana kadar REST yok, sonra istekler arası en az 300 ms
     if(now<wsd.hold){ await restSleep(wsd.hold-now+Math.random()*5e3); continue; }
     if(now<wsd.pace){ const t=Math.max(now,rest.nextT||0); rest.nextT=t+WSD_CFG.restGap; if(t>now){ await restSleep(t-now); } }
+    if(now<rest.pace){ const t=Math.max(now,rest.nextB||0); rest.nextB=t+REST_PACE.gap; if(t>now){ await restSleep(t-now); if(Date.now()<rest.cool) continue; } }
     break; }
   let r; rest.fly=(rest.fly||0)+1; try{ r=await fetch(BASE+path); }catch(e){ throw new Error(path.split("?")[0]+" → bağlantı kurulamadı ("+e.message+")"); } finally{ rest.fly--; }
   try{ const w=+r.headers.get("x-mbx-used-weight-1m"); if(w){ rest.used=w; rest.usedT=Date.now(); } }catch(e){}
   if(r.status===429||r.status===418){ const ra=+(r.headers.get("retry-after")||0);
     // 9 Ekim 2026: yasağı getiren istek (tarama işçisinde jOr hatayı yuttuğu için) günlüğe hiç yazılmıyordu; artık her 429/418 ayrıntısıyla yazılır
-    try{ console.warn("SWEEP · Binance HTTP "+r.status+" · "+path.split("?")[0]+" · bekleme "+ra+" sn · dakikalık ağırlık "+rest.used+" · aynı anda "+(rest.fly+1)+" istek · yasak önceden "+(rest.cool>Date.now()?"sürüyordu":"yoktu")); }catch(e){} rest.cool=Date.now()+Math.max(15000,ra*1000)+(r.status===418?5*6e4:0); /* 418 sonrası ilk deneme 5 dk pay ile (9 Ekim 2026: sayaç bitince giden ilk istek iki kez yeni 418 aldı) */ try{ localStorage.setItem("st-rest-cool",String(rest.cool)); }catch(e){} throw new Error(path.split("?")[0]+" → hız sınırı (HTTP "+r.status+"), "+Math.round((rest.cool-Date.now())/1000)+" sn bekleniyor"); }
+    try{ console.warn("SWEEP · Binance HTTP "+r.status+" · "+path.split("?")[0]+" · bekleme "+ra+" sn · dakikalık ağırlık "+rest.used+" · aynı anda "+(rest.fly+1)+" istek · yasak önceden "+(rest.cool>Date.now()?"sürüyordu":"yoktu")); }catch(e){} rest.cool=Date.now()+Math.max(15000,ra*1000)+(r.status===418?5*6e4:0); rest.pace=rest.cool+REST_PACE.after; /* 418 sonrası ilk deneme 5 dk pay ile (9 Ekim 2026: sayaç bitince giden ilk istek iki kez yeni 418 aldı) */ try{ localStorage.setItem("st-rest-cool",String(rest.cool)); }catch(e){} throw new Error(path.split("?")[0]+" → hız sınırı (HTTP "+r.status+"), "+Math.round((rest.cool-Date.now())/1000)+" sn bekleniyor"); }
   if(!r.ok){ let t=""; try{ t=(await r.text()).slice(0,120); }catch(e){} throw new Error(path.split("?")[0]+" → HTTP "+r.status+(t?" · "+t:"")); }`);
 rep("j(`/fapi/v1/depth?symbol=${s}&limit=500`),","j(`/fapi/v1/depth?symbol=${s}&limit=100`),");
 rep("j(`/fapi/v1/aggTrades?symbol=${s}&limit=1000`)","j(`/fapi/v1/aggTrades?symbol=${s}&limit=300`)");
