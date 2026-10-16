@@ -925,6 +925,78 @@
    "n_varyant": 6,
    "tahmin": true,
    "kanit": "test83-ozan-gunluk-report"
+  },
+  {
+   "id": "#84",
+   "ad": "Aşırı negatif fonlamada long 24 sa",
+   "durum": "izlemede",
+   "n_varyant": 4,
+   "tahmin": false,
+   "kanit": "test84-85-fonlama-oi-report: 2 eşik × 2 yön"
+  },
+  {
+   "id": "#85",
+   "ad": "OI × fiyat dört bölge",
+   "durum": "elendi",
+   "n_varyant": 8,
+   "tahmin": false,
+   "kanit": "test84-85-fonlama-oi-report: 4 bölge × 2 ufuk"
+  },
+  {
+   "id": "#86",
+   "ad": "Likiditeye göre bölünmüş geri dönüş",
+   "durum": "elendi",
+   "n_varyant": 8,
+   "tahmin": false,
+   "kanit": "test86-likidite-donus-report: 2 grup × 2 yön × 2 ufuk"
+  },
+  {
+   "id": "#87",
+   "ad": "MAE/MFE stop–hedef ızgarası",
+   "durum": "elendi",
+   "n_varyant": 50,
+   "tahmin": false,
+   "kanit": "test87-mae-mfe-report: zaman × stop × hedef"
+  },
+  {
+   "id": "#88",
+   "ad": "Fonlama tavanı olayı",
+   "durum": "izlemede",
+   "n_varyant": 4,
+   "tahmin": false,
+   "kanit": "test88-fonlama-tavani-report: 2 yön × 2 ufuk"
+  },
+  {
+   "id": "#89",
+   "ad": "Spot–perp taker akışı ayrışması",
+   "durum": "elendi",
+   "n_varyant": 6,
+   "tahmin": false,
+   "kanit": "test89-spot-perp-report: 3 koşul × 2 bacak"
+  },
+  {
+   "id": "#90",
+   "ad": "BTC çeyreklik baz kapısı",
+   "durum": "elendi",
+   "n_varyant": 2,
+   "tahmin": false,
+   "kanit": "test90-ceyrek-baz-report: 2 bayrak"
+  },
+  {
+   "id": "#91",
+   "ad": "Korelasyon sıçraması kapısı",
+   "durum": "izlemede",
+   "n_varyant": 1,
+   "tahmin": false,
+   "kanit": "test91-korelasyon-report"
+  },
+  {
+   "id": "#92",
+   "ad": "Fonlama saatine göre çıkış",
+   "durum": "elendi",
+   "n_varyant": 1,
+   "tahmin": false,
+   "kanit": "test92-fonlama-cikis-report"
   }
  ]
 }
