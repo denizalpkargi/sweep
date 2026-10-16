@@ -76,6 +76,13 @@
    "t": 2.3,
    "kaynak": "aylık Sharpe 0,92 × √6,3 yıl",
    "aile": "günlük aile"
+  },
+  {
+   "id": "#82T",
+   "ad": "Tasfiye sonrası long 72 sa",
+   "t": 0.6,
+   "kaynak": "gün kümeli t",
+   "aile": "günlük aile"
   }
  ],
  "kayit": [
@@ -894,6 +901,30 @@
    "n_varyant": 6,
    "tahmin": false,
    "kanit": "test80-hizli-kaplumbaga-report: 6 varyant + 3 karışım"
+  },
+  {
+   "id": "#81",
+   "ad": "Aşırı fonlama → 72 sa",
+   "durum": "elendi",
+   "n_varyant": 2,
+   "tahmin": false,
+   "kanit": "test81-fonlama-72-report"
+  },
+  {
+   "id": "#82",
+   "ad": "OI patlaması → 24/72 sa",
+   "durum": "izlemede",
+   "n_varyant": 20,
+   "tahmin": false,
+   "kanit": "test82-oi-patlama-report: 2 olay × 2 ufuk × 5 eşik"
+  },
+  {
+   "id": "#83",
+   "ad": "Ozan sırası günlük 24/72 sa",
+   "durum": "elendi",
+   "n_varyant": 6,
+   "tahmin": true,
+   "kanit": "test83-ozan-gunluk-report"
   }
  ]
 }
