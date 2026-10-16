@@ -14,7 +14,11 @@
    yazılır; Electron bunu logs/akis-YYYY-MM-DD.jsonl'e koyar. Binance bu akışta coin başına saniyede en çok bir likidasyon gönderir (anlık görüntü). */
 const WSD_URL="wss://fstream.binance.com/market/stream?streams=";
 const WSD_IV={"1m":6e4,"3m":18e4,"5m":3e5,"15m":9e5,"30m":18e5,"1h":36e5,"2h":72e5,"4h":144e5,"6h":216e5,"8h":288e5,"12h":432e5,"1d":864e5};
-const WSD_CFG={perConn:150,maxSyms:240,staleMax:3*3600e3,respMax:3000,fresh:30e3,subBatch:50,subGap:500};
+const WSD_CFG={perConn:150,maxSyms:240,staleMax:3*3600e3,respMax:3000,fresh:30e3,subBatch:50,subGap:500,wakeGap:60e3,wakeFirst:10e3,wakeHold:90e3,openGap:3e3,wakePace:5*60e3,restGap:300};
+/* Uyanış (15 Ekim 2026): bilgisayar 22:15–06:49 UTC uyudu; uyanınca ağ gelmeden tüm akışlar aynı anda yeniden açıldı (06:49:03 ve 06:49:10 kod 1006),
+   06:49:16'da REST mum isteği 418 aldı (20.003 sn, dakikalık ağırlık 112; 9 Ekim'deki uyanış yasağıyla aynı desen). Bekçi 10 sn'lik turlar arasında
+   ≥60 sn boşluk görürse (ya da tarayıcı "online" derse) uyanış sayılır: akışlar ilk 10 sn açılmaz, sonra en az 3 sn arayla tek tek açılır;
+   REST istekleri 90 sn bekler, sonraki 5 dk en az 300 ms arayla gider (tarama işçileri hepsini birden göndermesin). */
 const wsd={on:false,k:{},tick:{},tickT:0,mark:{},markT:0,glob:null,conns:[],resp:new Map(),stat:{hit:0,rest:0,stale:0,msg:0,respHit:0,kick:0,liq:0,liqMin:0},watch:null,liq:{}};
 // likidasyon: wsd.liq[dakika][sym] = [zorla alış $, zorla satış $, adet]
 function wsdLiq(o){ if(!o||!o.s||!o.s.endsWith("USDT")) return; const v=(+o.ap||+o.p)*(+o.z||+o.q); if(!(v>0)) return; const m=Math.floor((+o.T||Date.now())/6e4)*6e4;
@@ -44,7 +48,9 @@ function wsdMsg(conn,ev){ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; 
   else if(st.startsWith("!markPrice@arr")){ for(const x of d) wsd.mark[x.s]=WSD_M(x); wsd.markT=now; }
   else if(st==="!forceOrder@arr") wsdLiq(d.o);
   else if(st.endsWith("@kline_1m")&&d.k) wsdOnKline(d.s||d.k.s,d.k); }
-function wsdOpen(conn){ if(typeof WebSocket==="undefined") return; const streams=[...conn.streams]; if(!streams.length) return;
+function wsdSlot(){ const now=Date.now(); if(!(now<wsd.hold)) return 0; const t=Math.max(now,wsd.nextOpen||0,(wsd.wakeT||0)+WSD_CFG.wakeFirst); wsd.nextOpen=t+WSD_CFG.openGap; return t-now; }
+function wsdOpen(conn){ if(typeof WebSocket==="undefined") return; if(conn.waitOpen) return; const d=wsdSlot(); if(d>0){ conn.waitOpen=setTimeout(()=>{ conn.waitOpen=null; if(wsd.on&&!conn.ws) wsdOpenNow(conn); },d); return; } wsdOpenNow(conn); }
+function wsdOpenNow(conn){ const streams=[...conn.streams]; if(!streams.length) return;
   let ws; try{ ws=new WebSocket(WSD_URL+streams.join("/")); }catch(e){ return; } conn.ws=ws; conn.sent=new Set(streams); conn.openT=Date.now(); conn.lastMsg=0;
   ws.onopen=()=>{ conn.tries=0; conn.openT=Date.now(); wsdQueue(conn); }; // bağlanırken eklenen akışlar URL'de yoktu
   ws.onmessage=ev=>wsdMsg(conn,ev);
@@ -55,9 +61,12 @@ function wsdOpen(conn){ if(typeof WebSocket==="undefined") return; const streams
    yeniden bağlanılmıyor, tarama 30–90 dk bayat kalıyordu. Mesaj gelmeyen soket (genel akış 30 sn, mum akışı 90 sn; bağlanamayan 30 sn)
    kapatılıp hemen yeniden açılır. Yalnız WebSocket; REST'e istek atmaz. */
 function wsdKill(conn,why){ const ws=conn.ws; if(!ws) return; ws.onclose=null; ws.onmessage=null; ws.onerror=null; try{ ws.close(); }catch(e){}
-  for(const s of conn.syms){ const x=wsd.k[s]; if(x) x.wsSince=0; } conn.ws=null; wsd.stat.kick++; try{ console.warn("SWEEP · akış yenileniyor ("+why+")"); }catch(e){}
+  for(const s of conn.syms){ const x=wsd.k[s]; if(x) x.wsSince=0; } conn.ws=null; wsd.stat.kick++; if(!(Date.now()<wsd.hold)) try{ console.warn("SWEEP · akış yenileniyor ("+why+")"); }catch(e){}
   const wait=Math.min(60e3,2e3*Math.pow(2,conn.kicks=(conn.kicks||0)+1)-2e3); setTimeout(()=>{ if(wsd.on&&!conn.ws) wsdOpen(conn); },wait); }
-function wsdWatch(now){ now=now||Date.now(); wsdLiqFlush(now); for(const c of [wsd.glob,...wsd.conns]){ if(!c||!c.ws) continue; const rs=c.ws.readyState;
+function wsdWake(why,now){ now=now||Date.now(); if(now-(wsd.wakeT||0)<120e3) return false; wsd.wakeT=now; wsd.hold=now+WSD_CFG.wakeHold; wsd.pace=wsd.hold+WSD_CFG.wakePace; wsd.nextOpen=0; wsd.stat.wake=(wsd.stat.wake||0)+1;
+  try{ console.warn("SWEEP · uyanış ("+why+"): akışlar kademeli açılıyor, REST "+Math.round(WSD_CFG.wakeHold/1e3)+" sn bekliyor"); }catch(e){}
+  wsdKickAll(why); return true; }
+function wsdWatch(now){ now=now||Date.now(); const gap=wsd.watchT?now-wsd.watchT:0; wsd.watchT=now; if(gap>WSD_CFG.wakeGap&&wsdWake("uykudan uyanış, "+Math.round(gap/6e4)+" dk",now)) return; wsdLiqFlush(now); for(const c of [wsd.glob,...wsd.conns]){ if(!c||!c.ws) continue; const rs=c.ws.readyState;
     if(rs===0&&now-c.openT>30e3){ wsdKill(c,"bağlanamadı"); continue; }
     if(rs!==1) continue; const quiet=now-(c.lastMsg||c.openT), lim=c===wsd.glob?30e3:90e3;
     if(quiet>lim) wsdKill(c,"sustu "+Math.round(quiet/1e3)+" sn"); else if(c.lastMsg) c.kicks=0; } }
@@ -78,7 +87,7 @@ function wsdSub(conn,stream){ conn.streams.add(stream); if(conn.unsub) conn.unsu
   if(conn.ws){ if(conn.ws.readyState===1&&!conn.sent.has(stream)) wsdQueue(conn); } else wsdOpen(conn); }
 function wsdUnsub(conn,stream){ conn.streams.delete(stream); if(conn.ws&&conn.ws.readyState===1&&conn.sent.has(stream)){ conn.sent.delete(stream); (conn.unsub||(conn.unsub=new Set())).add(stream); wsdQueue(conn); } }
 function wsdStart(){ if(!wsd.on||wsd.glob||typeof WebSocket==="undefined") return; wsd.glob={streams:new Set(["!ticker@arr","!markPrice@arr@1s","!forceOrder@arr"]),syms:new Set(),ws:null,tries:0,sent:new Set()}; wsdOpen(wsd.glob);
-  if(!wsd.watch){ wsd.watch=setInterval(()=>wsdWatch(),10e3); try{ window.addEventListener("online",()=>wsdKickAll("ağ geri geldi")); }catch(e){} } }
+  if(!wsd.watch){ wsd.watch=setInterval(()=>wsdWatch(),10e3); try{ window.addEventListener("online",()=>wsdWake("ağ geri geldi")); }catch(e){} } }
 function wsdWant(s){ if(!wsd.on||typeof WebSocket==="undefined") return; wsdStart(); const st=wsdStore(s); st.req=Date.now(); if(st.conn) return;
   const all=Object.keys(wsd.k).filter(x=>wsd.k[x].conn);
   if(all.length>=WSD_CFG.maxSyms){ const old=all.sort((a,b)=>wsd.k[a].req-wsd.k[b].req)[0]; const o=wsd.k[old]; wsdUnsub(o.conn,old.toLowerCase()+"@kline_1m"); o.conn.syms.delete(old); delete wsd.k[old]; }

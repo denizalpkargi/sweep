@@ -14,9 +14,12 @@ rep(`async function j(path){
   let r; try{ r=await fetch(BASE+path); }catch(e){ throw new Error(path.split("?")[0]+" → bağlantı kurulamadı ("+e.message+")"); }
   if(!r.ok){ let t=""; try{ t=(await r.text()).slice(0,120); }catch(e){} throw new Error(path.split("?")[0]+" → HTTP "+r.status+(t?" · "+t:"")); }`,
 `${rd(P+'wsdata.js','utf8')}
-const rest={cool:0,fails:0,used:0,usedT:0};
+const rest={cool:0,fails:0,used:0,usedT:0,pace:0,nextB:0};
+// yasak / hız sınırı bitince bekleyen bütün istekler aynı anda gitmesin (15 Ekim 2026: 5,6 sa'lik 418 bitince 18 istek aynı saniyede gitti,
+// hemen yeni 418, 19 dk sonra 7 sa'lik 418): bekleme bittikten sonra 15 dk boyunca istekler birer birer, en az 1 sn arayla
+const REST_PACE={after:15*6e4,gap:1000};
 // Binance yasağı (418) ya da hız sınırı (429) yeniden başlatmada unutulmasın: art arda açılışlar 429'u saatlik 418'e çeviriyordu (6 Ekim 2026 gecesi)
-try{ const c=+(localStorage.getItem("st-rest-cool")||0); if(c>Date.now()) rest.cool=c; }catch(e){}
+try{ const c=+(localStorage.getItem("st-rest-cool")||0); if(c>Date.now()) rest.cool=c; if(c+REST_PACE.after>Date.now()) rest.pace=c+REST_PACE.after; }catch(e){}
 const restSleep=ms=>new Promise(r=>setTimeout(r,ms));
 // önce WebSocket veri katmanı (src/wsdata.js): akıştan mum/fiyat, saklanan yanıtlar; yasakta son hâl
 async function j(path){
@@ -29,12 +32,17 @@ async function j(path){
 async function jRest(path){
   for(let g=0;g<20;g++){ const now=Date.now(); if(now<rest.cool){ if(rest.cool-now>60e3) throw new Error(path.split("?")[0]+" → Binance yasağı/hız sınırı, "+Math.round((rest.cool-now)/6e4)+" dk kaldı (akıştaki ve saklanan veri kullanılıyor)"); await restSleep(rest.cool-now); continue; }
     // dakikalık ağırlık 2400: 1800'ü geçtiyse dakika dolana kadar bekle (429'a varmadan)
-    if(rest.used>=1800&&Math.floor(rest.usedT/6e4)===Math.floor(now/6e4)){ await restSleep(6e4-now%6e4+500); continue; } break; }
+    if(rest.used>=1800&&Math.floor(rest.usedT/6e4)===Math.floor(now/6e4)){ await restSleep(6e4-now%6e4+500); continue; }
+    // uykudan uyanış (wsdWake): ağ ve akışlar oturana kadar REST yok, sonra istekler arası en az 300 ms
+    if(now<wsd.hold){ await restSleep(wsd.hold-now+Math.random()*5e3); continue; }
+    if(now<wsd.pace){ const t=Math.max(now,rest.nextT||0); rest.nextT=t+WSD_CFG.restGap; if(t>now){ await restSleep(t-now); } }
+    if(now<rest.pace){ const t=Math.max(now,rest.nextB||0); rest.nextB=t+REST_PACE.gap; if(t>now){ await restSleep(t-now); if(Date.now()<rest.cool) continue; } }
+    break; }
   let r; rest.fly=(rest.fly||0)+1; try{ r=await fetch(BASE+path); }catch(e){ throw new Error(path.split("?")[0]+" → bağlantı kurulamadı ("+e.message+")"); } finally{ rest.fly--; }
   try{ const w=+r.headers.get("x-mbx-used-weight-1m"); if(w){ rest.used=w; rest.usedT=Date.now(); } }catch(e){}
   if(r.status===429||r.status===418){ const ra=+(r.headers.get("retry-after")||0);
     // 9 Ekim 2026: yasağı getiren istek (tarama işçisinde jOr hatayı yuttuğu için) günlüğe hiç yazılmıyordu; artık her 429/418 ayrıntısıyla yazılır
-    try{ console.warn("SWEEP · Binance HTTP "+r.status+" · "+path.split("?")[0]+" · bekleme "+ra+" sn · dakikalık ağırlık "+rest.used+" · aynı anda "+(rest.fly+1)+" istek · yasak önceden "+(rest.cool>Date.now()?"sürüyordu":"yoktu")); }catch(e){} rest.cool=Date.now()+Math.max(15000,ra*1000)+(r.status===418?5*6e4:0); /* 418 sonrası ilk deneme 5 dk pay ile (9 Ekim 2026: sayaç bitince giden ilk istek iki kez yeni 418 aldı) */ try{ localStorage.setItem("st-rest-cool",String(rest.cool)); }catch(e){} throw new Error(path.split("?")[0]+" → hız sınırı (HTTP "+r.status+"), "+Math.round((rest.cool-Date.now())/1000)+" sn bekleniyor"); }
+    try{ console.warn("SWEEP · Binance HTTP "+r.status+" · "+path.split("?")[0]+" · bekleme "+ra+" sn · dakikalık ağırlık "+rest.used+" · aynı anda "+(rest.fly+1)+" istek · yasak önceden "+(rest.cool>Date.now()?"sürüyordu":"yoktu")); }catch(e){} rest.cool=Date.now()+Math.max(15000,ra*1000)+(r.status===418?5*6e4:0); rest.pace=rest.cool+REST_PACE.after; /* 418 sonrası ilk deneme 5 dk pay ile (9 Ekim 2026: sayaç bitince giden ilk istek iki kez yeni 418 aldı) */ try{ localStorage.setItem("st-rest-cool",String(rest.cool)); }catch(e){} throw new Error(path.split("?")[0]+" → hız sınırı (HTTP "+r.status+"), "+Math.round((rest.cool-Date.now())/1000)+" sn bekleniyor"); }
   if(!r.ok){ let t=""; try{ t=(await r.text()).slice(0,120); }catch(e){} throw new Error(path.split("?")[0]+" → HTTP "+r.status+(t?" · "+t:"")); }`);
 rep("j(`/fapi/v1/depth?symbol=${s}&limit=500`),","j(`/fapi/v1/depth?symbol=${s}&limit=100`),");
 rep("j(`/fapi/v1/aggTrades?symbol=${s}&limit=1000`)","j(`/fapi/v1/aggTrades?symbol=${s}&limit=300`)");
@@ -68,6 +76,8 @@ eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P
 if(!eng.includes('function volMember')||!eng.includes('function tfMember')||!eng.includes('function facMember')||!eng.includes('function rkMember')||!eng.includes('const RK_MODEL')||!eng.includes('function uyeVote')||!eng.includes('const UYE_MODEL')) throw new Error('volume/tfcheck/rankmodel insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'forecast.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function fcObserve')) throw new Error('forecast insert failed');
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'shadow.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function shTick')) throw new Error('shadow insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'goal.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function entryStages')) throw new Error('goal insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'llmdesk.js','utf8')+`\n// backtest: every completed sequence in the history`);
@@ -86,6 +96,9 @@ if(!eng.includes('function kovClose')) throw new Error('kovner insert failed');
 // kalite short sepeti (11 Ekim 2026, test #52): rankmodel.js rkPredict'i ve dip.js DAY_MS'i kullanır, bu yüzden onlardan sonra
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'kshort.js','utf8')+'\n'+rd(P+'kshort-data.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function ksScan')||!eng.includes('const KS_MODEL')) throw new Error('kshort insert failed');
+// açılım short sepeti ve long vetosu (15 Ekim 2026): dip.js DAY_MS'i kullanır
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'unlock.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function ulStep')) throw new Error('unlock insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'account.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function acctStart')) throw new Error('account insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'leaders.js','utf8')+`\n// backtest: every completed sequence in the history`);
@@ -116,8 +129,13 @@ rep(`  A.amdL=amdGo(A.amd.long); A.amdS=amdGo(A.amd.short);`,`  A.amdL=amdGo(A.a
 // --- bot planları satırlara ---
 rep(`function rowOf(A,u){`,`function planOf(r,k){ if(!r||!r.zone||!(r.grade==="A"||r.grade==="B")) return null; return {stage:r.stage,grade:r.grade,kz:r.kz||null,entry:r.entry,stop:r.stop,t1:r.t1,t2:r.t2,rr1:r.rr1,rr2:isFinite(r.rr2)?r.rr2:null,expires:(k&&r.mss!=null&&k[r.mss]?k[r.mss].t:Date.now())+17*9e5}; }
 function brPlanOf(r,k){ if(!r||!r.fvg) return null; return {stage:r.stage,grade:r.grade,aligned:!!r.aligned,kz:r.kz||null,entry:r.entry,stop:r.stop,t1:r.r2,t2:r.r3,expires:(k&&k[r.bo]?k[r.bo].t:Date.now())+25*9e5}; }
+/* gölge kural masası (shadow.js): model oyu kullanıldıysa aynı satırda kural oylu masa da hesaplanır, işlem açmaz */
+function comPair(A,u){ const c24=+u.t24.priceChangePercent, sym=u.t24.symbol; const com={long:committee(A,"long",c24,{sym}),short:committee(A,"short",c24,{sym})};
+  const lite=c=>({score:c.score,yes:c.yes,veto:c.veto||null,plan:c.plan?{sd:c.plan.sd}:null}); const comR={};
+  for(const d of ["long","short"]){ const u0=com[d].feat&&com[d].feat.uye; comR[d]=u0&&Object.keys(u0).length?lite(committee(A,d,c24,{sym,uye:false})):lite(com[d]); }
+  return {com,comR}; }
 function rowOf(A,u){`);
-rep(`rrL:L&&isFinite(L.rr1)?L.rr1:NaN,rrS:S&&isFinite(S.rr1)?S.rr1:NaN,`,`rrL:L&&isFinite(L.rr1)?L.rr1:NaN,rrS:S&&isFinite(S.rr1)?S.rr1:NaN,planL:planOf(L,A.src.k15L),planS:planOf(S,A.src.k15L),brPlanL:brPlanOf(A.br&&A.br.long,A.src.k15L),brPlanS:brPlanOf(A.br&&A.br.short,A.src.k15L),rsL:A.rs?{stage:A.rs.long.stage,grade:A.rs.long.grade,ok:A.rs.long.rsOk}:null,rsS:A.rs?{stage:A.rs.short.stage,grade:A.rs.short.grade,ok:A.rs.short.rsOk}:null,rsPlanL:rsPlanOf(A.rs&&A.rs.long,A.src.k15L),rsPlanS:rsPlanOf(A.rs&&A.rs.short,A.src.k15L),com:{long:committee(A,"long",+u.t24.priceChangePercent,{sym:u.t24.symbol}),short:committee(A,"short",+u.t24.priceChangePercent,{sym:u.t24.symbol})},`);
+rep(`rrL:L&&isFinite(L.rr1)?L.rr1:NaN,rrS:S&&isFinite(S.rr1)?S.rr1:NaN,`,`rrL:L&&isFinite(L.rr1)?L.rr1:NaN,rrS:S&&isFinite(S.rr1)?S.rr1:NaN,planL:planOf(L,A.src.k15L),planS:planOf(S,A.src.k15L),brPlanL:brPlanOf(A.br&&A.br.long,A.src.k15L),brPlanS:brPlanOf(A.br&&A.br.short,A.src.k15L),rsL:A.rs?{stage:A.rs.long.stage,grade:A.rs.long.grade,ok:A.rs.long.rsOk}:null,rsS:A.rs?{stage:A.rs.short.stage,grade:A.rs.short.grade,ok:A.rs.short.rsOk}:null,rsPlanL:rsPlanOf(A.rs&&A.rs.long,A.src.k15L),rsPlanS:rsPlanOf(A.rs&&A.rs.short,A.src.k15L),...comPair(A,u),`);
 
 
 // --- hız: tek seferde çek, ağır istatistikleri mumlar değişene kadar ezberle ---

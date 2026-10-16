@@ -313,7 +313,7 @@ async function runScan(){
     const cand=out.filter(r=>DEEP_STAGES.has(r.stageL)||DEEP_STAGES.has(r.stageS)||r.pick||r.pickS).sort((a,b)=>b.qv-a.qv).slice(0,24);
     if(cand.length){ let d2=0; const q2=[...cand]; const w2=async()=>{ while(q2.length){ await hold(); const r=q2.shift(); try{ const deep=await scanDeep(r); if(deep) Object.assign(r,deep); }catch(e){} d2++; bar.style.width=(63+d2/cand.length*37)+"%"; st.textContent=`${d2}/${cand.length} aday derin tarandı`; } }; await Promise.all(Array.from({length:2},w2)); }
     scan.rows=out; const now=Date.now(); scan.at=now; const prev={}; out.forEach(r=>prev[r.s]={score:r.score,t:now}); scan.prev=prev; LS("rp-scan-prev",JSON.stringify(prev));
-    const n=signalsFromRows(out); renderFeed(); renderWatch(); renderScanTable(); try{ botDecide("scan"); }catch(e){ console.error("SWEEP · bot",e); } try{ lmdScanAsk(out); }catch(e){} ksScanRun(out);
+    const n=signalsFromRows(out); renderFeed(); renderWatch(); renderScanTable(); try{ botDecide("scan"); }catch(e){ console.error("SWEEP · bot",e); } shRun(); try{ lmdScanAsk(out); }catch(e){} ksScanRun(out);
     st.textContent=`${out.length} coin · ${new Date().toLocaleTimeString("tr-TR")}${failed?" · "+failed+" okunamadı":""}${n?" · "+n+" yeni sinyal":""}`;
   }catch(e){ st.textContent="tarama hatası: "+e.message; }
   finally{ scan.running=false; $("scanNow").disabled=false; setTimeout(()=>bar.style.width="0",600); }
@@ -446,13 +446,13 @@ function wsConnect(sym){
   ws.onopen=()=>{ live.tries=0; live.ok=true; wsStatus(true); };
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } live.msgs++; live.lastMsg=Date.now(); const d=m.data||m; const st=m.stream||""; try{ wsDispatch(st,d); }catch(e){ console.error("SWEEP · ws",e); } };
   ws.onerror=()=>{};
-  ws.onclose=()=>{ live.ok=false; wsStatus(false,"bağlantı koptu, yeniden deneniyor"); if(live.wantSym!==sym) return; const wait=Math.min(30000,1000*Math.pow(2,live.tries++)); clearTimeout(live.timer); live.timer=setTimeout(()=>{ if(live.wantSym===sym) wsConnect(sym); },wait); };
+  ws.onclose=()=>{ live.ok=false; wsStatus(false,"bağlantı koptu, yeniden deneniyor"); if(live.wantSym!==sym) return; const wait=Math.min(30000,1000*Math.pow(2,live.tries++)); clearTimeout(live.timer); live.timer=setTimeout(()=>{ if(live.wantSym===sym) wsConnect(sym); },wait+wsdSlot()); };
 }
 // /market yolundaki piyasa akışları (src/wsdata.js WSD_URL): seçili coinin 15 dk mumu, mark/fonlama, likidasyonlar
 let liveWs2=null;
 function wsMarket(sym,streams){ if(liveWs2){ try{ liveWs2.onclose=null; liveWs2.close(); }catch(e){} liveWs2=null; } let ws; try{ ws=new WebSocket(WSD_URL+streams.join("/")); }catch(e){ return; } liveWs2=ws;
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } const d=m.data||m; const st=m.stream||""; try{ wsDispatch(st,d); }catch(e){ console.error("SWEEP · ws",e); } };
-  ws.onerror=()=>{}; ws.onclose=()=>{ if(liveWs2!==ws) return; liveWs2=null; setTimeout(()=>{ if(live.wantSym===sym&&!liveWs2) wsMarket(sym,streams); },5000); }; }
+  ws.onerror=()=>{}; ws.onclose=()=>{ if(liveWs2!==ws) return; liveWs2=null; setTimeout(()=>{ if(live.wantSym===sym&&!liveWs2) wsMarket(sym,streams); },5000+wsdSlot()); }; }
 function wsStatus(ok,txt){ const el=$("wsDot"); if(!el) return; el.className="wsdot "+(ok?"ok":"off"); el.title=ok?"Canlı akış bağlı (WebSocket)":"Canlı akış kapalı · "+(txt||""); const lbl=$("wsTxt"); if(lbl) lbl.textContent=ok?"canlı":"canlı yok"; }
 function wsDispatch(stream,d){
   if(stream.endsWith("@aggTrade")||stream.endsWith("@trade")){ const p=+d.p,q=+d.q,v=p*q,sell=!!d.m; live.px=p; live.cvd+=sell?-v:v; if(v>=tapeMin()) tapePush({t:d.T,kind:sell?"sell":"buy",p,v}); onLivePrice(); }
@@ -574,8 +574,12 @@ function botOpenMarket(x,es){
   bot.positions.push({sym:x.sym,dir:x.dir,model:"KOMİTE",grade:x.grade,agents:x.com.agents,talk:x.com.talk,entry:fill,stop,t1,t2,rr1:1.5,rr2:x.com.plan?x.com.plan.rr2:3,lev,notional,margin,risk,risk0:Math.abs(fill-stop),stop0:stop,qty,qty0:qty,fees:fee,openT:Date.now(),expiresAt:Date.now()+((x.com.plan&&x.com.plan.holdH)||cfg.holdH)*3600e3,stage:"open",hi:fill,lo:fill,realized:0,score:x.score,yes:x.yes,votes,
     entry0:fill,stages:es?es.stages:null,warn:es?es.warn:0,quality:es?es.grade:null,mode:es?es.gs.mode:null,freed:!!x.freed,decs:[],xs:[],labHold:!!(x.com.plan&&x.com.plan.holdH&&!h24),h24,bk0:bookRec(bot.book[x.sym],px),bkx:[]});
   botLog("fill",x.sym,`MASA ${isL?"LONG":"SHORT"} · Can'ın kararı · puan ${ptsT(x.score)} · ${x.yes}/${DESK.length} evet · market ${fmtP(fill)} · stop ${fmtP(stop)} (${fx(sd*100,2)}%) · ${h24?`hedef yok, ${x.com.plan.holdH} saat sonra çıkış`:`1,5R ${fmtP(t1)} · 3R ${fmtP(t2)}`} · ${lev}x · pozisyon ${fmtB(notional)} · teminat ${fmtB(margin)} · risk ${fmtB(risk)}${es?` · not ${es.grade}${x.freed?" · yer açılarak":""}`:""}. Oylar: ${votes.join(", ")}.${es?" Aşamalar: "+stagesTxt(es):""}`);
+  try{ shAdd({k:"trade",sym:x.sym,dir:x.dir,px,sd,score:x.score,yes:x.yes}); }catch(e){}
   botSave(); botWsSync(); return true;
 }
+/* gölge kural masası (shadow.js): kural oylu masanın kapıyı geçen kararları ve botun işlemleri, 15 dk / 1 sa / 4 sa sonraki fiyatla; işlem açmaz */
+function shRun(){ try{ const now=Date.now(), fresh=scan.at&&now-scan.at<10*60e3;
+  shTick(fresh?scan.rows:[],s=>botLivePx(s),now,botThr(),botMinYes()); }catch(e){ console.warn("SWEEP · gölge masa: "+e.message); } }
 /* --- karar döngüsü: tarama bitince ve her dakika --- */
 function botDecide(reason){
   if(!bot.on) return; const d=botDay(); const now=Date.now(); const cfg=bot.cfg;
@@ -625,12 +629,12 @@ function botWsSync(){
   if(bot.ws){ try{ bot.ws.onclose=null; bot.ws.close(); }catch(e){} bot.ws=null; } if(botWs2){ try{ botWs2.onclose=null; botWs2.close(); }catch(e){} botWs2=null; } bot.wsKey=key; if(!syms.length) return;
   let ws; try{ ws=new WebSocket(WS_BASE+syms.map(s=>s.toLowerCase()).flatMap(s=>[`${s}@trade`,`${s}@bookTicker`]).join("/")); }catch(e){ return; } bot.ws=ws; bot.wsAt=Date.now();
   // mark fiyatı ve fonlama yalnız /market yolunda akıyor: eski yolda sessizdi, 5 Ekim'den beri kâğıt pozisyonlardan fonlama kesilmiyordu
-  try{ botWs2=new WebSocket(WSD_URL+syms.map(s=>s.toLowerCase()+"@markPrice@1s").join("/")); botWs2.onmessage=ev=>ws.onmessage(ev); botWs2.onerror=()=>{}; const me=botWs2; botWs2.onclose=()=>{ if(botWs2!==me) return; botWs2=null; setTimeout(()=>{ if(bot.wsKey===key&&!botWs2){ bot.wsKey=null; botWsSync(); } },5000); }; }catch(e){}
+  try{ botWs2=new WebSocket(WSD_URL+syms.map(s=>s.toLowerCase()+"@markPrice@1s").join("/")); botWs2.onmessage=ev=>ws.onmessage(ev); botWs2.onerror=()=>{}; const me=botWs2; botWs2.onclose=()=>{ if(botWs2!==me) return; botWs2=null; setTimeout(()=>{ if(bot.wsKey===key&&!botWs2){ bot.wsKey=null; botWsSync(); } },5000+wsdSlot()); }; }catch(e){}
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } const d=m.data||m; const st=m.stream||""; const sym=(d.s||st.split("@")[0]||"").toUpperCase(); if(!sym) return;
     if(st.endsWith("@aggTrade")||st.endsWith("@trade")){ bot.src="ws"; bot._lastTrade[sym]=Date.now(); botOnPrice(sym,+d.p,d.T); }
     else if(st.endsWith("@bookTicker")){ const b=+d.b,a=+d.a; if(b>0&&a>0){ bot.book[sym]={b,a}; const now=Date.now(); if(!bot._lastTrade[sym]||now-bot._lastTrade[sym]>3000){ bot.src="ws"; botOnPrice(sym,(b+a)/2,now); } } }
     else if(st.endsWith("@markPrice@1s")){ if(+d.p>0){ bot.mark[sym]=+d.p; bot.lastMark=Date.now(); bot.lastTick=Date.now(); } const T=+d.T; const f=bot.fund[sym]||{r:0,T:0}; if(f.T&&T>f.T+60e3&&Date.now()>=f.T-5000) botFunding(sym,f.r); bot.fund[sym]={r:+d.r,T}; } };
-  ws.onclose=()=>{ if(bot.wsKey===key&&bot.on) setTimeout(()=>{ if(bot.wsKey===key){ bot.ws=null; bot.wsKey=null; botWsSync(); } },3000); };
+  ws.onclose=()=>{ if(bot.wsKey===key&&bot.on) setTimeout(()=>{ if(bot.wsKey===key){ bot.ws=null; bot.wsKey=null; botWsSync(); } },3000+wsdSlot()); }; // uyanışta kademeli (wsdSlot)
 }
 function botFunding(sym,rate){ for(const p of bot.positions){ if(p.sym!==sym) continue; const fee=p.notional*rate*(p.dir==="long"?1:-1); bot.bal-=fee; p.fees+=fee; botLog("fund",p.sym,`Fonlama ${fx(rate*100,4)}% → ${fee>=0?"ödendi":"alındı"} ${fmtB(Math.abs(fee))}.`); } }
 function botOnPrice(sym,px,T){
@@ -892,11 +896,11 @@ function renderBot(){
   const audit=renderAudit();
   const tr=bot.trades.slice(-12).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b> ${chip(t.dir==="long"?"up sm":"down sm",t.dir==="long"?"L":"S")} <span class="muted">${t.model} ${t.grade} ${t.lev}x</span></td><td class="num">${fmtP(t.entry)}</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="num ${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${fx(t.r,2)}R</td></tr>`).join("");
   const lg=bot.log.slice(-40).reverse().map(l=>`<div class="tp ${{fill:"buy",tp1:"buy",tp2:"buy",stop:"sell",time:"",desk:"",audit:"",goal:"buy",add:"buy",cancel:"",skip:"",order:"",close:"",sys:"",move:"",fund:""}[l.type]||""}" style="grid-template-columns:110px 70px 1fr"><span class="when">${new Date(l.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><span class="k ${{fill:"up",tp1:"up",tp2:"up",close:"",stop:"down",time:"warn",desk:"cyan",audit:"warn",goal:"up",add:"up",cancel:"warn",skip:"muted",order:"cyan",sys:"muted",move:"cyan",fund:"muted"}[l.type]||""}">${{fill:"DOLDU",tp1:"HEDEF 1",tp2:"HEDEF 2",stop:"STOP",time:"ZAMAN",desk:"MASA",audit:"DENETÇİ",goal:"HEDEF",add:"EKLEME",cancel:"İPTAL",skip:"BEKLE",order:"EMİR",close:"KAPANDI",sys:"SİSTEM",move:"STOP↑",fund:"FONLAMA"}[l.type]||l.type}</span><span>${l.sym?"<b>"+l.sym.replace("USDT","")+"</b> · ":""}${l.text}</span></div>`).join("");
-  el.innerHTML=head+room+renderForecast()+renderLmd()+audit+(c.mode==="komite"?renderLeaders():"")+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`+renderTurtle()+renderIc()+renderKs()+renderTrend()+renderDip()+renderKov();
+  el.innerHTML=head+room+renderForecast()+renderLmd()+audit+(c.mode==="komite"?renderLeaders():"")+((pos||ord)?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Pozisyon</th><th>Boyut</th><th>Giriş</th><th>Mark</th><th>Likid.</th><th>Stop</th><th>Hedef 1 / 2</th><th>PnL (ROE)</th><th>Durum</th></tr></thead><tbody>${pos}${ord}</tbody></table>`:"")+votes+(tr?`<table class="t" style="margin-bottom:10px"><thead><tr><th>Kapanış</th><th>İşlem</th><th>Giriş</th><th>PnL</th><th>R</th></tr></thead><tbody>${tr}</tbody></table>`:"")+`<div class="tape" style="max-height:320px">${lg||'<div class="empty">Karar günlüğü boş. Başlat\'a bas; her tarama turunda ne yaptığını ve neden yapmadığını buraya yazar.</div>'}</div>`+renderTurtle()+renderIc()+renderKs()+renderUl()+renderTrend()+renderDip()+renderKov();
   $("botTgl").addEventListener("click",()=>{ bot.on?botStop():botStart(); renderBot(); }); $("botCsv").addEventListener("click",botCsv); $("botReset").addEventListener("click",botReset); $("botCloseAll").addEventListener("click",botCloseAll);
   $("botMode").addEventListener("change",e=>{ bot.cfg.mode=e.target.value; botSave(); });
   const rs=$("botRoomSel"); if(rs) rs.addEventListener("change",e=>{ bot.roomSel=e.target.value; renderBot(); });
-  trendBind(); dipBind(); ttBind(); icBind(); ksBind(); kovBind(); lmdBind();
+  trendBind(); dipBind(); ttBind(); icBind(); ksBind(); ulBind(); kovBind(); lmdBind();
   const lr=$("ldRefresh"); if(lr) lr.addEventListener("click",()=>{ ldRefresh(true); });
   const num=(id,key,f)=>{ const n=$(id); if(n) n.addEventListener("change",e=>{ const v=+e.target.value; if(isFinite(v)){ bot.cfg[key]=f?f(v):v; botSave(); } }); };
   num("botRisk","risk",v=>clamp(v,0.5,25)/100); num("botRiskMax","riskMax",v=>clamp(v,0.5,25)/100);num("botLev","lev",v=>clamp(Math.round(v),1,50)); num("botMaxPos","maxPos",v=>clamp(Math.round(v),1,10)); num("botThr","threshold",v=>clamp(v,0,SCORE_MAX)/SCORE_MAX); num("botMinYes","minYes",v=>clamp(Math.round(v),1,DESK.length)); num("botHold","holdH",v=>clamp(Math.round(v),1,72)); num("botMaxOpens","maxOpens",v=>clamp(Math.round(v),1,50)); num("botMaxLosses","maxLosses",v=>clamp(Math.round(v),1,50)); num("botGoal","goal",v=>clamp(v,110,100000)); num("botSameDir","maxSameDir",v=>clamp(Math.round(v),1,10)); num("botBeR","beR",v=>clamp(v,0,3));
@@ -1099,6 +1103,40 @@ function ksBind(){
   const r=$("ksReset"); if(r) r.addEventListener("click",()=>{ if(Object.keys(ks.s.pos).length&&!confirm("Kalite short sepetindeki pozisyonlar silinip bakiye 100 $'a dönsün mü?")) return; const on=ks.s.cfg.on; ks.s=ksNew({on}); ksSave(ks.s); renderBot(); });
 }
 setTimeout(ksRun,20000); setInterval(ksRun,60e3);
+/* --- Açılım short sepeti (src/unlock.js, 15 Ekim 2026): büyük insider / yatırımcı açılımından 7 gün önce short, açılım günü kapanışında çık; takvim günde bir, fiyat turu dakikada bir --- */
+const ul={s:ulLoad(),busy:false,err:null,px:{}};
+async function ulRun(){ if(ul.busy) return; ul.busy=true;
+  try{ const r=await ulTick(ul.s,Date.now()); ul.px=r.px; ul.err=ulCache.err; ulSave(ul.s); if(r.evs.length&&ui.drawerTab==="bot") renderBot(); }
+  catch(e){ ul.err=e.message; } finally{ ul.busy=false; } }
+function renderUl(){
+  const s=ul.s, c=s.cfg, sm=ulSummary(s,ul.px), now=Date.now(); const dd=t=>new Date(t).toLocaleDateString("tr-TR",{day:"2-digit",month:"2-digit"});
+  const rows=Object.entries(s.pos).map(([k,p])=>{ const px=ul.px[k]||p.px; const pnl=p.qty*(p.e-px); const h=Math.max(0,(p.until-now)/36e5);
+    return `<tr><td><b>${k.replace("USDT","")}</b> ${chip("down sm","S")}</td><td class="num">${dd(p.day)} · %${fx(p.size*100,1)}</td><td class="num">${fmtP(p.e)}</td><td class="num">${fmtP(px)}</td><td class="num">${fmtB(p.qty*px)}</td><td class="num down">${fmtP(p.stop)}</td><td class="num ${pnl>=0?"up":"down"}">${pnl>=0?"+":""}${fx(pnl,2)} $</td><td class="num muted">${fx(h,0)} sa</td></tr>`; }).join("");
+  const nx=sm.next.map(e=>{ const a=e.day-(c.preDays-1)*864e5; const st=s.pos[e.sym]&&s.pos[e.sym].day===e.day?"açık":s.done[e.sym+"|"+e.day]||(now>=a?"bekliyor":"giriş "+dd(a));
+    return `<tr><td><b>${e.sym.replace("USDT","")}</b> <span class="muted">${esc(e.name||"")}</span></td><td class="num">${dd(e.day)}</td><td class="num">%${fx(e.size*100,1)}</td><td class="muted">${esc(st)}</td></tr>`; }).join("");
+  const tr=s.trades.slice(-8).reverse().map(t=>`<tr><td class="num muted">${new Date(t.closeT).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${t.sym.replace("USDT","")}</b></td><td class="num">${fmtP(t.e)} → ${fmtP(t.x)}</td><td class="num ${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${fx(t.r*100,2)} %</td><td class="num ${t.pnl>=0?"up":"down"}">${t.pnl>=0?"+":""}${fx(t.pnl,2)} $</td><td class="muted">${esc(t.why)}</td></tr>`).join("");
+  const lg=s.log.slice(-6).reverse().map(l=>`<div class="muted" style="font-size:11.5px">${new Date(l.t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})} · ${l.sym?"<b>"+l.sym.replace("USDT","")+"</b> · ":""}${{fill:"short açıldı",exit:"kapandı",skip:"atlandı"}[l.type]||l.type}${l.why?" · "+esc(l.why):""}${l.px?" @ "+fmtP(l.px):""}</div>`).join("");
+  const cal=sm.cal; const calTxt=cal.err?`<span class="down">takvim alınamadı: ${esc(cal.err)}</span>`:cal.at?`takvim ${new Date(cal.at).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"})} · ${cal.n} protokol, ${cal.mapped} Binance coini, 60 günde ${cal.ev} insider açılımı`:"takvim yükleniyor";
+  return `<details class="card" style="margin-bottom:10px;padding:10px" ${s.trades.length||Object.keys(s.pos).length||c.on?"open":""}><summary style="cursor:pointer"><b>Açılım short sepeti</b> <span class="muted" style="font-size:12px">· büyük token açılımından ${c.preDays} gün önce short · ayrı sanal bakiye · ${c.on?'<span class="up">açık</span>':'kapalı'}</span></summary>
+  <p class="muted" style="font-size:12px;margin:6px 0">Takvim DefiLlama'dan (günde bir). Insider / özel satış payının tek günde serbest kalması serbest arzın ≥ %${fx(c.minSize*100,1)}'i ise açılımdan ${c.preDays} gün önceki kapanışta short, açılım günü kapanışında çıkış; stop girişin %${Math.round(c.stop*100)} üstü, işlem başı bakiyenin %${fx(c.risk*100,1)}'i risk, en çok ${c.maxPos} short. Arşiv (2022'den 360 olay): +3,2 % / işlem, son 12 ay +5,6 %; aynı coinlerde rastgele haftada da +1,25 % (açılıma özgü kısım ≈ +1,9 %); 2023–24 ≈ 0. Kanıt değil, kâğıtta deneme; masaya ve diğer sepetlere etkisi yok.</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><button type="button" class="${c.on?"":"primary"}" id="ulTgl">${c.on?"Durdur":"Başlat"}</button><button type="button" class="ghost" id="ulReset">Sıfırla</button><button type="button" class="ghost" id="ulCal">Takvimi yenile</button>
+    <span class="muted" style="font-size:11.5px">${ul.err&&!cal.err?'<span class="down">'+esc(ul.err)+"</span> · ":""}${calTxt}</span></div>
+  <div class="plan" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:8px">
+    <div class="pv"><b>Özkaynak</b><span class="${sm.eq>=s.start?"up":"down"}">${fx(sm.eq,2)} $</span><small>${pct(sm.roi,1)} · başlangıç ${fmtB(s.start)}</small></div>
+    <div class="pv"><b>İşlem</b><span>${sm.n?(sm.avgPct>=0?"+":"")+fx(sm.avgPct,2)+" %":"—"}</span><small>${sm.n} işlem${sm.n?` · kazanma %${Math.round(sm.wr*100)}`:""}</small></div>
+    <div class="pv"><b>Zirveden</b><span class="${sm.dd>0.15?"down":""}">−%${fx(sm.dd*100,1)}</span><small>zirve ${fmtB(s.peak)}</small></div>
+    <div class="pv"><b>Açık</b><span>${sm.open} / ${c.maxPos}</span><small>${fmtB(sm.gross)} nominal · maliyet ${fx(sm.fees+sm.funding,2)} $</small></div>
+  </div>
+  ${rows?`<table class="t" style="margin-bottom:8px"><thead><tr><th>Coin</th><th>Açılım</th><th>Giriş</th><th>Mark</th><th>Nominal</th><th>Stop</th><th>PnL</th><th>Kalan</th></tr></thead><tbody>${rows}</tbody></table>`:""}
+  ${nx?`<table class="t" style="margin-bottom:8px"><thead><tr><th>Yaklaşan açılım</th><th>Gün</th><th>Serbest arzın</th><th>Durum</th></tr></thead><tbody>${nx}</tbody></table>`:`<div class="empty" style="margin-bottom:8px">Yaklaşan büyük açılım yok${cal.at?"":" (takvim henüz yüklenmedi)"}.</div>`}
+  ${tr?`<table class="t" style="margin-bottom:8px"><thead><tr><th>Kapanış</th><th>Coin</th><th>Fiyat</th><th>Getiri</th><th>PnL</th><th>Neden</th></tr></thead><tbody>${tr}</tbody></table>`:""}${lg}</details>`;
+}
+function ulBind(){
+  const t=$("ulTgl"); if(t) t.addEventListener("click",()=>{ ul.s.cfg.on=!ul.s.cfg.on; ulSave(ul.s); renderBot(); });
+  const r=$("ulReset"); if(r) r.addEventListener("click",()=>{ if(Object.keys(ul.s.pos).length&&!confirm("Açılım short sepetindeki pozisyonlar silinip bakiye 100 $'a dönsün mü?")) return; const on=ul.s.cfg.on; ul.s=ulNew({on}); ulSave(ul.s); renderBot(); });
+  const k=$("ulCal"); if(k) k.addEventListener("click",async()=>{ await ulRefresh(Date.now(),true); ul.err=ulCache.err; renderBot(); });
+}
+setTimeout(ulRun,22000); setInterval(ulRun,60e3);
 /* --- Sıkışma sepeti (src/kovner.js, Bruce Kovner): dar aralıktan günlük kapanışla kırılım, kapanış stopu; ayrı sanal bakiye --- */
 const kov={s:kovLoad(),busy:false,err:null,px:{}};
 async function kovRun(){ if(kov.busy||!kov.s.cfg.on) return; kov.busy=true;
@@ -1132,7 +1170,7 @@ setTimeout(()=>{ if(dip.s.cfg.on) dipRun(); },12000); setInterval(()=>{ if(dip.s
 setTimeout(()=>{ if(trend.s.cfg.on) trendRun({}); },8000); setInterval(()=>{ if(trend.s.cfg.on) trendRun({}); },5*60e3);
 setInterval(()=>{ botManage().then(()=>{ bot.manErr=null; },e=>{ const m=String(e&&e.stack||e).slice(0,300); if(bot.manErr!==m) console.warn("SWEEP · pozisyon toplantısı hata: "+m); bot.manErr=m; }); },30000);
 setInterval(botPoll,3000);
-setInterval(()=>{ if(bot.on){ botDecide("tick"); if(ui.drawerTab==="bot") renderBot(); } },60000);
+setInterval(()=>{ if(bot.on){ botDecide("tick"); if(ui.drawerTab==="bot") renderBot(); } shRun(); },60000);
 /* --- durum özeti (6 Ekim 2026, gece nöbeti): Electron bunu %APPDATA%/SWEEP/logs/bot-YYYY-MM-DD.jsonl dosyasına yazar; uzaktan izlemek için. Anahtar/hesap bilgisi yok. --- */
 wsd.on=true; wsdStart(); // WebSocket veri katmanı (src/wsdata.js): tarama ve masa REST yerine akıştan beslenir
 const botDig={lastN:null,lastT:0};
@@ -1154,7 +1192,7 @@ function botDigest(){ try{ const now=Date.now(); if(botDig.lastN==null) botDig.l
       logTypes:types,log:logs.filter(l=>l.type!=="skip"||/bayat|boş|hata/.test(l.text)).slice(-25).map(l=>new Date(l.t).toISOString().slice(11,16)+" "+l.type+" "+l.sym+" "+String(l.text).slice(0,260)),lastSkip:(logs.filter(l=>l.type==="skip").pop()||{}).text||null,
       votes:{n:(bot.lastVotes||[]).length,abst:ab,yes,top:(bot.lastVotes||[]).slice(0,5).map(v=>v.sym+" "+v.dir+" "+pts(v.score)+" "+v.yes+"e"+(v.go?" go":"")+(v.veto?" veto":""))},
       fc:{pend:F.pend.length,done:F.done.length,base:L?r2(L.base):null,go:L&&L.go?{n:L.go.n,hit:r2(L.go.hit)}:null,buckets:L?L.buckets.filter(b=>b.n).map(b=>b.t+":"+b.n+"/"+(b.hit!=null?Math.round(b.hit*100):"-")):[],lessons:L?L.lessons.length:0,goBy:botDigGo(F),top:fcTop(F,5).map(x=>({...x,t:new Date(x.t).toISOString(),score:pts(x.score)}))},
-      aud:AUD?{lessons:(AUD.lessons||[]).map(l=>l.k)}:null,caps:{maxPos:bot.cfg.maxPos,maxSameDir:bot.cfg.maxSameDir},man:{err:bot.manErr||null,busyMin:bot._managing?Math.round((now-(bot._manT||now))/6e4):null},lmd:typeof lmd!=="undefined"?{...lmd.stats,q:lmd.q.length,busy:lmd.busy,err:lmd.err,wait:lmdReady()}:null,wsd:wsdSummary(),restCoolMin:rest.cool>now?Math.round((rest.cool-now)/6e4):0,used:rest.used};
+      aud:AUD?{lessons:(AUD.lessons||[]).map(l=>l.k)}:null,caps:{maxPos:bot.cfg.maxPos,maxSameDir:bot.cfg.maxSameDir},man:{err:bot.manErr||null,busyMin:bot._managing?Math.round((now-(bot._manT||now))/6e4):null},lmd:typeof lmd!=="undefined"?{...lmd.stats,q:lmd.q.length,busy:lmd.busy,err:lmd.err,wait:lmdReady()}:null,wsd:wsdSummary(),shadow:(()=>{ try{ return shSum(); }catch(e){ return null; } })(),restCoolMin:rest.cool>now?Math.round((rest.cool-now)/6e4):0,used:rest.used};
     botDig.lastT=now; console.info("SWEEP · durum "+JSON.stringify(out)); }catch(e){ console.warn("SWEEP · durum özeti yazılamadı: "+e.message); } }
 setTimeout(botDigest,90e3); setInterval(botDigest,10*60e3);
 /* Canlı panel (electron/live.js): telefondan açılan salt okunur sayfa bunu birkaç saniyede bir ister. Anahtar, emir ya da ayar yok. */
@@ -1290,7 +1328,7 @@ if(acct.key&&acct.secret&&acct.remember){ acctStart(acct.key,acct.secret,true).t
   sessionTick(); ui.sessTimer=setInterval(sessionTick,15000);
   setInterval(()=>{ if(live.ws&&live.ok&&Date.now()-live.lastMsg>25000){ wsStatus(false,"akış sustu, yenileniyor"); try{ live.ws.close(); }catch(e){} } },10000);
   // bot akışı da susabiliyor (uyku/ağ kopması, onclose gelmiyor): mark 30 sn gelmezse bağlantıyı baştan kur (en çok 30 sn'de bir; REST'e gitmez)
-  setInterval(()=>{ const now=Date.now(); if(bot.ws&&(bot.positions.length||bot.orders.length)&&now-Math.max(bot.lastMark||0,bot.wsAt||0)>30000&&now-(bot.wsKick||0)>30000){ bot.wsKick=now; bot.wsKey=null; botWsSync(); } },10000);
+  setInterval(()=>{ const now=Date.now(); if(bot.ws&&!(now<wsd.hold)&&(bot.positions.length||bot.orders.length)&&now-Math.max(bot.lastMark||0,bot.wsAt||0)>30000&&now-(bot.wsKick||0)>30000){ bot.wsKick=now; bot.wsKey=null; botWsSync(); } },10000);
   renderFeed(); renderWatch(); renderJournal(); scheduleScan();
   setTimeout(()=>{ ldRefresh(false).catch(()=>{}); },3000); setInterval(()=>{ ldRefresh(false).catch(()=>{}); },10*60e3);
   sel.posProvider=()=>bot.positions.map(p=>({sym:p.sym,dir:p.dir})); // Tolga açık pozisyonlarımızın coininde liderleri izler
