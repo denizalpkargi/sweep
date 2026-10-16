@@ -1137,6 +1137,12 @@ function ulBind(){
   const k=$("ulCal"); if(k) k.addEventListener("click",async()=>{ await ulRefresh(Date.now(),true); ul.err=ulCache.err; renderBot(); });
 }
 setTimeout(ulRun,22000); setInterval(ulRun,60e3);
+/* --- Aday gölgesi (src/adaylar.js, 16 Ekim 2026): #84 negatif fonlama, #88 fonlama tavanı, #91 korelasyon sıçraması; işlem açmaz, durum özetine yazılır --- */
+const ad={s:adLoad(),busy:false,err:null};
+async function adRun(){ if(ad.busy) return; ad.busy=true;
+  try{ const r=await adTick(ad.s,Date.now()); adSave(ad.s); ad.err=null; for(const e of r.ev) console.info("SWEEP · aday "+JSON.stringify(e)); for(const p of r.fin) console.info("SWEEP · aday sonuç "+JSON.stringify(p)); }
+  catch(e){ ad.err=e.message; } finally{ ad.busy=false; } }
+setTimeout(adRun,26000); setInterval(adRun,60e3);
 /* --- Sıkışma sepeti (src/kovner.js, Bruce Kovner): dar aralıktan günlük kapanışla kırılım, kapanış stopu; ayrı sanal bakiye --- */
 const kov={s:kovLoad(),busy:false,err:null,px:{}};
 async function kovRun(){ if(kov.busy||!kov.s.cfg.on) return; kov.busy=true;
@@ -1192,7 +1198,7 @@ function botDigest(){ try{ const now=Date.now(); if(botDig.lastN==null) botDig.l
       logTypes:types,log:logs.filter(l=>l.type!=="skip"||/bayat|boş|hata/.test(l.text)).slice(-25).map(l=>new Date(l.t).toISOString().slice(11,16)+" "+l.type+" "+l.sym+" "+String(l.text).slice(0,260)),lastSkip:(logs.filter(l=>l.type==="skip").pop()||{}).text||null,
       votes:{n:(bot.lastVotes||[]).length,abst:ab,yes,top:(bot.lastVotes||[]).slice(0,5).map(v=>v.sym+" "+v.dir+" "+pts(v.score)+" "+v.yes+"e"+(v.go?" go":"")+(v.veto?" veto":""))},
       fc:{pend:F.pend.length,done:F.done.length,base:L?r2(L.base):null,go:L&&L.go?{n:L.go.n,hit:r2(L.go.hit)}:null,buckets:L?L.buckets.filter(b=>b.n).map(b=>b.t+":"+b.n+"/"+(b.hit!=null?Math.round(b.hit*100):"-")):[],lessons:L?L.lessons.length:0,goBy:botDigGo(F),top:fcTop(F,5).map(x=>({...x,t:new Date(x.t).toISOString(),score:pts(x.score)}))},
-      aud:AUD?{lessons:(AUD.lessons||[]).map(l=>l.k)}:null,caps:{maxPos:bot.cfg.maxPos,maxSameDir:bot.cfg.maxSameDir},man:{err:bot.manErr||null,busyMin:bot._managing?Math.round((now-(bot._manT||now))/6e4):null},lmd:typeof lmd!=="undefined"?{...lmd.stats,q:lmd.q.length,busy:lmd.busy,err:lmd.err,wait:lmdReady()}:null,wsd:wsdSummary(),shadow:(()=>{ try{ return shSum(); }catch(e){ return null; } })(),restCoolMin:rest.cool>now?Math.round((rest.cool-now)/6e4):0,used:rest.used};
+      aud:AUD?{lessons:(AUD.lessons||[]).map(l=>l.k)}:null,caps:{maxPos:bot.cfg.maxPos,maxSameDir:bot.cfg.maxSameDir},man:{err:bot.manErr||null,busyMin:bot._managing?Math.round((now-(bot._manT||now))/6e4):null},lmd:typeof lmd!=="undefined"?{...lmd.stats,q:lmd.q.length,busy:lmd.busy,err:lmd.err,wait:lmdReady()}:null,wsd:wsdSummary(),shadow:(()=>{ try{ return shSum(); }catch(e){ return null; } })(),aday:(()=>{ try{ return {...adSummary(ad.s),err:ad.err}; }catch(e){ return null; } })(),restCoolMin:rest.cool>now?Math.round((rest.cool-now)/6e4):0,used:rest.used};
     botDig.lastT=now; console.info("SWEEP · durum "+JSON.stringify(out)); }catch(e){ console.warn("SWEEP · durum özeti yazılamadı: "+e.message); } }
 setTimeout(botDigest,90e3); setInterval(botDigest,10*60e3);
 /* Canlı panel (electron/live.js): telefondan açılan salt okunur sayfa bunu birkaç saniyede bir ister. Anahtar, emir ya da ayar yok. */

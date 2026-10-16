@@ -19,10 +19,11 @@ for i in range(24,len(idx)):
     t=idx[i]
     if (t+HR)%(4*HR): continue
     mo=pd.Timestamp(int(t),unit='ms').strftime('%Y-%m'); cs=[s for s in top.get(mo,[]) if s in R.columns]
-    w=R.iloc[i-23:i+1][cs].dropna(axis=1)
+    w=R.iloc[i-23:i+1][cs].dropna(axis=1); w=w.loc[:,w.std()>0]  # donmuş fiyat (delist) sıfır oynaklık: korelasyon tanımsız, dışarıda
     if w.shape[1]<20: continue
     c=np.corrcoef(w.values.T); n=c.shape[0]; vals.append((c.sum()-n)/(n*n-n)); ts.append(int(t+HR))
 k=pd.Series(vals,index=ts)
+print('nan',int(k.isna().sum()),flush=True)
 fl=k.rolling(2190,min_periods=540).apply(lambda w:(w[:-1]<w[-1]).mean(),raw=True)>=0.9
 def at(t):
     i=fl.index.searchsorted(np.asarray(t),side='right')-1; o=np.zeros(len(i),bool); m=i>=0; o[m]=fl.values[i[m]]; return o,(np.asarray(t)>=fl.index[0]+90*DAY)
