@@ -3014,7 +3014,7 @@ async function acctSync(force){
     acct.bal={wallet:+u.balance||0,avail:+u.availableBalance||0,crossUnPnl:+u.crossUnPnl||0,assets:all.map(x=>({a:x.asset,b:+x.balance,avail:+x.availableBalance,upnl:+x.crossUnPnl}))};
     acct.positions=(pr||[]).filter(p=>+p.positionAmt!==0).map(p=>{ const amt=+p.positionAmt, dir=amt>0?"long":"short", entry=+p.entryPrice, mark=+p.markPrice, lev=+p.leverage||1, notional=Math.abs(amt*mark), upnl=+p.unRealizedProfit, iso=p.marginType==="isolated"; const margin=iso&&+p.isolatedMargin>0?+p.isolatedMargin:notional/lev; return {sym:p.symbol,dir,amt:Math.abs(amt),entry,mark,liq:+p.liquidationPrice||0,lev,iso,margin,notional,upnl,roe:margin>0?upnl/margin*100:0,liqDist:+p.liquidationPrice>0?(dir==="long"?(mark-+p.liquidationPrice)/mark:(+p.liquidationPrice-mark)/mark):NaN,t:+p.updateTime||0}; });
     if(oo) acct.orders=oo.map(o=>({sym:o.symbol,side:o.side,type:o.type,px:+o.price||0,stop:+o.stopPrice||0,qty:+o.origQty,filled:+o.executedQty,ro:!!o.reduceOnly,cp:!!o.closePosition,t:+o.time}));
-    acct.lastAt=Date.now(); acct.err=null; acct.src=acct.src||"rest"; if(typeof acctOnSync==="function") acctOnSync();
+    acct.lastAt=Date.now(); acct.err=null; if(!acct.ws&&!acct.listenKey) acctStream(); /* yasakta açılamadıysa yasak bitince */ acct.src=acct.src||"rest"; if(typeof acctOnSync==="function") acctOnSync();
   }catch(e){ acct.err=e.message; if(/-1021|saat/.test(e.message)) await acctSyncTime(); }
 }
 // kullanıcı veri akışı: ACCOUNT_UPDATE / ORDER_TRADE_UPDATE olayları anında işlenir (akış susarsa REST turu zaten 5 sn'de bir)
