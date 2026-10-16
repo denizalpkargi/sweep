@@ -69,6 +69,13 @@
    "t": 0.6,
    "kaynak": "test77-kategori-report tüm dönem",
    "aile": "günlük aile"
+  },
+  {
+   "id": "#80F",
+   "ad": "Kaplumbağa 20/10 4 sa kapanışla",
+   "t": 2.3,
+   "kaynak": "aylık Sharpe 0,92 × √6,3 yıl",
+   "aile": "günlük aile"
   }
  ],
  "kayit": [
@@ -879,6 +886,14 @@
    "n_varyant": 4,
    "tahmin": false,
    "kanit": "test77-kategori-report: 7/30 g × LO−EW/LS"
+  },
+  {
+   "id": "#80",
+   "ad": "Hızlı Kaplumbağa",
+   "durum": "izlemede",
+   "n_varyant": 6,
+   "tahmin": false,
+   "kanit": "test80-hizli-kaplumbaga-report: 6 varyant + 3 karışım"
   }
  ]
 }
