@@ -985,7 +985,7 @@
   {
    "id": "#91",
    "ad": "Korelasyon sıçraması kapısı",
-   "durum": "izlemede",
+   "durum": "elendi",
    "n_varyant": 1,
    "tahmin": false,
    "kanit": "test91-korelasyon-report"
@@ -997,6 +997,14 @@
    "n_varyant": 1,
    "tahmin": false,
    "kanit": "test92-fonlama-cikis-report"
+  },
+  {
+   "id": "#91b",
+   "ad": "Korelasyon kapısı Kaplumbağa portföyünde",
+   "durum": "elendi",
+   "n_varyant": 2,
+   "tahmin": false,
+   "kanit": "test91b-portfoy-report: A ve F, rastgele atlama 200 tohum"
   }
  ]
 }
