@@ -1,0 +1,1010 @@
+{
+ "aciklama": "Deneme sayısı kaydı (13 Ekim 2026, test #72): her testte sonucuna bakılan farklı ayar sayısı; tahmin=true olanlar kaba sayım. Plasebo/rastgele tabanlar ve yarı/yıl tekrarları sayılmadı.",
+ "N": {
+  "sosyal 4 sa": 167,
+  "günlük aile": 541,
+  "masa+15 dk": 1439,
+  "proje": 6200
+ },
+ "adaylar": [
+  {
+   "id": "#65",
+   "ad": "Ichimoku 4 sa",
+   "t": 3.7,
+   "kaynak": "fark t, 10.245 işlem",
+   "aile": "sosyal 4 sa"
+  },
+  {
+   "id": "#64",
+   "ad": "Data Trader 4 sa",
+   "t": 2.9,
+   "kaynak": "fark t, ana 20",
+   "aile": "sosyal 4 sa"
+  },
+  {
+   "id": "K1",
+   "ad": "Kaplumbağa 1 + BTC SMA200",
+   "t": 4.2,
+   "kaynak": "801 işlem +0,93R",
+   "aile": "günlük aile"
+  },
+  {
+   "id": "#48",
+   "ad": "Donchian 20 + oynaklık boyu",
+   "t": 2.38,
+   "kaynak": "Sharpe 0,95 × √6,3 yıl",
+   "aile": "günlük aile"
+  },
+  {
+   "id": "KS",
+   "ad": "Kalite short 72 sa",
+   "t": 1.5,
+   "kaynak": "haftalık t (işlem t 4,6 örtüşük)",
+   "aile": "masa+15 dk"
+  },
+  {
+   "id": "#47",
+   "ad": "24 sa long",
+   "t": 0.3,
+   "kaynak": "haftalık t",
+   "aile": "masa+15 dk"
+  },
+  {
+   "id": "#67",
+   "ad": "Opsiyon RR25 long",
+   "t": 2.0,
+   "kaynak": "t ≈ 1,5–2 (üst uç)",
+   "aile": "proje"
+  },
+  {
+   "id": "#76",
+   "ad": "Perp primi L−S 1 g",
+   "t": 0.9,
+   "kaynak": "test76-baz-report tüm dönem",
+   "aile": "günlük aile"
+  },
+  {
+   "id": "#77",
+   "ad": "Kategori LS 30 g",
+   "t": 0.6,
+   "kaynak": "test77-kategori-report tüm dönem",
+   "aile": "günlük aile"
+  },
+  {
+   "id": "#80F",
+   "ad": "Kaplumbağa 20/10 4 sa kapanışla",
+   "t": 2.3,
+   "kaynak": "aylık Sharpe 0,92 × √6,3 yıl",
+   "aile": "günlük aile"
+  },
+  {
+   "id": "#82T",
+   "ad": "Tasfiye sonrası long 72 sa",
+   "t": 0.6,
+   "kaynak": "gün kümeli t",
+   "aile": "günlük aile"
+  }
+ ],
+ "kayit": [
+  {
+   "id": "1",
+   "ad": "Tam Turtle (S1+S2, piramit)",
+   "durum": "elendi",
+   "n_varyant": 64,
+   "tahmin": false,
+   "kanit": "dongu/2026-10-10-test01-tam-kaplumbaga.md: '64 varyant arasından'"
+  },
+  {
+   "id": "2",
+   "ad": "Trend sepeti düşüş freni",
+   "durum": "elendi",
+   "n_varyant": 14,
+   "tahmin": false,
+   "kanit": "tests/test02-trend-fren-report.md: 7 fren varyantı × tv 1,4/0,8"
+  },
+  {
+   "id": "3",
+   "ad": "BTC SMA200 kapısı (trend sepeti)",
+   "durum": "elendi",
+   "n_varyant": 3,
+   "tahmin": false,
+   "kanit": "tests/test03-btc-sma200-trend-report.md: 3 satır (15 dk faktör hâli FAK içinde)"
+  },
+  {
+   "id": "4",
+   "ad": "Williams oynaklık kırılımı (günlük)",
+   "durum": "elendi",
+   "n_varyant": 6,
+   "tahmin": true,
+   "kanit": "test50: k 0,3/0,5/0,7 × kötümser/iyimser; 15 dk faktör FAK içinde"
+  },
+  {
+   "id": "5",
+   "ad": "Kovner sıkışma (NR7 faktörü)",
+   "durum": "izlemede",
+   "n_varyant": 1,
+   "tahmin": false,
+   "kanit": "15 dk faktör NR7 tek ölçüm; günlük KOV daily-wide içinde"
+  },
+  {
+   "id": "6",
+   "ad": "Kazanandan sonra atla",
+   "durum": "elendi",
+   "n_varyant": 6,
+   "tahmin": false,
+   "kanit": "tests/test06-kazanandan-sonra-report.md: aynı coin / coin+yön × 3 pencere"
+  },
+  {
+   "id": "7",
+   "ad": "Gece saati long",
+   "durum": "izlemede",
+   "n_varyant": 1,
+   "tahmin": false,
+   "kanit": "faktör tek ölçüm (research-factors)"
+  },
+  {
+   "id": "8",
+   "ad": "Pazartesi Asya penceresi",
+   "durum": "izlemede",
+   "n_varyant": 1,
+   "tahmin": false,
+   "kanit": "faktör tek ölçüm"
+  },
+  {
+   "id": "9",
+   "ad": "10/5 günlük kırılım (faktör)",
+   "durum": "izlemede",
+   "n_varyant": 1,
+   "tahmin": false,
+   "kanit": "faktör tek ölçüm; günlük sistem #50 içinde"
+  },
+  {
+   "id": "10",
+   "ad": "Likidasyon dalgası sonrası 30 dk yasak",
+   "durum": "izlemede",
+   "n_varyant": 0,
+   "tahmin": false,
+   "kanit": "geçmiş testi yok, canlı faktör"
+  },
+  {
+   "id": "11",
+   "ad": "Fonlama ±2σ ters",
+   "durum": "izlemede",
+   "n_varyant": 0,
+   "tahmin": false,
+   "kanit": "geçmiş testi yok, canlı faktör"
+  },
+  {
+   "id": "12",
+   "ad": "6 sa momentum + ATR iz (AdaptiveTrend)",
+   "durum": "elendi",
+   "n_varyant": 12,
+   "tahmin": false,
+   "kanit": "tests/test12-6sa-momentum-report.md: N4/8/12 × ilk24/30 × long/short/ikisi = 12 kurulum"
+  },
+  {
+   "id": "13",
+   "ad": "mom6h faktörü",
+   "durum": "elendi",
+   "n_varyant": 6,
+   "tahmin": true,
+   "kanit": "tests/test13-mom6h-report.md: 4/8/12 mum × 4/24 sa ufuk"
+  },
+  {
+   "id": "14",
+   "ad": "Trend sepeti 2,5 ATR iz stop",
+   "durum": "elendi",
+   "n_varyant": 8,
+   "tahmin": false,
+   "kanit": "tests/test14-trend-iz-stop-report.md: 4 varyant × tv 1,4/0,8"
+  },
+  {
+   "id": "15",
+   "ad": "Geri çekilme zaman stopu",
+   "durum": "elendi",
+   "n_varyant": 8,
+   "tahmin": false,
+   "kanit": "tests/test15-dip-zaman-report.md: 8 varyant satırı"
+  },
+  {
+   "id": "16",
+   "ad": "Masa koşucusu ATR iz stopu",
+   "durum": "elendi",
+   "n_varyant": 8,
+   "tahmin": false,
+   "kanit": "tests/test16-iz-stop-report.md: 4 kural × 8 sa/24 sa zaman stopu"
+  },
+  {
+   "id": "17",
+   "ad": "15 dk akış puanı (coinler arası)",
+   "durum": "elendi",
+   "n_varyant": 46,
+   "tahmin": true,
+   "kanit": "tests/test17-akis-puani-report.md: 5 bileşen+eşit ağırlık × beşte bir/onda bir × maker/taker (35+11 satır)"
+  },
+  {
+   "id": "18",
+   "ad": "Haftalık dip + hacim + kalabalık short",
+   "durum": "elendi",
+   "n_varyant": 9,
+   "tahmin": false,
+   "kanit": "test listesi: 'kural 9 denemeden seçildi' (tarama ONCU ayrı)"
+  },
+  {
+   "id": "19",
+   "ad": "Denklem 1 (109 değişken LightGBM)",
+   "durum": "elendi",
+   "n_varyant": 500,
+   "tahmin": true,
+   "kanit": "dongu/2026-10-08-denklem.md: 4 × 109 tek değişken×seans + 52 çift etkileşim + ~10 model"
+  },
+  {
+   "id": "20",
+   "ad": "Emir defteri derinliği",
+   "durum": "elendi",
+   "n_varyant": 42,
+   "tahmin": true,
+   "kanit": "denklem-vwap-report: 10 derinlik değişkeni × 4 + derinlikli/derinliksiz model"
+  },
+  {
+   "id": "21",
+   "ad": "Sinir ağı v1",
+   "durum": "elendi",
+   "n_varyant": 3,
+   "tahmin": false,
+   "kanit": "denklem-nn-report: ağ tablo / tablo+dizi / LightGBM"
+  },
+  {
+   "id": "22",
+   "ad": "Makro takvim (FOMC/CPI/NFP)",
+   "durum": "elendi",
+   "n_varyant": 12,
+   "tahmin": true,
+   "kanit": "olay-etkisi-report A: 3 olay × ufuk/yön"
+  },
+  {
+   "id": "23",
+   "ad": "Seans/saat/gün + Asya aralığı kırılımı",
+   "durum": "elendi",
+   "n_varyant": 33,
+   "tahmin": true,
+   "kanit": "olay-etkisi-report C: 24 saat + 7 gün + Asya kırılımı"
+  },
+  {
+   "id": "24",
+   "ad": "Günlük coinler arası faktörler 7/30 g",
+   "durum": "elendi",
+   "n_varyant": 26,
+   "tahmin": true,
+   "kanit": "olay-etkisi-report D/E: 12+11 faktör satırı + E simülasyonu"
+  },
+  {
+   "id": "25",
+   "ad": "Seans açılışı kalıpları + stoplu Asya kırılımı",
+   "durum": "elendi",
+   "n_varyant": 70,
+   "tahmin": true,
+   "kanit": "seans-acilis-report (~21 kalıp×seans) + test25-asya-kirilim-report 7 grup × 7 varyant"
+  },
+  {
+   "id": "26",
+   "ad": "Denklem 3 (80 yeni değişken, ablasyon)",
+   "durum": "elendi",
+   "n_varyant": 83,
+   "tahmin": false,
+   "kanit": "denklem-ablasyon-report: 74 tek değişken + 9 model satırı"
+  },
+  {
+   "id": "27",
+   "ad": "Sinir ağı v2",
+   "durum": "elendi",
+   "n_varyant": 6,
+   "tahmin": true,
+   "kanit": "dongu/2026-10-09-denklem-3-ozet.md: ağ dizi±, LightGBM 202/127, 1/4 sa"
+  },
+  {
+   "id": "28",
+   "ad": "Limit emirle giriş",
+   "durum": "elendi",
+   "n_varyant": 92,
+   "tahmin": true,
+   "kanit": "tests/test28-limit-giris-report.md: 4 kalıp × ~23 limit/stop varyantı"
+  },
+  {
+   "id": "29",
+   "ad": "Çeyrek saat açılışı dengesizliği",
+   "durum": "elendi",
+   "n_varyant": 16,
+   "tahmin": true,
+   "kanit": "denklem4 m_i1*: ~4 değişken × 4 ufuk"
+  },
+  {
+   "id": "30",
+   "ad": "Fonlama taşıması",
+   "durum": "elendi",
+   "n_varyant": 26,
+   "tahmin": false,
+   "kanit": "tests/test30-fonlama-tasima-report.md: 26 ayar satırı (K×eşik×F×dengeleme×baz stopu×maliyet)"
+  },
+  {
+   "id": "31",
+   "ad": "Pompa dönüşü short 24 sa",
+   "durum": "elendi",
+   "n_varyant": 25,
+   "tahmin": true,
+   "kanit": "tests/test31-pompa-short-report.md: evren×boy×stop×yıl tabloları"
+  },
+  {
+   "id": "32",
+   "ad": "Sıralama modeli short sistemi",
+   "durum": "elendi",
+   "n_varyant": 63,
+   "tahmin": false,
+   "kanit": "tests/test32-ozan-short-report.md: özet tablosu 63 ayar"
+  },
+  {
+   "id": "33",
+   "ad": "Kıskaç / simetrik üçgen",
+   "durum": "elendi",
+   "n_varyant": 38,
+   "tahmin": true,
+   "kanit": "test33-kiskac-1h/1d-report: (7+7+5) × 2 zaman dilimi"
+  },
+  {
+   "id": "34",
+   "ad": "BVOL ima edilen oynaklık",
+   "durum": "elendi",
+   "n_varyant": 42,
+   "tahmin": true,
+   "kanit": "bvol-report: 27 IC satırı + 15 beşlik"
+  },
+  {
+   "id": "35",
+   "ad": "Büyük işlem akışı (aggTrades)",
+   "durum": "elendi",
+   "n_varyant": 47,
+   "tahmin": true,
+   "kanit": "aggflow-report 21+17 IC + test35 9 model"
+  },
+  {
+   "id": "36",
+   "ad": "Dış günlük veriler + makro (Yahoo)",
+   "durum": "izlemede",
+   "n_varyant": 207,
+   "tahmin": true,
+   "kanit": "dis-veri-report 27 seri × 3 ufuk (~81) + test36 '126 deneme'"
+  },
+  {
+   "id": "37",
+   "ad": "Kaggle model hijyeni (ızgara, seçim, karışım)",
+   "durum": "elendi",
+   "n_varyant": 44,
+   "tahmin": true,
+   "kanit": "test37 18 ayar + seçim 2 + rank-deneme 9 + denklem4-blend 15"
+  },
+  {
+   "id": "38",
+   "ad": "Hyperliquid trader kalıcılığı",
+   "durum": "elendi",
+   "n_varyant": 16,
+   "tahmin": true,
+   "kanit": "dongu/2026-10-10-hyperliquid-trader.md: 4 grup × 4/12 sa × birkaç ölçü"
+  },
+  {
+   "id": "39",
+   "ad": "İlgi verisi (Trends/Wikipedia)",
+   "durum": "izlemede",
+   "n_varyant": 45,
+   "tahmin": true,
+   "kanit": "test39-ilgi-report: 15+6+15+3+7 satır"
+  },
+  {
+   "id": "40",
+   "ad": "Ufuk 12/24/72 sa",
+   "durum": "elendi",
+   "n_varyant": 12,
+   "tahmin": true,
+   "kanit": "test40-ufuk-report: 3 ufuk × stop 3/4 ATR/stopsuz"
+  },
+  {
+   "id": "41",
+   "ad": "Çıkış varyantları",
+   "durum": "elendi",
+   "n_varyant": 9,
+   "tahmin": false,
+   "kanit": "test41-cikis-report: 9 satır"
+  },
+  {
+   "id": "42",
+   "ad": "Pompa short + kalabalık süzgeci",
+   "durum": "aday",
+   "n_varyant": 6,
+   "tahmin": true,
+   "kanit": "#31 verisinde eşik %10–30 dilimleri; değişken veriye bakılarak seçildi"
+  },
+  {
+   "id": "43",
+   "ad": "72 sa Ozan alt onluk ∧ masa short",
+   "durum": "aday",
+   "n_varyant": 40,
+   "tahmin": true,
+   "kanit": "test43-72sa-report: 65 satır (rastgele/tabanlar hariç ~40)"
+  },
+  {
+   "id": "44",
+   "ad": "Birleşim masa+24 sa+limit+7 g",
+   "durum": "elendi",
+   "n_varyant": 58,
+   "tahmin": false,
+   "kanit": "test44-birlesim(-x1)-report: 29 küme×giriş satırı × 2 stop"
+  },
+  {
+   "id": "45",
+   "ad": "Masa 'gir' ile Kaplumbağa",
+   "durum": "elendi",
+   "n_varyant": 8,
+   "tahmin": true,
+   "kanit": "test45: 4 sistem × süzgeçli/süzgeçsiz"
+  },
+  {
+   "id": "46",
+   "ad": "Ozan en kötü onluk süzgeci",
+   "durum": "izlemede",
+   "n_varyant": 18,
+   "tahmin": true,
+   "kanit": "test46-ozan-suzgec-report: 2 model × 9 satır"
+  },
+  {
+   "id": "47",
+   "ad": "Long: masa+BTC24≤0+7 g, 24 sa, limit",
+   "durum": "aday",
+   "n_varyant": 6,
+   "tahmin": true,
+   "kanit": "#44 tablosunun long dilimi (±Ozan, 3 dolum); ana aile #44 (58) + #57 (9)"
+  },
+  {
+   "id": "48",
+   "ad": "Donchian topluluğu + oynaklık boyu",
+   "durum": "aday",
+   "n_varyant": 8,
+   "tahmin": false,
+   "kanit": "dongu/test48-49/test48-donchian-report.md: topluluk/tek × boy × SMA200 = 8"
+  },
+  {
+   "id": "49",
+   "ad": "Likidasyon dalgası sonrası ters",
+   "durum": "elendi",
+   "n_varyant": 23,
+   "tahmin": false,
+   "kanit": "dongu/test48-49/test49-likidasyon-report.md: 23 olay satırı (OI eşiği × ATR × ufuk)"
+  },
+  {
+   "id": "50",
+   "ad": "Günlük kırılımlar (Williams, 10/5) geniş evren",
+   "durum": "elendi",
+   "n_varyant": 46,
+   "tahmin": false,
+   "kanit": "test50-gunluk-kirilim(-iyimser)-report: 23 satır × 2"
+  },
+  {
+   "id": "51",
+   "ad": "Kaplumbağa SMA200 süzgecini kaldırma",
+   "durum": "elendi",
+   "n_varyant": 3,
+   "tahmin": false,
+   "kanit": "test51: bugünkü / süzgeçsiz / yarı risk"
+  },
+  {
+   "id": "52",
+   "ad": "Hacim profili şekilleri (D/P/b/B)",
+   "durum": "elendi",
+   "n_varyant": 54,
+   "tahmin": true,
+   "kanit": "dongu/2026-10-10-vp-sekilleri.md: '27 hipotez × dönem, iki ölçüt' (9 hipotez × 3 profil × 2)"
+  },
+  {
+   "id": "53",
+   "ad": "Kaplumbağa oynaklıkla boy",
+   "durum": "elendi",
+   "n_varyant": 4,
+   "tahmin": false,
+   "kanit": "dongu/test48-49/test50-kaplumbaga-boy-report.md: 4 satır"
+  },
+  {
+   "id": "54",
+   "ad": "Haftalık coinler arası momentum L−S",
+   "durum": "aday",
+   "n_varyant": 5,
+   "tahmin": true,
+   "kanit": "dongu/2026-10-10-yillar-ve-rejim.md: 4 geçiş geri bakışı + L−S"
+  },
+  {
+   "id": "55",
+   "ad": "Gece taraması 8 olay",
+   "durum": "elendi",
+   "n_varyant": 24,
+   "tahmin": false,
+   "kanit": "test55-gece-olaylar-report: 8 olay × 3 ufuk"
+  },
+  {
+   "id": "56",
+   "ad": "Yeni listelenen coin short",
+   "durum": "elendi",
+   "n_varyant": 8,
+   "tahmin": false,
+   "kanit": "test56-yeni-liste-report: 4 pencere × ±felaket stopu"
+  },
+  {
+   "id": "57",
+   "ad": "24 sa long için gün içi çıkışlar",
+   "durum": "elendi",
+   "n_varyant": 9,
+   "tahmin": false,
+   "kanit": "test57-cikis-24sa-report: L0–L7 + L4b"
+  },
+  {
+   "id": "58",
+   "ad": "Grid / DCA / pazar şablonları",
+   "durum": "elendi",
+   "n_varyant": 30,
+   "tahmin": true,
+   "kanit": "dongu/grid-pazar: grid 18 ayar + DCA ~3 + şablon 9"
+  },
+  {
+   "id": "59",
+   "ad": "BTC öncülüğü + maker limit",
+   "durum": "elendi",
+   "n_varyant": 24,
+   "tahmin": false,
+   "kanit": "test59-btc-onculuk-limit-report: 4 giriş × 3 yön × 2 ufuk"
+  },
+  {
+   "id": "60",
+   "ad": "Pattern taraması",
+   "durum": "elendi",
+   "n_varyant": 1795,
+   "tahmin": false,
+   "kanit": "dongu/2026-10-10-pattern-taramasi.md: 'Toplam 1.795 test'"
+  },
+  {
+   "id": "61",
+   "ad": "Günlük →→↓↓ sonrası long",
+   "durum": "elendi",
+   "n_varyant": 5,
+   "tahmin": false,
+   "kanit": "test61-yatay-dusus-long-report: 5 tanım (#60'tan seçildi)"
+  },
+  {
+   "id": "62",
+   "ad": "İstatistiksel arbitraj",
+   "durum": "elendi",
+   "n_varyant": 7,
+   "tahmin": false,
+   "kanit": "stat-arb/stat-arb-2026-10-11.md: 7 varyant (rastgele hariç)"
+  },
+  {
+   "id": "63",
+   "ad": "ICT Silver Bullet",
+   "durum": "elendi",
+   "n_varyant": 72,
+   "tahmin": false,
+   "kanit": "silver-bullet-2026-10-11.md: 24 varyant 1 dk + 24 varyant 5 dk + 24 saat penceresi"
+  },
+  {
+   "id": "64",
+   "ad": "Data Trader Stoch+RSI+MACD 4 sa",
+   "durum": "izlemede",
+   "n_varyant": 37,
+   "tahmin": false,
+   "kanit": "sm-report 3 zaman dilimi + sm-robust 12 komşu+2 evren dışı + sm-aday ~20 (plasebo hariç)"
+  },
+  {
+   "id": "65",
+   "ad": "Ichimoku 4 sa",
+   "durum": "sepet",
+   "n_varyant": 32,
+   "tahmin": false,
+   "kanit": "sm-report 3 + sm-robust 7+2 + sm-aday ~20 (plasebo hariç); ailesi SM ≈167"
+  },
+  {
+   "id": "66",
+   "ad": "KoshkahFX SMC",
+   "durum": "elendi",
+   "n_varyant": 12,
+   "tahmin": false,
+   "kanit": "koshkahfx-tablolar: 4 hedef varyantı × 3 dolum"
+  },
+  {
+   "id": "67",
+   "ad": "Opsiyon RR25 → long",
+   "durum": "aday",
+   "n_varyant": 200,
+   "tahmin": true,
+   "kanit": "opsiyon-tablolar: 17 gösterge×2 coin×3 ufuk IC (~100) + 34×2 işlem kuralı + 24 sağlamlık + vade testleri"
+  },
+  {
+   "id": "68",
+   "ad": "Hacim patlaması + 24 sa yönü",
+   "durum": "elendi",
+   "n_varyant": 24,
+   "tahmin": true,
+   "kanit": "traderlar/en-iyilerin-stratejileri: eşik 1,5–3 × 24/48/72 sa × momentum/ters"
+  },
+  {
+   "id": "69",
+   "ad": "Growi tarzı maker geri dönüş",
+   "durum": "elendi",
+   "n_varyant": 10,
+   "tahmin": false,
+   "kanit": "traderlar/maker-testi: 10 ayar (rastgele hariç)"
+  },
+  {
+   "id": "70",
+   "ad": "Portföy oynaklık hedefi",
+   "durum": "elendi",
+   "n_varyant": 12,
+   "tahmin": false,
+   "kanit": "test70-portfoy-oynaklik-report: 3 seri × (sabit + 3 hedef)"
+  },
+  {
+   "id": "71",
+   "ad": "ICT HTF bias → CISD",
+   "durum": "elendi",
+   "n_varyant": 30,
+   "tahmin": true,
+   "kanit": "ict-cisd-tablolar: ~30 varyant satırı (bias×kol×giriş×R×zaman dilimi)"
+  },
+  {
+   "id": "72",
+   "ad": "Deneme kaydı + DSR",
+   "durum": "bekliyor",
+   "n_varyant": 0,
+   "tahmin": false,
+   "kanit": "yöntem, test değil"
+  },
+  {
+   "id": "73",
+   "ad": "Altcoin OI payı rejim süzgeci",
+   "durum": "bekliyor",
+   "n_varyant": 0,
+   "tahmin": false,
+   "kanit": "henüz koşulmadı"
+  },
+  {
+   "id": "SM-diger",
+   "ad": "Sosyal medya taraması: diğer 33 strateji",
+   "durum": "elendi",
+   "n_varyant": 98,
+   "tahmin": false,
+   "kanit": "sm-report 88 ayar − DT/Ichimoku 6 + sm-robust RSI/altın kesişim 16; sm-aday 'toplam yaklaşık 167 ayar'"
+  },
+  {
+   "id": "KS",
+   "ad": "Kalite short sepeti (CLAUDE.md'de 'test #52')",
+   "durum": "sepet",
+   "n_varyant": 88,
+   "tahmin": true,
+   "kanit": "test52-ozan-kalite-72sa 42 (rastgele hariç) + test52-portfoy 27 + birleşik 12 + ozan-kalite 7 hedef; 'Risk/N 9 denemeden'"
+  },
+  {
+   "id": "TT",
+   "ad": "Kaplumbağa sepeti (günlük geniş evren)",
+   "durum": "sepet",
+   "n_varyant": 32,
+   "tahmin": false,
+   "kanit": "tests/daily-wide-report.md: 28 sistem×yön×süzgeç×piramit + 'boyut 4 denemeden'"
+  },
+  {
+   "id": "DIP",
+   "ad": "Geri çekilme sepeti",
+   "durum": "sepet",
+   "n_varyant": 288,
+   "tahmin": false,
+   "kanit": "CLAUDE.md: '288 ayardan seçildi' (research-highwr)"
+  },
+  {
+   "id": "TREND",
+   "ad": "Trend sepeti (TSMOM, tv seçimi)",
+   "durum": "sepet",
+   "n_varyant": 20,
+   "tahmin": true,
+   "kanit": "research-daily (TSMOM/Donchian/DCA ~8) + research-leverage tvs [0,4…2,4] + fren"
+  },
+  {
+   "id": "KOV",
+   "ad": "Kovner sepeti",
+   "durum": "sepet",
+   "n_varyant": 2,
+   "tahmin": false,
+   "kanit": "CLAUDE.md: parametreler kitaptan; 4 coin + 23 coin kıyası"
+  },
+  {
+   "id": "LEGENDS",
+   "ad": "Efsane trader kuralları (research-legends)",
+   "durum": "elendi",
+   "n_varyant": 8,
+   "tahmin": true,
+   "kanit": "tests/research-legends.js; Kovner seçildi"
+  },
+  {
+   "id": "AILELER",
+   "ad": "Neden kaybediyoruz: aileler (research-families/daily)",
+   "durum": "elendi",
+   "n_varyant": 10,
+   "tahmin": true,
+   "kanit": "CLAUDE.md: DCA, 4 sa Donchian, TSMOM, gecikmeli kopya, DCA 3–20x"
+  },
+  {
+   "id": "MASA-KAL",
+   "ad": "Masa kalibrasyonu (eşik, katsayı)",
+   "durum": "canlı",
+   "n_varyant": 20,
+   "tahmin": true,
+   "kanit": "masa-kalibrasyonu-2026-10-06.md §6: 6 eşik × 2 puanlama + üye katsayıları"
+  },
+  {
+   "id": "FAK",
+   "ad": "Faktör araştırması (research-factors + factor-ic)",
+   "durum": "canlı",
+   "n_varyant": 20,
+   "tahmin": true,
+   "kanit": "CLAUDE.md: ~10 faktör 15 dk + ~10 günlük kesitsel faktör"
+  },
+  {
+   "id": "K123",
+   "ad": "K1/K2/K3 geriye dönük testler",
+   "durum": "elendi",
+   "n_varyant": 30,
+   "tahmin": true,
+   "kanit": "backtest-compare 3 + explore 3 + k3-sweep ~10 + k3-factors ~15"
+  },
+  {
+   "id": "AUDIT",
+   "ad": "Sinyal denetimi (süpürme, VP)",
+   "durum": "elendi",
+   "n_varyant": 15,
+   "tahmin": true,
+   "kanit": "audit-sweeps, audit-vp: süpürme türleri, VAH/VAL/POC, %80 kuralı"
+  },
+  {
+   "id": "MTF-VOL",
+   "ad": "Zaman dilimi + hacim (Serkan/Yusuf)",
+   "durum": "canlı",
+   "n_varyant": 20,
+   "tahmin": true,
+   "kanit": "research-mtf-volume.js mtf|vol|uye okumaları"
+  },
+  {
+   "id": "KAYIP",
+   "ad": "Kayıp süzgeci (greedy kural seçimi)",
+   "durum": "canlı",
+   "n_varyant": 360,
+   "tahmin": true,
+   "kanit": "kayip-suzgeci-2026-10-10.md: ~45 değişken × 4 yüzdelik × 2 yön aday kural"
+  },
+  {
+   "id": "HATA",
+   "ad": "Hata örneklemi (günlük döngü)",
+   "durum": "izlemede",
+   "n_varyant": 225,
+   "tahmin": true,
+   "kanit": "hata-orneklemi: ~45 parametre × 5 dilim, açgözlü 'girme' kuralları"
+  },
+  {
+   "id": "LESSONS",
+   "ad": "Stop ×2 tekrar oynatma (research-lessons)",
+   "durum": "canlı",
+   "n_varyant": 6,
+   "tahmin": true,
+   "kanit": "CLAUDE.md masterplan adım 1"
+  },
+  {
+   "id": "MASA-KAPL",
+   "ad": "Masa Kaplumbağa sinyalleri (8 Ekim)",
+   "durum": "elendi",
+   "n_varyant": 14,
+   "tahmin": true,
+   "kanit": "tests/masa-kaplumbaga-report.md: 6+8 satır"
+  },
+  {
+   "id": "ONCU",
+   "ad": "Öncü izler taraması (research-oncu)",
+   "durum": "elendi",
+   "n_varyant": 61,
+   "tahmin": true,
+   "kanit": "tests/research-oncu-report.md: 38+15+8 satır"
+  },
+  {
+   "id": "AKIS15",
+   "ad": "15 dk akış araştırması (research-15m-flow)",
+   "durum": "elendi",
+   "n_varyant": 32,
+   "tahmin": true,
+   "kanit": "tests/research-15m-flow-report.md: 16 × 2 ufuk"
+  },
+  {
+   "id": "TELEGRAM",
+   "ad": "Telegram sinyal kanalları",
+   "durum": "elendi",
+   "n_varyant": 14,
+   "tahmin": false,
+   "kanit": "tests/sm-signals-report.md: 7 kanal × A/B yönetimi"
+  },
+  {
+   "id": "PUAN-MODEL",
+   "ad": "Puanı öğrenen model (masa-model)",
+   "durum": "elendi",
+   "n_varyant": 4,
+   "tahmin": true,
+   "kanit": "masa-model-report: puan, ridge, LightGBM"
+  },
+  {
+   "id": "DENKLEM4",
+   "ad": "Denklem 4 (284 değişken, NN v3, lambdarank)",
+   "durum": "canlı",
+   "n_varyant": 360,
+   "tahmin": true,
+   "kanit": "denklem4-model 82 değişken × 4 ufuk + LGB/NN/arındırılmış/lambdarank varyantları"
+  },
+  {
+   "id": "OZAN",
+   "ad": "Ozan sıralama modeli",
+   "durum": "canlı",
+   "n_varyant": 11,
+   "tahmin": true,
+   "kanit": "rank-model 2 ufuk + rank-deneme 9"
+  },
+  {
+   "id": "UYE",
+   "ad": "Eğitilmiş üyeler (lambdarank aileleri)",
+   "durum": "canlı",
+   "n_varyant": 55,
+   "tahmin": true,
+   "kanit": "uye-lambdarank 13 + uye-ek 11 + evren100 ~20 + uye-karar eşikleri"
+  },
+  {
+   "id": "GUNICI",
+   "ad": "Gün içi kâr anahtarı 1-2",
+   "durum": "elendi",
+   "n_varyant": 120,
+   "tahmin": true,
+   "kanit": "gun-ici-anahtar 83 + gun-ici-anahtar2 65 satır (dönem tekrarları çıkınca ~120)"
+  },
+  {
+   "id": "SEPET-SUZ",
+   "ad": "Sepet süzgeci (model sırası)",
+   "durum": "elendi",
+   "n_varyant": 21,
+   "tahmin": false,
+   "kanit": "sepet-suzgec-report: 3 sepet × 7 satır"
+  },
+  {
+   "id": "#76",
+   "ad": "Perp primi (baz) L−S",
+   "durum": "elendi",
+   "n_varyant": 2,
+   "tahmin": false,
+   "kanit": "test76-baz-report: 1 g ve 7 g tutuş"
+  },
+  {
+   "id": "#77",
+   "ad": "Kategori momentumu",
+   "durum": "elendi",
+   "n_varyant": 4,
+   "tahmin": false,
+   "kanit": "test77-kategori-report: 7/30 g × LO−EW/LS"
+  },
+  {
+   "id": "#80",
+   "ad": "Hızlı Kaplumbağa",
+   "durum": "izlemede",
+   "n_varyant": 6,
+   "tahmin": false,
+   "kanit": "test80-hizli-kaplumbaga-report: 6 varyant + 3 karışım"
+  },
+  {
+   "id": "#81",
+   "ad": "Aşırı fonlama → 72 sa",
+   "durum": "elendi",
+   "n_varyant": 2,
+   "tahmin": false,
+   "kanit": "test81-fonlama-72-report"
+  },
+  {
+   "id": "#82",
+   "ad": "OI patlaması → 24/72 sa",
+   "durum": "izlemede",
+   "n_varyant": 20,
+   "tahmin": false,
+   "kanit": "test82-oi-patlama-report: 2 olay × 2 ufuk × 5 eşik"
+  },
+  {
+   "id": "#83",
+   "ad": "Ozan sırası günlük 24/72 sa",
+   "durum": "elendi",
+   "n_varyant": 6,
+   "tahmin": true,
+   "kanit": "test83-ozan-gunluk-report"
+  },
+  {
+   "id": "#84",
+   "ad": "Aşırı negatif fonlamada long 24 sa",
+   "durum": "izlemede",
+   "n_varyant": 4,
+   "tahmin": false,
+   "kanit": "test84-85-fonlama-oi-report: 2 eşik × 2 yön"
+  },
+  {
+   "id": "#85",
+   "ad": "OI × fiyat dört bölge",
+   "durum": "elendi",
+   "n_varyant": 8,
+   "tahmin": false,
+   "kanit": "test84-85-fonlama-oi-report: 4 bölge × 2 ufuk"
+  },
+  {
+   "id": "#86",
+   "ad": "Likiditeye göre bölünmüş geri dönüş",
+   "durum": "elendi",
+   "n_varyant": 8,
+   "tahmin": false,
+   "kanit": "test86-likidite-donus-report: 2 grup × 2 yön × 2 ufuk"
+  },
+  {
+   "id": "#87",
+   "ad": "MAE/MFE stop–hedef ızgarası",
+   "durum": "elendi",
+   "n_varyant": 50,
+   "tahmin": false,
+   "kanit": "test87-mae-mfe-report: zaman × stop × hedef"
+  },
+  {
+   "id": "#88",
+   "ad": "Fonlama tavanı olayı",
+   "durum": "izlemede",
+   "n_varyant": 4,
+   "tahmin": false,
+   "kanit": "test88-fonlama-tavani-report: 2 yön × 2 ufuk"
+  },
+  {
+   "id": "#89",
+   "ad": "Spot–perp taker akışı ayrışması",
+   "durum": "elendi",
+   "n_varyant": 6,
+   "tahmin": false,
+   "kanit": "test89-spot-perp-report: 3 koşul × 2 bacak"
+  },
+  {
+   "id": "#90",
+   "ad": "BTC çeyreklik baz kapısı",
+   "durum": "elendi",
+   "n_varyant": 2,
+   "tahmin": false,
+   "kanit": "test90-ceyrek-baz-report: 2 bayrak"
+  },
+  {
+   "id": "#91",
+   "ad": "Korelasyon sıçraması kapısı",
+   "durum": "elendi",
+   "n_varyant": 1,
+   "tahmin": false,
+   "kanit": "test91-korelasyon-report"
+  },
+  {
+   "id": "#92",
+   "ad": "Fonlama saatine göre çıkış",
+   "durum": "elendi",
+   "n_varyant": 1,
+   "tahmin": false,
+   "kanit": "test92-fonlama-cikis-report"
+  },
+  {
+   "id": "#91b",
+   "ad": "Korelasyon kapısı Kaplumbağa portföyünde",
+   "durum": "elendi",
+   "n_varyant": 2,
+   "tahmin": false,
+   "kanit": "test91b-portfoy-report: A ve F, rastgele atlama 200 tohum"
+  }
+ ]
+}
