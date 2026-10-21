@@ -1,0 +1,8 @@
+[Unit]
+Description=SWEEP kodunu main dalından güncelle
+
+[Service]
+Type=oneshot
+Environment=SWEEP_USER=@USER@
+WorkingDirectory=@DIR@
+ExecStart=/usr/bin/env bash @DIR@/deploy/guncelle.sh
