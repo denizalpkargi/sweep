@@ -46,6 +46,10 @@ if [ "$OAGE2" -ge 30 ]; then el "Ozan yeniden eğitim"
     && node tests/rank-test.js | tail -1 && cp src/rankmodel-data.js "$OZ/rankmodel-data-$GUN.js" && touch "$OZ/son-egitim" || true
   git checkout -- src/rankmodel-data.js tests/data/rank-parity.json tests/rank-model-report.md 2>/dev/null || true; rm -f $ARCH/rank-*.f32; fi
 # 3) hata örneklemi: en yeni canlı kayıt (bilgisayardan çekilen state.json kopyası ya da elle yüklenen yedek)
+# Sunucudaki ekransız bot (deploy/yedek.sh) saatte bir özel depoya yazar; depo bu oturuma eklendiyse (CANLI_GIT, varsayılan ../sweep-canli) son kaydı al
+CANLI_GIT=${CANLI_GIT:-$(cd .. && pwd)/sweep-canli}
+if [ -d "$CANLI_GIT/.git" ]; then git -C "$CANLI_GIT" pull -q --ff-only 2>/dev/null || true
+  [ -f "$CANLI_GIT/canli-kayit/state-latest.json" ] && mkdir -p "$CANLI" && cp "$CANLI_GIT/canli-kayit/state-latest.json" "$CANLI/state-$GUN-sunucu.json"; fi
 LIVE=$(ls -t "$CANLI"/state-*.json "$PF"/sweep-yedek/sweep-geri-yukle*.json 2>/dev/null | head -1 || true)
 el "hata örneklemi (canlı: ${LIVE:-yok})"
 node tests/hata-orneklem.js --out "$CIKTI" --date "$GUN" ${LIVE:+--live "$LIVE"}
