@@ -5,15 +5,17 @@
    ve ağaçları src/rankmodel-data.js'e (RK_MODEL) yazar; rkTree burada değerlendirir (tests/rank-test.js Python tahminiyle birebir karşılaştırır).
    Değişkenler yalnız tarama satırında zaten çekilen veriden: 15 dk (son 100), 1 sa (60), 4 sa (60), 1 g (120), BTC 15 dk, OI 5 dk (24),
    büyük trader ve hesap long/short oranları (8), fonlama. Kapanmamış mum kullanılmaz.
-   Canlıda her coinin değişkenleri ve puanı rkCache'e yazılır; coinler arası yüzdelik dilim son 60 dk'da görülen coinlerden 24 sa hacimce ilk 30'a göre
-   (eğitim evreni: ayın ilk 30 coini). Oy: long için dilim < %10 → −1, < %20 → −0,5, > %80 → +0,2, > %90 → +0,4; short tersi; arası çekimser.
+   Canlıda her coinin değişkenleri ve puanı rkCache'e yazılır; coinler arası yüzdelik dilim son 60 dk'da görülen coinlerden 24 sa hacimce ilk 100'e göre
+   (eğitim evreni: ayın ilk 30 coini; 26 Ekim 2026'da evren 30 → 100: tests/uye-evren100-report.md'de ilk 30 ile eğitilen model 31–100. coinlerde
+   4 sa IC +0,054, 12 sa +0,064, beş pencerenin hepsinde artı, ilk 100 ile eğitilenle aynı; canlıda botun 160 işleminin 156'sında coin ilk 30 dışındaydı).
+   Oy: long için dilim < %10 → −1, < %20 → −0,5, > %80 → +0,2, > %90 → +0,4; short tersi; arası çekimser.
    Gölge: tahmin defterinde (forecast.js) ≥ 200 sonuç ve çarpan > 1 olana kadar oyu yazılır ama puana girmez. */
 const RK_FEATS=["z15","z1","z4","z24","rv","rvR","vwD24","vwD4","tk1","tk4","tk24","vq1","vq4","pos24","rng24","rsi15","bb15","jump","body1","lq24",
   "z48h","rsi1h","pos48h","z3d","z9d","rv4h","pos9d","tk9d","vqD","z14d","z30d","z90d","dS20","dS50","dS100","pos30d","vq7","ddHi90","rvD",
   "rel1","rel4","rel24","beta","corr","oi1","oi2","oiTurn","tp","tpCh","gl","glCh","fr"];
 // coinler arası yüzdelik dilim (aynı saatteki evren içinde) hesaplanan değişkenler: eğitimde pandas rank(pct) ile aynı tanım (rkPct)
 const RK_XS=["z1","z4","z24","vwD24","tk24","vq1","z9d","z30d","fr","oi1","lq24","rv"];
-const RK_CFG={top:30,maxAgeMin:60,minN:15,c:0.7,gateN:200};
+const RK_CFG={top:100,maxAgeMin:60,minN:15,c:0.7,gateN:200};
 const rkCache={};
 function rkSd(a,i0,i1,f){ let s=0,ss=0,n=0; for(let i=i0;i<i1;i++){ const r=f(i); if(!isFinite(r)) continue; s+=r; ss+=r*r; n++; } return n>2?Math.sqrt(Math.max(0,ss/n-(s/n)*(s/n))):NaN; }
 function rkRsi(a,e,p){ if(e<p+1) return NaN; let up=0,dn=0; for(let i=e-p;i<e;i++){ const d=a[i].c-a[i-1].c; if(d>0) up+=d; else dn-=d; } return up+dn>0?up/(up+dn):0.5; }
@@ -101,7 +103,7 @@ function rkGate(){ const L=(typeof FC!=="undefined"&&FC&&FC.learn&&FC.learn.agen
 function rkMember(A,dir,opts){ opts=opts||{}; const isL=dir==="long"; const D=isL?"long":"short";
   const R=opts.sym?rkScore(opts.sym,A,opts.now):null; const gate=rkGate();
   if(!R) return {v:0,c:0,abst:true,idle:true,txt:"model verisi yok",say:"Bu coin için değişkenlerim eksik, bu turda çekimserim."};
-  if(R.out) return {v:0,c:0,abst:true,idle:true,txt:`evren dışında (hacimce ${R.rank||"?"}.)`,say:`Model ayın en hacimli 30 coininde eğitildi; bu coin şu an hacimce ${R.rank||"?"}. sırada, yorum yapmam.`};
+  if(R.out) return {v:0,c:0,abst:true,idle:true,txt:`evren dışında (hacimce ${R.rank||"?"}.)`,say:`Yalnız 24 saatte en hacimli ${RK_CFG.top} coini sıralarım; bu coin şu an hacimce ${R.rank||"?"}. sırada, yorum yapmam.`};
   if(R.few) return {v:0,c:0,abst:true,idle:true,txt:`evren eksik (${R.n} coin)`,say:`Sıralamak için son bir saatte en az ${RK_CFG.minN} coin görmem lazım, şu an ${R.n}. Çekimserim.`};
   const p=isL?R.p:1-R.p; let v=0; if(p<0.1) v=-1; else if(p<0.2) v=-0.5; else if(p>0.9) v=0.4; else if(p>0.8) v=0.2;
   const pr=x=>isFinite(x)?"%"+Math.round(x*100):"—"; const where=`4 sa ${pr(R.p4)} · 12 sa ${pr(R.p12)} (${R.n} coin içinde)`;

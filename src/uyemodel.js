@@ -10,7 +10,7 @@
    Uyarı: model yön değil göreli sıra bilir; üyeler Ozan'ın parçaları olduğu için birbirine ve Ozan'a benzer (sıra korelasyonu 0,1–0,7).
    Evren genişliği (12 Ekim 2026; kullanıcı "model oyları tüm coinlerde devreye girmesin mi", sonra "ölçüp masayı güncelle" dedi): her ailenin `top` alanı
    (varsayılan 30) coinin hangi evrende sıralandığını söyler; top 100 olan aile ayın ilk 100 coiniyle eğitilmiştir (tests/uye-evren100.py → uye-evren100-report.md),
-   x_ dilimleri ve sıra da canlıda 24 sa hacimce ilk 100 içinde hesaplanır. Ozan (RK_MODEL) ilk 30'da kalır. */
+   x_ dilimleri ve sıra da canlıda 24 sa hacimce ilk 100 içinde hesaplanır. Ozan (RK_MODEL) da 26 Ekim 2026'dan beri ilk 100'de. */
 const UYE_CFG={c:0.8,gain:2.5,w:1};
 const UYE_LBL={liq:"likidite",check:"zaman dilimi uyumu",trend:"trend",mom:"kısa momentum",vol:"hacim",flow:"akış, OI, fonlama",macro:"BTC'ye göre",risk:"oynaklık"};
 function uyeOn(){ return typeof UYE_MODEL!=="undefined"&&!!UYE_MODEL&&!!UYE_MODEL.fams; }
