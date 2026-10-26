@@ -30,4 +30,12 @@ ok(E.SIG_RULES.every(r=>r.arsiv&&r.ad),'her kuralın arşiv satırı var');
 const seen=new Set(d.rows.map(E.sigKey)); ok(E.sigFresh(d.rows,seen).length===0,'görülenler yeni değil');
 bot.positions.push({sym:'LUSDT',dir:'long',entry:1,stop:0.9,openT:now}); const d2=E.sigCollect({bot,S,ulEv,px:()=>NaN,now});
 const fr=E.sigFresh(d2.rows,seen); ok(fr.length===1&&fr[0].sym==='LUSDT','yeni pozisyon yeni sinyal');
+// muadil kıyası
+{ const t0=now-10*D; const day=[...Array(12)].map((_,i)=>({t:Math.floor((t0-D)/D)*D+i*D,o:100+i,c:101+i}));
+  const b=E.sigBench({startT:t0,start:100,eq:150,eqHist:[{t:t0+D,v:120},{t:t0+2*D,v:90},{t:t0+3*D,v:150}],daily:{BTCUSDT:day},pxNow:{BTCUSDT:110},leaders:[{roi:50},{roi:200},{roi:10}],longVade:[{ad:'Kaplumbağa',eq:110,start:100},{ad:'Trend',eq:70,start:100}],baskets:[{eq:90,start:100},{eq:110,start:100},{eq:95,start:100}],now});
+  const g=k=>b.find(x=>x.k===k);
+  ok(Math.abs(g('masa').ret-0.5)<1e-9&&Math.abs(g('masa').dd-(90/120-1))<1e-9,'masa getirisi ve düşüşü');
+  ok(g('BTCUSDT')&&Math.abs(g('BTCUSDT').ret-(110/101-1))<1e-9&&!g('ETHUSDT'),'BTC al-tut başlangıç gününün açılışından; veri yoksa ETH yok');
+  ok(Math.abs(g('sepet').ret-(295/300-1))<1e-9&&Math.abs(g('lider').ret-0.5)<1e-9,'sepetler toplamı, lider medyanı');
+  ok(Math.abs(g('birlesik').ret-(0.8*0.5+0.2*(-0.1)))<1e-9&&b[1].k==='birlesik','birleşik: masa %80 + uzun vade %20'); }
 console.log('signals-test errors',errors); if(errors.length) process.exit(1);

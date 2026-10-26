@@ -38,3 +38,17 @@ function sigCollect(src){ const now=src.now||Date.now(), px=src.px||(()=>NaN), S
 // yeni sinyaller: önceki anahtar kümesinde olmayan, açık ya da alınmamış satırlar (bildirim için)
 function sigKey(x){ return x.k+"|"+x.sym+"|"+x.t; }
 function sigFresh(rows,seen){ return rows.filter(x=>(x.st==="açık"||x.st==="alınmadı"||x.st==="yaklaşan")&&!seen.has(sigKey(x))); }
+/* muadil kıyası: aynı başlangıçtan masa botu, BTC/ETH al-tut ve sepetler; kopya liderleri yalnız bilgi (90 gün, getiriye göre seçilmiş liste).
+   src: {startT, start, eq (şimdiki özkaynak), eqHist [{t,v}], daily {sym: [{t,o,c}] kapanmış günlük}, pxNow {sym}, leaders [{roi}], baskets [{ad,eq,start}], now} */
+function sigBench(src){ const now=src.now||Date.now(), t0=src.startT, out=[];
+  const ddOf=vs=>{ let pk=-Infinity, dd=0; for(const v of vs){ if(!(v>0)) continue; pk=Math.max(pk,v); dd=Math.min(dd,v/pk-1); } return dd; };
+  if(t0&&src.start>0&&src.eq>0){ const vs=[src.start].concat((src.eqHist||[]).filter(x=>x.t>=t0).map(x=>x.v),[src.eq]); out.push({k:"masa",ad:"Masa botu",ret:src.eq/src.start-1,dd:ddOf(vs),note:"kâğıt, masanın hesabı (Kalite short dahil)"}); }
+  for(const [sym,ad] of [["BTCUSDT","BTC al-tut"],["ETHUSDT","ETH al-tut"]]){ const d=(src.daily||{})[sym]; const x=(src.pxNow||{})[sym]; if(!t0||!d||!d.length||!(x>0)) continue;
+    const i=d.findIndex(b=>b.t+864e5>t0); if(i<0) continue; const p0=d[i].t<=t0?d[i].o:d[i].o; const vs=[p0].concat(d.slice(i).map(b=>b.c),[x]);
+    out.push({k:sym,ad,ret:x/p0-1,dd:ddOf(vs),note:"1x, aynı başlangıç"}); }
+  const bs=(src.baskets||[]).filter(b=>b.start>0&&b.eq>0); if(bs.length){ const e=bs.reduce((a,b)=>a+b.eq,0), s=bs.reduce((a,b)=>a+b.start,0); out.push({k:"sepet",ad:`Sepetler toplamı (${bs.length})`,ret:e/s-1,dd:null,note:"her biri ayrı 100 $; başlangıçları farklı"}); }
+  // birleşik portföy (plan adım 3): masa %80, uzun vade bölmesi (Kaplumbağa + Trend eşit) %20; başta bölünmüş, dengeleme yok
+  const m=out.find(x=>x.k==="masa"), lv=(src.longVade||[]).filter(b=>b.start>0&&b.eq>0);
+  if(m&&lv.length){ const w=src.wLong!=null?src.wLong:0.2; const r=lv.reduce((a,b)=>a+(b.eq/b.start-1),0)/lv.length; out.splice(1,0,{k:"birlesik",ad:`Birleşik: masa %${Math.round((1-w)*100)} + uzun vade %${Math.round(w*100)}`,ret:(1-w)*m.ret+w*r,dd:null,note:`uzun vade = ${lv.map(b=>b.ad).join(" + ")} (eşit), başlangıçta bölünmüş, dengeleme yok`}); }
+  const L=(src.leaders||[]).map(x=>+x.roi).filter(Number.isFinite).sort((a,b)=>a-b); if(L.length) out.push({k:"lider",ad:`Kopya liderleri (${L.length}, medyan)`,ret:L[L.length>>1]/100,dd:null,note:"Binance panosu, 90 gün, teminata göre ROI; getiriye göre seçilmiş liste, dönem farklı: kıyas değil, bilgi"});
+  return out; }
