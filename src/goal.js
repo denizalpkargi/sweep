@@ -76,9 +76,10 @@ function entryStages(x, ctx){
   let f2=null; if(x.veto) f2="veto: "+x.veto; else if(!(x.score>=thr)) f2=`puan ${pts(x.score)} < eşik ${pts(thr)}${gs.thrAdd?` (mod "${gs.mode}" eşiği +${pts(gs.thrAdd)})`:""}`; else if(x.yes<minYes) f2=`${x.yes} evet, ${minYes} gerekli`;
   add("kalite","Kerem",f2?"fail":grade==="C"?"warn":"ok",f2||`not ${grade} · puan ${pts(x.score)} · ${x.yes} evet · ${sweep?"süpürme var":"süpürme yok"} · ${of?"akış teyitli":"akış teyitsiz"}`);
   /* aşama 4 (sayaçlar önce): korelasyon ve bekleme */
-  const pos=ctx.positions||[]; const same=pos.filter(p=>p.dir===x.dir); const cap=Math.min(cfg.maxSameDir||9,au&&au.maxSameDir?au.maxSameDir:9);
-  const opens=pos.map(p=>({t:p.openT,dir:p.dir})).concat((ctx.trades||[]).map(t=>({t:t.openT,dir:t.dir}))); const lastSame=Math.max(0,...opens.filter(o=>o.dir===x.dir).map(o=>o.t||0));
-  const lastLoss=(ctx.trades||[]).filter(t=>t.r<0).reduce((a,t)=>Math.max(a,t.closeT||0),0); const gapLoss=cfg.aggr?0:Math.max(cfg.lossGapMin||0,au&&au.pauseMin||0);
+  // kalite short gibi yan pozisyonlar (side) aynı coin ve teminatta sayılır; masanın yer, aynı yön ve soğuma sayaçlarına girmez
+  const pos=ctx.positions||[], dpos=pos.filter(p=>!p.side), dtr=(ctx.trades||[]).filter(t=>!t.side); const same=dpos.filter(p=>p.dir===x.dir); const cap=Math.min(cfg.maxSameDir||9,au&&au.maxSameDir?au.maxSameDir:9);
+  const opens=dpos.map(p=>({t:p.openT,dir:p.dir})).concat(dtr.map(t=>({t:t.openT,dir:t.dir}))); const lastSame=Math.max(0,...opens.filter(o=>o.dir===x.dir).map(o=>o.t||0));
+  const lastLoss=dtr.filter(t=>t.r<0).reduce((a,t)=>Math.max(a,t.closeT||0),0); const gapLoss=cfg.aggr?0:Math.max(cfg.lossGapMin||0,au&&au.pauseMin||0);
   let f4=null; const twin=pos.find(p=>assetKey(p.sym)===assetKey(x.sym)); if(twin) f4=twin.sym===x.sym?"bu coinde zaten pozisyon var":`${twin.sym.replace("USDT","")} ile aynı varlık (${assetKey(x.sym)}), orada zaten pozisyon var`; else if(same.length>=cap) f4=`zaten ${same.length} ${x.dir} açık (sınır ${cap}); hepsi BTC ile birlikte hareket eder`;
   else if(lastSame&&now-lastSame<cfg.dirGapMin*60e3) f4=`${Math.round((now-lastSame)/60e3)} dk önce aynı yönde giriş yapıldı; aynı bahsi ikinci kez oynamamak için ${cfg.dirGapMin} dk ara`;
   else if(lastLoss&&now-lastLoss<gapLoss*60e3) f4=`son kayıp ${Math.round((now-lastLoss)/60e3)} dk önce; ${gapLoss} dk soğuma`;
@@ -87,10 +88,10 @@ function entryStages(x, ctx){
   const openRisk=pos.reduce((a,p)=>a+openRiskOf(p),0); const room=gs.eq*cfg.maxOpenRisk-openRisk; let f3=null, n3=[];
   if(riskUsd>room){ if(room<riskUsd*0.4) f3=`açık risk ${fx(openRisk,2)} $ (özkaynağın %${fx(openRisk/gs.eq*100,1)}); sınır %${fx(cfg.maxOpenRisk*100,0)}`; else { n3.push(`açık risk sınırı yüzünden risk ${fx(riskUsd,2)} → ${fx(room,2)} $`); riskUsd=room; } }
   const pl=x.com&&x.com.plan; const lev=Math.min(ctx.lev||cfg.lev||20,pl&&pl.lev||99); const notional=x.sd>0?riskUsd/x.sd:0, margin=notional/lev; const used=pos.reduce((a,p)=>a+(p.margin||0),0)+(ctx.reserved||0); const free=ctx.bal*0.95-used;
-  const need=Math.max(0,margin-free), slot=pos.length>=cfg.maxPos;
+  const need=Math.max(0,margin-free), slot=dpos.length>=cfg.maxPos;
   n3.unshift(`masanın güveni %${Math.round(cf.conf*100)} (puan payı %${Math.round(cf.s*100)}, not ${grade}) → risk %${fx(cf.pct*100,1)} (taban %${fx(cfg.risk*100,1)}, üst %${fx(Math.max(cfg.risk,cfg.riskMax||0)*100,1)})${cf.fcTxt?" · "+cf.fcTxt:""}`);
   if(gs.mode!=="normal") n3.push(gs.why); if(warn) n3.push(`${warn} uyarı: boy ×${fx(Math.pow(cfg.warnMult,warn),2)}`);
-  add("bütçe","Can",f3?"fail":(need>0||slot)?"warn":"ok",f3||`risk ${fx(riskUsd,2)} $ · pozisyon ${fx(notional,2)} $ · teminat ${fx(margin,2)} $ / boş ${fx(Math.max(0,free),2)} $${need>0?` · ${fx(need,2)} $ eksik`:""}${slot?` · ${pos.length}/${cfg.maxPos} yer dolu`:""}${n3.length?" · "+n3.join(" · "):""}`);
+  add("bütçe","Can",f3?"fail":(need>0||slot)?"warn":"ok",f3||`risk ${fx(riskUsd,2)} $ · pozisyon ${fx(notional,2)} $ · teminat ${fx(margin,2)} $ / boş ${fx(Math.max(0,free),2)} $${need>0?` · ${fx(need,2)} $ eksik`:""}${slot?` · ${dpos.length}/${cfg.maxPos} yer dolu`:""}${n3.length?" · "+n3.join(" · "):""}`);
   add("korelasyon","Murat",f4?"fail":"ok",f4||`aynı yönde ${same.length}/${cap} · son ${x.dir} girişi ${lastSame?Math.round((now-lastSame)/60e3)+" dk önce":"yok"}`);
   const warnBlock=au&&au.warnBlock&&warn>0; const tooMany=warn>cfg.maxWarn;
   const fail=st.find(s=>s.st==="fail"); const ok=!fail&&!warnBlock&&!tooMany;

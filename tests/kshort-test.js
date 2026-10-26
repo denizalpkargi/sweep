@@ -34,13 +34,14 @@ if(sf.length&&fs.existsSync(path.join(ARCH,'15m','BTCUSDT.csv'))){
 { const [f2,s2]=E.ksNeutral({prem:{markPrice:'1',lastFundingRate:'0.001'},depth:{x:1},trades:[1],oi5:[{sumOpenInterestValue:'9'}],noOI:false,k15:[1]},{toppos:[{longShortRatio:'2'}],glob:[{longShortRatio:'3'}],fund:[1],oi1h:[1],k1d:[1]});
   ok(f2.prem.lastFundingRate==='0'&&f2.prem.markPrice==='1'&&f2.depth===null&&f2.trades===null&&f2.noOI&&f2.k15.length===1,'ksNeutral: fonlama/defter/akış/OI nötr, mumlar kalır');
   ok(s2.noCrowd&&s2.toppos[0].longShortRatio==='1'&&s2.glob[0].longShortRatio==='1'&&s2.fund.length===0&&s2.oi1h===null&&s2.k1d.length===1,'ksNeutral: kalabalık/fonlama geçmişi nötr'); }
-// 5) sepet mekaniği
+// 5) sepet mekaniği (eski yol: sepet kendi pozisyonunu açar, toBot kapalı)
+const ksN=()=>{ const z=E.ksNew(); z.cfg.toBot=false; return z; };
 const T0=Date.UTC(2026,9,1,4); const cand=sd=>[{dir:'short',c:{...c0,plan:{sd}},x:x0},{dir:'long',c:{...c0,plan:{sd}},x:x0}];
-let s=E.ksNew(); s.preds=Array.from({length:300},(_,i)=>[T0-i*H,1e9]); // eşik çok yüksek → giriş yok
+let s=ksN(); s.preds=Array.from({length:300},(_,i)=>[T0-i*H,1e9]); // eşik çok yüksek → giriş yok
 let ev=E.ksDecide(s,'AUSDT',cand(0.02),100,T0); ok(!Object.keys(s.pos).length&&ev.some(e=>e.type==='skip'&&/eşiğin altında/.test(e.why)),'eşiğin altında giriş yok');
 ok(s.preds.length===302,'long ve short tahminleri eşik defterine yazılır');
-s=E.ksNew(); s.preds=Array.from({length:300},(_,i)=>[T0-i*H,-1e9]); const th=E.ksThr(s,T0); ok(th.src==='canlı'&&th.thr===-1e9,'≥ 300 canlı tahminde eşik canlıdan');
-ok(E.ksThr(E.ksNew(),T0).thr===E.KS_MODEL.thr30&&E.ksThr(E.ksNew(),T0).src==='arşiv','az canlı tahminde eşik arşivden (%30)');
+s=ksN(); s.preds=Array.from({length:300},(_,i)=>[T0-i*H,-1e9]); const th=E.ksThr(s,T0); ok(th.src==='canlı'&&th.thr===-1e9,'≥ 300 canlı tahminde eşik canlıdan');
+ok(E.ksThr(ksN(),T0).thr===E.KS_MODEL.thr30&&E.ksThr(ksN(),T0).src==='arşiv','az canlı tahminde eşik arşivden (%30)');
 ev=E.ksDecide(s,'AUSDT',cand(0.02),100,T0); const p=s.pos.AUSDT;
 ok(p&&ev.some(e=>e.type==='fill'),'short açıldı');
 ok(p&&Math.abs(p.e-100*(1-0.0003))<1e-9&&Math.abs(p.stop-p.e*1.04)<1e-9,'giriş kaymalı, stop 2 × sd üstünde');
@@ -48,7 +49,7 @@ ok(p&&Math.abs(p.qty*p.e*2*0.02-0.5)<1e-9,'risk bakiyenin %0,5i (0,5 $)');
 ok(p&&Math.abs(p.until-(T0+72*H))<1,'72 saat');
 E.ksDecide(s,'AUSDT',cand(0.02),101,T0+H); ok(Object.keys(s.pos).length===1,'aynı coinde ikinci short yok');
 for(const k of ['B','C','D','E','F']) E.ksDecide(s,k+'USDT',cand(0.02),50,T0+2*H); ok(Object.keys(s.pos).length===5,'en çok 5 short');
-const s2=E.ksNew(); s2.preds=s.preds.slice(); s2.cfg.lev=0.1; ev=E.ksDecide(s2,'ZUSDT',cand(0.02),100,T0); ok(!s2.pos.ZUSDT&&ev.some(e=>/nominal/.test(e.why||'')),'nominal sınırı');
+const s2=ksN(); s2.preds=s.preds.slice(); s2.cfg.lev=0.1; ev=E.ksDecide(s2,'ZUSDT',cand(0.02),100,T0); ok(!s2.pos.ZUSDT&&ev.some(e=>/nominal/.test(e.why||'')),'nominal sınırı');
 E.ksStep(s,{AUSDT:p.stop+0.01},T0+3*H,{}); const tA=s.trades.find(t=>t.sym==='AUSDT');
 ok(!s.pos.AUSDT&&tA&&tA.why==='stop'&&tA.R<-1&&tA.R>-1.2,'stop: ≈ −1R (maliyet dahil) '+(tA&&tA.R));
 const bf=s.bal; const all=v=>({BUSDT:v,CUSDT:v,DUSDT:v,EUSDT:v,FUSDT:v});
@@ -56,5 +57,24 @@ E.ksStep(s,all(50),s.fundT+8*H+1000,{BUSDT:0.001,CUSDT:0.001,DUSDT:0.001,EUSDT:0
 E.ksStep(s,all(49),T0+2*H+72*H,{}); ok(!Object.keys(s.pos).length&&s.trades.filter(t=>t.why==='72 sa').length===4,'72 saatte zaman çıkışı (A stopta, F 5 sınırına takıldı)');
 ok(s.trades.filter(t=>t.why==='72 sa').every(t=>t.R>0),'fiyat düşünce short kârda');
 const sm=E.ksSummary(s,{}); ok(sm.n===5&&sm.open===0&&Number.isFinite(sm.eq),'özet');
+// 6) sinyal masanın hesabına (26 Ekim 2026): sepet pozisyon açmaz, "signal" olayı; bot ksBotPos ile açar
+{ const sg=E.ksNew(); sg.preds=Array.from({length:300},(_,i)=>[T0-i*H,-1e9]); const ev6=E.ksDecide(sg,'AUSDT',cand(0.02),100,T0);
+  const sig=ev6.find(e=>e.type==='signal'); ok(sig&&!Object.keys(sg.pos).length&&sig.dir==='short'&&sig.sd===0.02&&sig.px===100,'toBot: sinyal olayı, sepette pozisyon yok');
+  const cfg={...E.BOT_CFG_DEF,ksMax:2,ksRisk:0.01}; const bot={bal:200,cfg,positions:[],orders:[]};
+  const o=E.ksBotPos(sig,100,bot,T0); const p=o.p;
+  ok(p&&p.side==='ks'&&p.model==='KALİTE'&&p.h24&&p.t1===null&&p.dir==='short','ksBotPos: hedefsiz yan pozisyon');
+  ok(p&&Math.abs(p.stop-p.entry*1.04)<1e-9&&Math.abs(p.risk-2)<1e-9&&Math.abs(p.qty*(p.stop-p.entry)-2)<1e-9,'stop 2 × sd, risk bakiyenin %1i');
+  ok(p&&p.expiresAt===T0+72*H&&p.holdH===72,'72 saat');
+  ok(p&&p.lev===E.levFor(0.04,cfg.lev),'kaldıraç stopa göre');
+  bot.positions.push(p); ok(/zaten pozisyon/.test(E.ksBotPos({...sig},100,bot,T0).why||''),'aynı coinde ikinci pozisyon yok');
+  bot.positions.push(E.ksBotPos({...sig,sym:'BUSDT'},100,bot,T0).p); ok(/en çok 2/.test(E.ksBotPos({...sig,sym:'CUSDT'},100,bot,T0).why||''),'en çok ksMax kalite short');
+  const st=E.paperStep(p,100,T0+73*H,cfg); ok(st.length===1&&st[0].k==='time'&&/72 saat/.test(st[0].t),'72 saatte zaman çıkışı');
+  ok(E.paperStep(p,p.stop+0.01,T0+H,cfg)[0].k==='stop','stop');
+  // masanın sayaçları yan pozisyonları saymaz: 2 kalite short + masa maxPos 2, aynı yönde 1 → masa short yine girebilir
+  const X={sym:'ZUSDT',dir:'short',score:0.6,yes:8,veto:null,sd:0.02,feat:{pool:1,of:2},com:{agents:[{id:'liq',v:0.8},{id:'flow',v:0.5}],plan:{lev:20}}};
+  const ctx={cfg:{...E.BOT_CFG_DEF,...E.GOAL_DEF,maxPos:2,maxSameDir:1},bal:200,start:100,eq:200,peak:200,positions:bot.positions,trades:[{sym:'BUSDT',dir:'short',side:'ks',r:-1,openT:T0,closeT:T0+60e3}],now:T0+120e3,thr:0.35,minYes:3,lev:20};
+  const es=E.entryStages(X,ctx); ok(!es.slot&&!/aynı yönde|zaten|soğuma|dk önce/.test(es.stages.find(z=>z.k==='korelasyon').txt.replace('aynı yönde 0','')),'yan pozisyonlar masanın yer/aynı yön/soğuma sayacına girmez: '+E.stagesTxt(es));
+  const es2=E.entryStages({...X,sym:'AUSDT'},ctx); ok(!es2.ok&&/bu coinde/.test(E.stagesTxt(es2)),'ama aynı coinde masa girmez');
+  ok(E.auditRun([{sym:'BUSDT',dir:'short',side:'ks',r:-1,openT:T0,closeT:T0+H}],[]).n===0,'Murat yan işlemleri saymaz'); }
 console.log('errors',errors);
 if(errors.length) process.exit(1);
