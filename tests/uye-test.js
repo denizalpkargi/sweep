@@ -41,7 +41,7 @@ ok(E2.uyeTop('trend')===100&&E2.uyeTop('mom')===30,'aile evren genişliği');
 for(let i=0;i<40;i++) E2.rkScore('S'+i+'USDT',fakeA(1+i*0.07),now); // hacim tohumla artar: S10–S39 ilk 30, S0–S9 31–40.
 { const a=fakeA(1+2*0.07), L=E2.committee(a,'long',0,{sym:'S2USDT',now,lf:false,l24:false,uye:true}); const tl=L.agents.find(x=>x.id==='trend'), ml=L.agents.find(x=>x.id==='mom');
   ok(tl.model,'top 100 ailesi 31–100. coinde modelle oy vermeli'); ok(!ml.model,'top 30 ailesi 31–100. coinde kural oyu'); ok(/40 coin içinde/.test(tl.txt),'top 100 ailesi 40 coin içinde sıralar: '+tl.txt);
-  const R=E2.rkScore('S2USDT',a,now); ok(R&&R.out&&R.fam&&R.fam.trend&&!R.fam.mom,'Ozan evren dışında, aile sonucu yine döner'); }
+  const R=E2.rkScore('S2USDT',a,now); ok(R&&!R.out&&R.n===40&&isFinite(R.p)&&R.fam&&R.fam.trend&&!R.fam.mom,'Ozan da ilk 100 içinde sıralar (26 Ekim 2026), aile sonucu yine döner'); }
 { const a=fakeA(1+20*0.07), L=E2.committee(a,'long',0,{sym:'S20USDT',now,lf:false,l24:false,uye:true}); ok(L.agents.find(x=>x.id==='trend').model&&L.agents.find(x=>x.id==='mom').model,'ilk 30 coinde iki aile de modelle'); }
 // 4) Python ↔ JS (bilgisayarda dışa aktarıldıysa); ilk 100 ailesi kendi satırlarıyla (P.rows100)
 const M=E0.UYE_MODEL; const par=path.join(__dirname,'data','uye-parity.json');
