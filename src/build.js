@@ -99,6 +99,9 @@ if(!eng.includes('function ksScan')||!eng.includes('const KS_MODEL')) throw new 
 // açılım short sepeti ve long vetosu (15 Ekim 2026): dip.js DAY_MS'i kullanır
 eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'unlock.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function ulStep')) throw new Error('unlock insert failed');
+// tek sinyal ekranı (26 Ekim 2026): bütün kuralların sinyalleri ve karnesi
+eng=eng.replace(`// backtest: every completed sequence in the history`, ()=>rd(P+'signals.js','utf8')+`\n// backtest: every completed sequence in the history`);
+if(!eng.includes('function sigCollect')) throw new Error('signals insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'account.js','utf8')+`\n// backtest: every completed sequence in the history`);
 if(!eng.includes('function acctStart')) throw new Error('account insert failed');
 eng=eng.replace(`// backtest: every completed sequence in the history`, rd(P+'leaders.js','utf8')+`\n// backtest: every completed sequence in the history`);

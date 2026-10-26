@@ -314,6 +314,7 @@ table.t tr.near td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
 
   <section class="drawer closed" id="drawer">
     <div class="bar" role="tablist">
+      <button role="tab" data-t="sig" aria-selected="false">Sinyaller</button>
       <button role="tab" data-t="scan" aria-selected="true">Tarayıcı</button>
       <button role="tab" data-t="journal" aria-selected="false">Günlük</button>
       <button role="tab" data-t="story" aria-selected="false">Bugünün hikâyesi</button>
@@ -339,6 +340,7 @@ table.t tr.near td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
           <th data-k="s">Coin</th><th data-k="dir">Yön</th><th data-k="px">Fiyat</th><th data-k="c24">24s</th><th data-k="stage" class="sorted">AMD</th><th data-k="grade">Not</th><th data-k="consRank">Tutarlılık</th><th data-k="kz">Seans</th><th data-k="rr">Oran</th><th data-k="maxLev">Kaldıraç</th><th data-k="fund">Fonlama</th><th data-k="oi1h">OI 1s</th><th data-k="trend">Günlük</th><th data-k="qv">Hacim 24s</th>
         </tr></thead><tbody id="scanBody"><tr><td colspan="14" class="empty">Tarama henüz yapılmadı.</td></tr></tbody></table>
       </div>
+      <div id="dSig" hidden></div>
       <div id="dJournal" hidden></div>
       <div id="dBot" hidden></div>
       <div id="dLab" hidden></div>
@@ -3084,6 +3086,47 @@ function ulSummary(s,px){ const eq=ulEq(s,px), tr=s.trades, w=tr.filter(t=>t.R>0
     avgPct:tr.length?tr.reduce((a,t)=>a+t.r,0)/tr.length*100:null,open:Object.keys(s.pos).length,gross,fees:s.fees,funding:s.funding,
     cal:{at:ulCache.at,err:ulCache.err,n:ulCache.n,mapped:ulCache.mapped,ev:ulCache.ev.length},next}; }
 
+/* ---------- Tek sinyal ekranı (26 Ekim 2026) ----------
+   Kullanıcı: "benim derdim sinyal yakalamayı sağlayacak bir uygulama, yanında muadillerine göre daha yüksek getiri sağlayacak bir bot";
+   canlı birleşim incelemesinden sonra "senin tavsiyene göre ilerleyelim" (arastirma/birlesim-canli-2026-10-26.md, plan adım 2).
+   Masanın, Kalite short'un ve sepetlerin aldığı sinyaller tek akışta; her kuralın canlı karnesi ve arşiv kanıtı yan yana.
+   sigCollect saf: durumları okur, hiçbir şeyi değiştirmez. Arşiv satırları CLAUDE.md'deki sonuçların özeti; parametre değişince elle güncellenir. */
+const SIG_RULES=[
+  {k:"masa",ad:"Masa",yon:"iki yön",yer:"masanın hesabı",ufuk:"8 sa",arsiv:"arşivde (2024-06 → 2026-10, örneklem dışı) giriş başı −0,03R, rastgele girişten +0,02R iyi; kanıt yok"},
+  {k:"ks",ad:"Kalite short",yon:"short",yer:"masanın hesabı",ufuk:"72 sa",arsiv:"2022-01 → 2026-10 örneklem dışı +0,064R/işlem (masanın bütün short'ları +0,030R), son 12 ay +0,081R; haftalık t 1,5"},
+  {k:"tt",ad:"Kaplumbağa",yon:"long",yer:"ayrı sepet",ufuk:"günler–haftalar",arsiv:"2020-06'dan 362 işlem +1,49R, son 24 ay +0,46R; kazanç birkaç büyük trendden, medyan işlem eksi"},
+  {k:"ic",ad:"Ichimoku",yon:"iki yön",yer:"ayrı sepet",ufuk:"4 sa mumlar",arsiv:"10.229 işlem +0,077R, son 12 ay +0,066R, 7 yılın 7'si artı"},
+  {k:"ul",ad:"Açılım short",yon:"short",yer:"ayrı sepet",ufuk:"7 gün",arsiv:"2022'den 360 olay +3,16 %/işlem; aynı coinlerde rastgele hafta +1,25 %, açılıma özgü ≈ +1,9 %"},
+  {k:"dip",ad:"Geri çekilme",yon:"long",yer:"ayrı sepet",ufuk:"en çok 20 gün",arsiv:"978 işlem, kazanma %83, +1,14 %/işlem; 2025 +0,16 %, 2026 +0,03 %"},
+  {k:"kov",ad:"Sıkışma (Kovner)",yon:"long",yer:"ayrı sepet",ufuk:"günler",arsiv:"128 işlem +1,70R, son 2 yıl +0,51R; küçük coinlerde tutmadı"},
+  {k:"trend",ad:"Trend sepeti",yon:"long",yer:"ayrı sepet",ufuk:"günlük ağırlık",arsiv:"Nis 2020 → Eyl 2026 yıllık %102, en büyük düşüş −%43 (tv 0,8); tek tek sinyal değil, ağırlık"}];
+const SIG_BY=Object.fromEntries(SIG_RULES.map(r=>[r.k,r]));
+// src: {bot, S:{tt,ic,ks,ul,dip,kov,trend}, ulEv (açılım takvimi), px: sym → fiyat ya da NaN, now}
+function sigCollect(src){ const now=src.now||Date.now(), px=src.px||(()=>NaN), S=src.S||{}, bot=src.bot, rows=[];
+  const add=o=>{ const x=px(o.sym); if(o.st==="açık"&&x>0){ o.px=x; o.pct=o.dir*(x/o.e-1); if(o.stop>0&&Math.abs(o.e-o.stop)>0) o.R=o.dir*(x-o.e)/Math.abs(o.e-o.stop); } rows.push(o); };
+  if(bot){ for(const p of bot.positions||[]){ const k=p.side==="ks"?"ks":"masa"; add({k,t:p.openT,sym:p.sym,dir:p.dir==="long"?1:-1,e:p.entry0||p.entry,stop:p.stop,tp:p.t1||null,st:"açık",score:p.score,yes:p.yes,acct:"masa"}); }
+    for(const t of bot.trades||[]){ const k=t.side==="ks"?"ks":"masa"; rows.push({k,t:t.openT,closeT:t.closeT,sym:t.sym,dir:t.dir==="long"?1:-1,e:t.entry,st:"kapandı",R:t.r,pnl:t.pnl,why:(t.exits||[]).slice(-1)[0]||"",score:t.score,acct:"masa"}); } }
+  const dirOf=p=>p&&p.dir!=null?(p.dir>0||p.dir==="long"?1:-1):null;
+  const sleeve=(k,s,dflt)=>{ if(!s) return; for(const sym in s.pos||{}){ const p=s.pos[sym]; add({k,t:p.t,sym,dir:dirOf(p)||dflt,e:p.e,stop:p.stop||null,tp:p.tp||null,st:"açık",acct:"sepet",until:p.until||null}); }
+    for(const t of s.trades||[]) rows.push({k,t:t.t,closeT:t.closeT,sym:t.sym,dir:dirOf(t)||dflt,e:t.e,x:t.x,st:"kapandı",R:Number.isFinite(t.R)?t.R:null,pct:Number.isFinite(t.r)?t.r:(t.e>0&&t.x>0?(dirOf(t)||dflt)*(t.x/t.e-1):null),pnl:t.pnl,why:t.why||"",acct:"sepet"}); };
+  sleeve("tt",S.tt,1); sleeve("ic",S.ic,1); sleeve("ks",S.ks,-1); sleeve("ul",S.ul,-1); sleeve("dip",S.dip,1); sleeve("kov",S.kov,1);
+  // Kalite short sinyali geldi ama masanın hesabında açılmadı (bot kapalı, aynı coin, en çok 5, teminat)
+  if(S.ks&&bot){ for(const l of S.ks.log||[]){ if(l.type!=="signal"||now-l.t>7*864e5) continue; const took=(bot.positions||[]).concat(bot.trades||[]).some(p=>p.side==="ks"&&p.sym===l.sym&&Math.abs((p.openT||0)-l.t)<10*60e3);
+    if(!took) rows.push({k:"ks",t:l.t,sym:l.sym,dir:-1,e:l.px,st:"alınmadı",why:"masanın hesabında açılmadı (bot kapalı, aynı coinde pozisyon, en çok 5 ya da teminat)",acct:"masa"}); } }
+  // yaklaşan açılımlar: giriş penceresi önümüzdeki 7 gün
+  if(src.ulEv&&S.ul){ const c=S.ul.cfg||{}; for(const e of src.ulEv){ if(!(e.size>=(c.minSize||0.025)&&e.size<=(c.maxSize||1))) continue; const a=e.day-(c.preDays||7)*864e5;
+    if(a>now&&a-now<=7*864e5&&!(S.ul.pos||{})[e.sym]) rows.push({k:"ul",t:a,sym:e.sym,dir:-1,st:"yaklaşan",why:`${e.name||""} açılımı ${new Date(e.day).toISOString().slice(0,10)}, serbest arzın %${(e.size*100).toFixed(1)}'i`,acct:"sepet"}); } }
+  rows.sort((a,b)=>b.t-a.t);
+  const cards=SIG_RULES.map(r=>{ const rs=rows.filter(x=>x.k===r.k); const cl=rs.filter(x=>x.st==="kapandı"), op=rs.filter(x=>x.st==="açık");
+    const Rs=cl.filter(x=>Number.isFinite(x.R)).map(x=>x.R), Ps=cl.filter(x=>Number.isFinite(x.pct)).map(x=>x.pct); const mean=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:null;
+    const live={open:op.length,n:cl.length,avgR:mean(Rs),avgPct:mean(Ps),win:cl.length?cl.filter(x=>(Number.isFinite(x.R)?x.R:x.pct||0)>0).length/cl.length:null,pnl:cl.reduce((s,x)=>s+(+x.pnl||0),0),last:rs.length?Math.max(...rs.filter(x=>x.t<=now).map(x=>x.t),0)||null:null,miss:rs.filter(x=>x.st==="alınmadı").length};
+    if(r.k==="trend"&&S.trend){ live.eq=S.trend.bal; live.roi=S.trend.start>0?S.trend.bal/S.trend.start-1:null; }
+    return Object.assign({},r,{live}); });
+  return {rows,cards}; }
+// yeni sinyaller: önceki anahtar kümesinde olmayan, açık ya da alınmamış satırlar (bildirim için)
+function sigKey(x){ return x.k+"|"+x.sym+"|"+x.t; }
+function sigFresh(rows,seen){ return rows.filter(x=>(x.st==="açık"||x.st==="alınmadı"||x.st==="yaklaşan")&&!seen.has(sigKey(x))); }
+
 /* ---------- Hesap: Binance USDⓈ-M vadeli hesabını salt okunur izler ----------
    Anahtar ve gizli anahtar yalnızca bu cihazda tutulur (isteğe bağlı localStorage), imza tarayıcıda WebCrypto ile atılır, istekler doğrudan Binance'e gider.
    Yalnızca okuma uç noktaları: /fapi/v2/balance, /fapi/v2/positionRisk, /fapi/v1/openOrders, /fapi/v1/listenKey (kullanıcı veri akışı). Emir gönderen kod yoktur. */
@@ -4132,7 +4175,7 @@ function renderQuick(f){
 }
 function renderDrawer(A){
   if(!ui.drawerOpen) return;
-  if(ui.drawerTab==="story") renderStory(A); else if(ui.drawerTab==="stats") renderStats(A); else if(ui.drawerTab==="journal") renderJournal(); else if(ui.drawerTab==="bot") renderBot(); else if(ui.drawerTab==="account") renderAccount(); else if(ui.drawerTab==="lab") renderLab();
+  if(ui.drawerTab==="story") renderStory(A); else if(ui.drawerTab==="stats") renderStats(A); else if(ui.drawerTab==="journal") renderJournal(); else if(ui.drawerTab==="bot") renderBot(); else if(ui.drawerTab==="account") renderAccount(); else if(ui.drawerTab==="lab") renderLab(); else if(ui.drawerTab==="sig") renderSig();
 }
 function start(){
   clearInterval(state.timer); state.sym=$("sym").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,""); if(!state.sym.endsWith("USDT")) state.sym+="USDT"; $("sym").value=state.sym;
@@ -4163,7 +4206,7 @@ document.querySelectorAll("#scanTable th").forEach(th=>th.addEventListener("clic
 $("scanNow").addEventListener("click",runScan); $("onlyPick").addEventListener("change",renderScanTable); $("minVol").addEventListener("change",()=>{ if(!scan.running) runScan(); });
 function scheduleScan(){ clearInterval(scan.timer); const ev=+$("scanEvery").value; if(ev>0) scan.timer=setInterval(()=>{ if(!document.hidden||bot.on) runScan(); },ev); } // bot açıkken pencere küçük/örtülü olsa da tarama sürer (masa bayat satırlarla karar vermesin)
 $("scanEvery").addEventListener("change",scheduleScan);
-function setDrawer(open,tab){ ui.drawerOpen=open; if(tab) ui.drawerTab=tab; $("drawer").classList.toggle("closed",!open); $("drawerTgl").textContent=open?"▾":"▴"; document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.t===ui.drawerTab))); ["scan","journal","story","stats","strategy","bot","lab","ask","account"].forEach(t=>{ const el=$("d"+t[0].toUpperCase()+t.slice(1)); el.hidden=t!==ui.drawerTab; }); LS("st-drawer",open?ui.drawerTab:""); if(open&&state.lastA) renderDrawer(state.lastA); if(open&&ui.drawerTab==="journal") renderJournal(); if(open&&ui.drawerTab==="bot") renderBot(); if(open&&ui.drawerTab==="account") renderAccount(); if(open&&ui.drawerTab==="lab") renderLab(); if(open&&ui.drawerTab==="ask") renderAsk(); }
+function setDrawer(open,tab){ ui.drawerOpen=open; if(tab) ui.drawerTab=tab; $("drawer").classList.toggle("closed",!open); $("drawerTgl").textContent=open?"▾":"▴"; document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.t===ui.drawerTab))); ["sig","scan","journal","story","stats","strategy","bot","lab","ask","account"].forEach(t=>{ const el=$("d"+t[0].toUpperCase()+t.slice(1)); el.hidden=t!==ui.drawerTab; }); LS("st-drawer",open?ui.drawerTab:""); if(open&&state.lastA) renderDrawer(state.lastA); if(open&&ui.drawerTab==="journal") renderJournal(); if(open&&ui.drawerTab==="bot") renderBot(); if(open&&ui.drawerTab==="account") renderAccount(); if(open&&ui.drawerTab==="lab") renderLab(); if(open&&ui.drawerTab==="ask") renderAsk(); if(open&&ui.drawerTab==="sig") renderSig(); }
 document.querySelectorAll("#drawer .bar [role=tab]").forEach(b=>b.addEventListener("click",()=>setDrawer(true,b.dataset.t)));
 $("drawerTgl").addEventListener("click",()=>setDrawer(!ui.drawerOpen));
 $("dJournal").addEventListener("click",e=>{ const b=e.target.closest("button.jr"); if(!b) return; jrSet(b.dataset.id,b.dataset.act); renderJournal(); rerender(); });
@@ -4910,6 +4953,27 @@ function kovBind(){
   const t=$("kovTgl"); if(t) t.addEventListener("click",()=>{ kov.s.cfg.on=!kov.s.cfg.on; kovSave(kov.s); if(kov.s.cfg.on) kovRun(); renderBot(); });
   const r=$("kovReset"); if(r) r.addEventListener("click",()=>{ if(Object.keys(kov.s.pos).length&&!confirm("Sıkışma sepetindeki pozisyonlar silinip bakiye 100 $'a dönsün mü?")) return; const on=kov.s.cfg.on; kov.s=kovNew({on}); kovSave(kov.s); renderBot(); });
 }
+/* --- tek sinyal ekranı (src/signals.js, 26 Ekim 2026): bütün kuralların sinyalleri, canlı karne ve arşiv kanıtı; yeni sinyalde bildirim --- */
+const sigUi={seen:null,filt:"hepsi"};
+function sigData(){ const mp=sym=>{ const x=botLivePx(sym); if(x>0) return x; for(const o of [ks,tt,ic,ul,dip,kov]) if(o.px&&o.px[sym]>0) return o.px[sym]; return NaN; };
+  return sigCollect({bot,S:{tt:tt.s,ic:ic.s,ks:ks.s,ul:ul.s,dip:dip.s,kov:kov.s,trend:trend.s},ulEv:ulCache.ev,px:mp,now:Date.now()}); }
+function sigWatch(){ let d; try{ d=sigData(); }catch(e){ return; } const fresh=sigFresh(d.rows,sigUi.seen||new Set());
+  if(sigUi.seen){ for(const x of fresh.slice(0,3)){ const r=SIG_BY[x.k]; notify(`SWEEP · ${r.ad} ${x.dir>0?"LONG":"SHORT"} ${x.sym.replace("USDT","")}`,x.st==="yaklaşan"?x.why:`${x.st==="alınmadı"?"sinyal (alınmadı) ":"giriş "}${x.e?fmtP(x.e):""}${x.stop?" · stop "+fmtP(x.stop):""}`); } }
+  sigUi.seen=new Set(d.rows.map(sigKey)); if(ui.drawerOpen&&ui.drawerTab==="sig") renderSig(d); }
+function renderSig(d){ const el=$("dSig"); if(!el) return; try{ d=d||sigData(); }catch(e){ el.innerHTML=`<p class="down">${esc(String(e.message||e))}</p>`; return; }
+  const sg=v=>v==null||!isFinite(v)?"—":(v>0?"+":"")+fx(v,2); const cl=v=>v>0?"up":v<0?"down":""; const tm=t=>new Date(t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+  const card=c=>{ const L=c.live; const res=c.k==="trend"?(L.roi!=null?`<span class="${cl(L.roi)}">${pct(L.roi*100,1)}</span> özkaynak`:"—"):L.n?`${L.avgR!=null?`<span class="${cl(L.avgR)}">${sg(L.avgR)}R</span>`:`<span class="${cl(L.avgPct)}">${sg(L.avgPct*100)} %</span>`} · %${Math.round(L.win*100)} kazanma`:"—";
+    return `<tr><td><b>${esc(c.ad)}</b><br><span class="muted" style="font-size:11px">${esc(c.yon)} · ${esc(c.ufuk)}</span></td><td class="muted" style="font-size:11.5px">${esc(c.yer)}</td><td class="num">${c.k==="trend"?"—":L.open}</td><td class="num">${c.k==="trend"?"—":L.n}${L.miss?` <span class="warn" title="alınmayan sinyal">+${L.miss}</span>`:""}</td><td class="num">${res}</td><td class="num ${cl(L.pnl)}">${c.k==="trend"?"—":(L.pnl>=0?"+":"")+fx(L.pnl,2)+" $"}</td><td class="muted" style="font-size:11.5px">${esc(c.arsiv)}</td></tr>`; };
+  const st=x=>x.st==="açık"?(x.R!=null?`<span class="${cl(x.R)}">açık ${sg(x.R)}R</span>`:x.pct!=null?`<span class="${cl(x.pct)}">açık ${sg(x.pct*100)} %</span>`:"açık"):x.st==="kapandı"?(x.R!=null?`<span class="${cl(x.R)}">${sg(x.R)}R</span>`:`<span class="${cl(x.pct)}">${sg((x.pct||0)*100)} %</span>`)+(x.why?` <span class="muted">· ${esc(x.why)}</span>`:""):x.st==="yaklaşan"?`<span class="warn">yaklaşan</span> <span class="muted">· ${esc(x.why)}</span>`:`<span class="warn">alınmadı</span>`;
+  const f=sigUi.filt; const R=d.rows.filter(x=>f==="hepsi"||(f==="açık"?x.st==="açık"||x.st==="yaklaşan":f==="kapanan"?x.st==="kapandı":x.k===f));
+  const line=x=>`<tr><td class="num muted">${tm(x.t)}</td><td>${esc(SIG_BY[x.k].ad)}</td><td><b>${x.sym.replace("USDT","")}</b> ${chip(x.dir>0?"up sm":"down sm",x.dir>0?"L":"S")}</td><td class="num">${x.e?fmtP(x.e):"—"}</td><td class="num down">${x.stop?fmtP(x.stop):"—"}</td><td class="num">${x.tp?fmtP(x.tp):"—"}</td><td>${st(x)}</td><td class="muted" style="font-size:11px">${x.acct==="masa"?"masa hesabı":"sepet"}</td></tr>`;
+  const btn=(k,t)=>`<button type="button" class="${f===k?"primary":"ghost"}" data-sigf="${k}" style="padding:3px 9px;font-size:12px">${t}</button>`;
+  el.innerHTML=`<p class="muted" style="font-size:12px;margin:0 0 8px">Masanın, Kalite short'un ve sepetlerin aldığı bütün sinyaller tek yerde. Karne canlı kâğıt sonuçlarından, arşiv sütunu geçmiş testten; üç haftalık canlı sonuç kanıt değildir. Yeni sinyalde bildirim için üstteki zil açık olmalı${ui.bell?' <span class="up">(açık)</span>':' <span class="warn">(kapalı)</span>'}.</p>
+  <table class="t" style="margin-bottom:10px"><thead><tr><th>Kural</th><th>Nerede</th><th>Açık</th><th>Kapanan</th><th>Canlı ort.</th><th>Canlı PnL</th><th>Arşiv</th></tr></thead><tbody>${d.cards.map(card).join("")}</tbody></table>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${btn("hepsi","Hepsi")}${btn("açık","Açık ve yaklaşan")}${btn("kapanan","Kapanan")}${SIG_RULES.filter(r=>r.k!=="trend").map(r=>btn(r.k,r.ad)).join("")}</div>
+  ${R.length?`<table class="t"><thead><tr><th>Zaman</th><th>Kural</th><th>Coin</th><th>Giriş</th><th>Stop</th><th>Hedef</th><th>Durum</th><th>Hesap</th></tr></thead><tbody>${R.slice(0,80).map(line).join("")}</tbody></table>${R.length>80?`<p class="muted" style="font-size:11.5px">… ${R.length-80} satır daha</p>`:""}`:'<p class="muted">Bu süzgeçte sinyal yok.</p>'}`;
+  el.querySelectorAll("[data-sigf]").forEach(b=>b.addEventListener("click",()=>{ sigUi.filt=b.dataset.sigf; renderSig(); })); }
+setTimeout(sigWatch,25000); setInterval(sigWatch,60e3);
 setTimeout(()=>{ if(kov.s.cfg.on) kovRun(); },16000); setInterval(()=>{ if(kov.s.cfg.on) kovRun(); },5*60e3);
 setTimeout(()=>{ if(dip.s.cfg.on) dipRun(); },12000); setInterval(()=>{ if(dip.s.cfg.on) dipRun(); },5*60e3);
 setTimeout(()=>{ if(trend.s.cfg.on) trendRun({}); },8000); setInterval(()=>{ if(trend.s.cfg.on) trendRun({}); },5*60e3);
