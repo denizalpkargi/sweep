@@ -81,7 +81,7 @@ function comTalkLines(T, D){
 }
 
 // kâğıt bot varsayılanları (ui.js ve ekransız çalıştırıcı headless/ ortak kullanır)
-const BOT_CFG_DEF={mode:"komite",risk:0.03,lev:20,maxLev:20,maxPos:6,maxOpens:24,maxLosses:12,threshold:0.35,minYes:3,holdH:8,cooldownMin:90,strict:false,useBR:true,useRS:true,feeMaker:0.0002,feeTaker:0.0005,slip:0.0003};
+const BOT_CFG_DEF={mode:"komite",ksMax:5,ksRisk:0.01,risk:0.03,lev:20,maxLev:20,maxPos:6,maxOpens:24,maxLosses:12,threshold:0.35,minYes:3,holdH:8,cooldownMin:90,strict:false,useBR:true,useRS:true,feeMaker:0.0002,feeTaker:0.0005,slip:0.0003};
 // eski kayıtlı ayarlar: masa ayarı sürümü değişince eşik ve asgari oy yeni (geriye dönük testten seçilen) varsayılana taşınır
 function comMigrate(cfg){ if(!cfg) return cfg; const v=cfg.comV||0; if(v>=COM_DEF.v) return cfg;
   if(v<2){ cfg.threshold=BOT_CFG_DEF.threshold; cfg.minYes=BOT_CFG_DEF.minYes; } // 6 Ekim 2026: eşik 0,30 → 0,35, asgari evet 4 → 3 (geriye dönük test); risk dokunulmaz (kullanıcı %3'te kalmayı seçti)
@@ -391,7 +391,7 @@ function paperStep(p, px, now, cfg){
   const isL=p.dir==="long"; const out=[]; p.hi=Math.max(p.hi,px); p.lo=Math.min(p.lo,px);
   const risk=p.risk0||Math.abs(p.entry-(p.stop0||p.stop));
   if(isL? px<=p.stop : px>=p.stop){ out.push({part:1,price:isL?p.stop*(1-cfg.slip):p.stop*(1+cfg.slip),k:"stop",t:p.stage==="open"?"Stop":"Kalan stop",taker:true,final:true}); return out; }
-  if(p.h24){ if(p.expiresAt && now>p.expiresAt) out.push({part:1,price:isL?px*(1-cfg.slip):px*(1+cfg.slip),k:"time",t:"24 saat doldu",taker:true,final:true}); return out; } // hedefsiz 24 saatlik long
+  if(p.h24){ if(p.expiresAt && now>p.expiresAt) out.push({part:1,price:isL?px*(1-cfg.slip):px*(1+cfg.slip),k:"time",t:`${p.holdH||24} saat doldu`,taker:true,final:true}); return out; } // hedefsiz 24 saatlik long
   // erken kısmi kâr (varsayılan kapalı): hedef 1'den önce preR'de prePart kadarı kapanır, stop yerinde kalır
   if(cfg.preR>0&&p.stage==="open"&&!p.preDone&&risk>0&&(isL?px-p.entry:p.entry-px)>=cfg.preR*risk){ p.preDone=true; out.push({part:cfg.prePart||0.3,price:isL?p.entry+cfg.preR*risk:p.entry-cfg.preR*risk,k:"pre",t:`Erken kâr ${fx(cfg.preR,2)}R`,taker:false}); return out; }
   if(p.stage==="open" && (isL? px>=p.t1 : px<=p.t1)){ if(p.t1Part>=1){ out.push({part:1,price:p.t1,k:"tp1",t:"Hedef 1 (tamamı: 200 $ hedefi)",taker:false,final:true}); return out; }

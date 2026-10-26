@@ -154,7 +154,8 @@ async function main(o,inj){
   const KS={s:E.ksLoad(),busy:false,scanBusy:false,px:{}}; if(cfg&&cfg.ks) Object.assign(KS.s.cfg,cfg.ks);
   const ksOut=ev=>{ if(ev.type==='skip'&&ev.why==='kalite eşiğin altında') return; write('ks',ev); if(!o.quiet) console.log(`${new Date(ev.t).toISOString().slice(11,19)} ks     ${ev.type} ${ev.sym||''}${ev.px?' @ '+ev.px:''}${ev.why?' · '+ev.why:''}${ev.p!=null?' · kalite '+ev.p.toFixed(3):''}`); };
   async function ksScanRun(rows){ if(KS.scanBusy||!KS.s.cfg.on) return; KS.scanBusy=true;
-    try{ const evs=await E.ksScan(KS.s,rows,Date.now()); E.ksSave(KS.s); evs.forEach(ksOut); }
+    try{ const evs=await E.ksScan(KS.s,rows,Date.now()); E.ksSave(KS.s); evs.forEach(ksOut);
+      for(const ev of evs) if(ev.type==='signal'){ let px=NaN; try{ px=await freshPx(ev.sym); }catch(e){} B.openKs(ev,px>0?px:ev.px); } }
     catch(e){ write('ks',{t:Date.now(),type:'error',text:String(e.message||e)}); }
     finally{ KS.scanBusy=false; } }
   async function ksRun(){ if(KS.busy) return; KS.busy=true;

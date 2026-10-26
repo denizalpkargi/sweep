@@ -73,6 +73,13 @@ function createBot(E, opt){
     save(); opt.onPositions&&opt.onPositions(); return true;
   }
 
+  /* --- kalite short sinyali masanın hesabında (kshort.js ksBotPos) --- */
+  function openKs(ev,px){ if(bot.cfg.mode!=="komite") return false; const now=Date.now(); const o=E.ksBotPos(ev,px,bot,now);
+    if(!o.p){ log("skip",ev.sym,`Kalite short sinyali alınmadı: ${o.why}.`); return false; } const p=o.p; p.id=ev.sym+"-"+now; p.px0=px; p.bk0=E.bookRec(rt.book[ev.sym],px); p.reviews=0; bot.bal-=o.fee; bot.positions.push(p);
+    log("fill",ev.sym,`KALİTE SHORT · masa short kararı (puan ${ptsT(ev.score)}, ${ev.yes} evet) kalite modelinden geçti (tahmin ${fx(ev.p,3)} ≥ eşik ${fx(ev.thr,3)}) · market ${fmtP(p.entry)} · stop ${fmtP(p.stop)} (${fx(p.risk0/p.entry*100,2)}%) · hedef yok, ${p.holdH} saat sonra çıkış · ${p.lev}x · pozisyon ${fmtB(p.notional)} · risk ${fmtB(p.risk)}.`,
+      {id:p.id,dir:p.dir,side:"ks",px,fill:p.entry,stop:p.stop,sd:r4(p.risk0/p.entry),notional:r4(p.notional),margin:r4(p.margin),risk:r4(p.risk),score:ev.score,yes:ev.yes,ksP:ev.p,ksThr:ev.thr});
+    save(); opt.onPositions&&opt.onPositions(); return true; }
+
   /* --- karar döngüsü: botDecide (komite) ile aynı; reason "scan" ise tüm oylar JSONL'ye --- */
   async function decide(rows,reason,freshPx){
     const d=day(); const now=Date.now(); const cfg=bot.cfg;
@@ -90,7 +97,7 @@ function createBot(E, opt){
       write('events',{t:Date.now(),type:'stages',sym:x.sym,dir:x.dir,score:x.score,ok:es.ok,need:r4(es.need),slot:es.slot,warn:es.warn,quality:es.grade,mode:es.gs.mode,risk:r4(es.riskUsd),stages:es.stages,scan:bot.scanId});
       if(!es.ok){ const f=es.stages.find(z=>z.st==="fail")||es.stages[es.stages.length-1]; fails[f.k]=(fails[f.k]||0)+1; if(reason==="scan"&&shown++<3) log("skip",x.sym,`${x.dir} · ${f.who}: ${f.txt}.`,{stage:f.k}); continue; }
       if(es.need>0||es.slot){ const fp=E.freePlan(x,es,ctxOf());
-        if(!fp){ fails["teminat"]=(fails["teminat"]||0)+1; if(reason==="scan"&&shown++<3) log("skip",x.sym,`${x.dir} · Can: ${es.slot?`${bot.positions.length}/${cfg.maxPos} yer dolu`:`teminat ${fmtB(es.margin)} gerekli, boş ${fmtB(Math.max(0,es.free))}`}; yer açmaya değecek kârlı ya da sönmüş pozisyon yok (yeni kurulum puanı ${pts(x.score)}).`); continue; }
+        if(!fp){ fails["teminat"]=(fails["teminat"]||0)+1; if(reason==="scan"&&shown++<3) log("skip",x.sym,`${x.dir} · Can: ${es.slot?`${bot.positions.filter(p=>!p.side).length}/${cfg.maxPos} yer dolu`:`teminat ${fmtB(es.margin)} gerekli, boş ${fmtB(Math.max(0,es.free))}`}; yer açmaya değecek kârlı ya da sönmüş pozisyon yok (yeni kurulum puanı ${pts(x.score)}).`); continue; }
         for(const o of fp){ const p=o.p; const xp=mk(p.sym); if(!(xp>0)||!bot.positions.includes(p)) continue; E.deskNote(p,o.kind,xp,o.part,Date.now()); log("desk",p.sym,`Can: ${o.why}.`,{id:p.id,dec:o.kind,part:o.part,for:x.sym});
           closeAt(p,o.part,p.dir==="long"?xp*(1-cfg.slip):xp*(1+cfg.slip),{k:"desk",dec:o.kind,t:`Masa kararı · ${E.DEC_KIND[o.kind].toLowerCase()}`},true); }
         es=E.entryStages(x,ctxOf()); if(!es.ok||es.need>0||es.slot){ log("skip",x.sym,"Yer açıldı ama yine de sığmadı (fiyat oynadı)."); continue; } x.freed=true; }
@@ -112,11 +119,11 @@ function createBot(E, opt){
   function closePos(p){
     const now=Date.now(); const r=p.realized/p.risk; const risk0=p.risk0||1;
     const peakR=(p.dir==="long"?(p.hi-p.entry0):(p.entry0-p.lo))/risk0, maeR=(p.dir==="long"?(p.lo-p.entry0):(p.entry0-p.hi))/risk0;
-    const rec={sym:p.sym,dir:p.dir,model:p.model,grade:p.grade,lev:p.lev,entry:p.entry,openT:p.openT,closeT:now,pnl:p.realized,fees:p.fees,risk:p.risk,r,score:p.score,
+    const rec={sym:p.sym,dir:p.dir,model:p.model,side:p.side||undefined,grade:p.grade,lev:p.lev,entry:p.entry,openT:p.openT,closeT:now,pnl:p.realized,fees:p.fees,risk:p.risk,r,score:p.score,
       exits:(p.exits||[]).map(x=>x.k),mfe:r4(peakR),mae:r4(-maeR),snap:p.agents?{v:Object.fromEntries(Object.entries(p.agents).map(([id,a])=>[id,a[0]])),sd:r4(p.risk0/p.entry0),score:p.score,yes:p.yes,warn:p.warn||0,quality:p.quality||null,mode:p.mode||null}:undefined,
       decs:p.decs&&p.decs.length?p.decs:undefined,xs:p.xs&&p.xs.length?p.xs:undefined,r0:p.risk0,freed:!!p.freed,bk0:p.bk0||undefined,bkx:p.bkx&&p.bkx.length?p.bkx:undefined};
-    bot.trades.push(rec); if(p.realized<0) day().losses++; bot.cool[p.sym]=now+bot.cfg.cooldownMin*60e3;
-    write('trades',{t:now,id:p.id,sym:p.sym,dir:p.dir,openT:p.openT,closeT:now,holdH:r4((now-p.openT)/3600e3),entry0:p.entry0,entry:p.entry,stop0:p.stop0,t1:p.t1,t2:p.t2,sd:r4(p.risk0/p.entry0),lev:p.lev,
+    bot.trades.push(rec); if(p.realized<0&&!p.side) day().losses++; bot.cool[p.sym]=now+bot.cfg.cooldownMin*60e3;
+    write('trades',{t:now,id:p.id,sym:p.sym,dir:p.dir,model:p.model,side:p.side||null,openT:p.openT,closeT:now,holdH:r4((now-p.openT)/3600e3),entry0:p.entry0,entry:p.entry,stop0:p.stop0,t1:p.t1,t2:p.t2,sd:r4(p.risk0/p.entry0),lev:p.lev,
       pnl:r4(p.realized),fees:r4(p.fees),r:r4(r),peakR:r4(peakR),maeR:r4(maeR),stage:p.stage,added:!!p.added,reduced:!!p.reduced,locked:!!p.locked,reviews:p.reviews||0,exits:p.exits,
       score:p.score,yes:p.yes,scan:p.scan,agents:p.agents,feat:p.feat,row:p.row,talk:p.talk,bal:r4(bot.bal),stages:p.stages||null,warn:p.warn||0,quality:p.quality||null,mode:p.mode||null,freed:!!p.freed,decs:p.decs||[],bk0:p.bk0||null,bkx:p.bkx||[]},false);
     log("close",p.sym,`İşlem kapandı: ${p.realized>=0?"+":""}${fmtB(p.realized)} (${r>=0?"+":""}${fx(r,2)}R) · bakiye ${fmtB(bot.bal)} · ROI ${E.pct((bot.bal/bot.start-1)*100,1)}.`,{id:p.id,r:r4(r),pnl:r4(p.realized),bal:r4(bot.bal)});
@@ -168,11 +175,11 @@ function createBot(E, opt){
         
           sayD("Baran",`hedef 1 alındı, masa hâlâ tut diyor (puan ${pts(rv.score)}); yarım boy ekliyorum.`); sayD("Can",`Onay: ekleme bir kez, yarım boy. Ortalama giriş ${fmtP(p.entry)}, stop ${p.stop!==stop0?fmtP(stop0)+" → ":""}${fmtP(p.stop)}.`);
           log("add",p.sym,`Ekleme ${fmtP(fill)} · ${fmtB(addNotional)} · toplam ${fmtB(p.notional)} · teminat ${fmtB(p.margin)}.`,{id:p.id,fill,addNotional:r4(addNotional)}); save(); continue; } }
-      if(rv.verdict==="tut"&&!p.heldNoted){ p.heldNoted=true; sayD("Can",`masa tut diyor (tutma puanı ${pts(rv.hold)}, ${rv.views.filter(a=>a.w&&a.v>0.15).length}/${rv.views.filter(a=>a.w).length} destek). Plan aynen: stop ${fmtP(p.stop)}, ${p.h24?"hedef yok, 24 saat dolunca çıkış":`hedef ${fmtP(p.t1)} / ${fmtP(p.t2)}`}.`); }
+      if(rv.verdict==="tut"&&!p.heldNoted){ p.heldNoted=true; sayD("Can",`masa tut diyor (tutma puanı ${pts(rv.hold)}, ${rv.views.filter(a=>a.w&&a.v>0.15).length}/${rv.views.filter(a=>a.w).length} destek). Plan aynen: stop ${fmtP(p.stop)}, ${p.h24?`hedef yok, ${p.holdH||24} saat dolunca çıkış`:`hedef ${fmtP(p.t1)} / ${fmtP(p.t2)}`}.`); }
     } } finally{ rt.managing=false; save(); }
   }
 
   audit(null);
-  return {bot,rt,log,save,thr,minYes,audit,equity,goal:gsNow,goalWatch,decide,onPrice,funding,manage,openMarket,closeAt,candidates,syms:()=>Array.from(new Set(bot.positions.map(p=>p.sym))).sort()};
+  return {bot,rt,log,save,thr,minYes,audit,equity,goal:gsNow,goalWatch,decide,onPrice,funding,manage,openMarket,openKs,closeAt,candidates,syms:()=>Array.from(new Set(bot.positions.map(p=>p.sym))).sort()};
 }
 module.exports={createBot};

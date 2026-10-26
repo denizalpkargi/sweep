@@ -59,7 +59,7 @@ function audTagsOf(t, trades, opts){
 }
 function audCorr(xs,ys){ const n=xs.length; if(n<3) return 0; const mx=xs.reduce((a,b)=>a+b,0)/n, my=ys.reduce((a,b)=>a+b,0)/n; let sxy=0,sxx=0,syy=0; for(let i=0;i<n;i++){ const dx=xs[i]-mx, dy=ys[i]-my; sxy+=dx*dy; sxx+=dx*dx; syy+=dy*dy; } return sxx>0&&syy>0?sxy/Math.sqrt(sxx*syy):0; }
 function auditRun(trades, log, opts){
-  trades=audBackfill((trades||[]).filter(t=>t&&isFinite(t.r)&&t.openT&&t.closeT),log);
+  trades=audBackfill((trades||[]).filter(t=>t&&!t.side&&isFinite(t.r)&&t.openT&&t.closeT),log); // yan pozisyonlar (kalite short) masanın derslerine girmez
   const out={n:trades.length,at:Date.now(),tags:{},lessons:[],off:{},warnBlock:false,decs:{},mult:{},thrBump:0,minYesBump:0,maxSameDir:null,pauseMin:0,sdMin:0.015,lockEarly:false,veto:{},vote:{},findings:[],summary:null,clean:null};
   if(!trades.length) return out;
   const R=trades.map(t=>t.r), win=trades.filter(t=>t.r>0).length, sum=R.reduce((a,b)=>a+b,0);

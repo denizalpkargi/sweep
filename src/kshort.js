@@ -6,8 +6,12 @@
    bütçeyle yıllık +%25, düşüş −%24, her yıl artı. Model yalnız masa değişkenleriyle (B; tüm değişkenli sürümle aynı sonuç), src/kshort-data.js
    (tests/kalite-model.py). Arşivde masa açık pozisyon, fonlama, kalabalık, emir defteri ve işlem akışı olmadan oynatıldı; canlıda da model için
    masa bu alanlar nötrlenerek ayrıca toplanır (ksNeutral), botun masasına dokunulmaz. Değerlendirme coin başına 4 saatte bir (arşivle aynı sıklık).
-   Kullanıcı "evet" dedi (sepet + modelin JS'e taşınması). Ayrı sanal bakiye, gerçek emir yok. */
-const KS_DEF={on:true,bal0:100,risk:0.005,maxPos:5,lev:3,exLev:20,holdH:72,stopMult:2,keep:0.3,thrMinN:300,thrDays:90,slotH:4,minScore:0.35,minYes:3,
+   Kullanıcı "evet" dedi (sepet + modelin JS'e taşınması). Ayrı sanal bakiye, gerçek emir yok.
+   26 Ekim 2026 (kullanıcı "senin tavsiyene göre ilerleyelim"; arastirma/birlesim-canli-2026-10-26.md): sinyaller masanın hesabına gider (toBot).
+   Sepet karar defterini (tahminler, eşik) tutmaya devam eder, kendi pozisyonunu açmaz; bot ksBotPos ile açar: en çok ksMax (5) short,
+   işlem başı ksRisk (%1) risk, stop 2 × sd, hedef yok, 72 sa (h24 yolu: masanın pozisyon kararları ve yer açma dokunmaz),
+   aynı coinde (ya da aynı varlıkta) pozisyon varsa girilmez; masanın pozisyon/aynı yön sayaçlarına ve soğumalarına girmez (side "ks"). */
+const KS_DEF={on:true,toBot:true,bal0:100,risk:0.005,maxPos:5,lev:3,exLev:20,holdH:72,stopMult:2,keep:0.3,thrMinN:300,thrDays:90,slotH:4,minScore:0.35,minYes:3,
   taker:0.0005,slip:0.0003,fundDef:0.0001};
 const KS_KEY="st-ks";
 const KS_AG=["trend","liq","flow","macro","quant","mom","vol","check","fac","risk"];
@@ -61,6 +65,7 @@ function ksDecide(s,sym,cands,px,now){ const c=s.cfg, evs=[]; const th=ksThr(s,n
   const t0=now-c.thrDays*DAY_MS; if(s.preds.length&&s.preds[0][0]<t0) s.preds=s.preds.filter(z=>z[0]>=t0);
   if(!best) return evs; const sd=+(best.z.c.plan||best.z.c.feat||{}).sd; const ok=best.p>=th.thr;
   s.last={t:now,sym,p:best.p,thr:th.thr,src:th.src,ok}; if(!ok||!c.on){ evs.push(ksLog(s,{t:now,type:"skip",sym,p:best.p,thr:th.thr,why:ok?"kapalı":"kalite eşiğin altında"})); return evs; }
+  if(c.toBot){ if(!(px>0)||!(sd>0)) return evs; evs.push(ksLog(s,{t:now,type:"signal",sym,dir:"short",px,sd,p:best.p,thr:th.thr,score:best.z.c.score,yes:best.z.c.yes})); return evs; }
   if(s.pos[sym]){ evs.push(ksLog(s,{t:now,type:"skip",sym,p:best.p,thr:th.thr,why:"açık pozisyon var"})); return evs; }
   if(Object.keys(s.pos).length>=c.maxPos){ evs.push(ksLog(s,{t:now,type:"skip",sym,p:best.p,thr:th.thr,why:`en çok ${c.maxPos} short`})); return evs; }
   if(!(px>0)||!(sd>0)) return evs; const eq=ksEq(s,null); const e=px*(1-c.slip); const risk=c.risk*eq, ru=e*c.stopMult*sd; const qty=risk/ru;
@@ -95,6 +100,17 @@ async function ksScan(s,rows,now){ now=now||Date.now(); const c=s.cfg, evs=[]; c
 async function ksTick(s,now){ now=now||Date.now(); const px={}, fr={}; if(Object.keys(s.pos).length){ const a=await opt(`/fapi/v1/premiumIndex`,null);
   if(Array.isArray(a)) for(const z of a){ if(s.pos[z.symbol]){ px[z.symbol]=+z.markPrice; fr[z.symbol]=+z.lastFundingRate; } } }
   const evs=ksStep(s,px,now,fr); return {evs,px,eq:ksEq(s,px)}; }
+// masanın hesabında pozisyon: ev = ksDecide "signal" olayı, px canlı fiyat, bot {bal,cfg,positions}. {p} ya da {why}
+function ksBotPos(ev,px,bot,now){ const cfg=bot.cfg, kc=KS_DEF; const max=cfg.ksMax!=null?cfg.ksMax:5, rk=cfg.ksRisk!=null?cfg.ksRisk:0.01;
+  if(!(px>0)) return {why:"taze fiyat yok"}; if(!(ev.sd>0)) return {why:"stop uzaklığı yok"};
+  const tw=bot.positions.find(p=>assetKey(p.sym)===assetKey(ev.sym)); if(tw) return {why:tw.sym===ev.sym?"bu coinde zaten pozisyon var":`${tw.sym} ile aynı varlık`};
+  const n=bot.positions.filter(p=>p.side==="ks").length; if(n>=max) return {why:`en çok ${max} kalite short`};
+  const sd=kc.stopMult*ev.sd, fill=px*(1-cfg.slip), stop=fill*(1+sd); const risk=bot.bal*rk, notional=risk/sd, lev=levFor(sd,cfg.lev||20), margin=notional/lev;
+  const used=bot.positions.reduce((a,p)=>a+(p.margin||0),0)+(bot.orders||[]).reduce((a,o)=>a+(o.margin||0),0);
+  if(margin+used>bot.bal*0.95) return {why:`teminat yetmiyor (${margin.toFixed(2)} $ gerekli)`};
+  const qty=notional/fill, fee=notional*cfg.feeTaker;
+  return {fee,p:{sym:ev.sym,dir:"short",model:"KALİTE",side:"ks",grade:null,entry:fill,entry0:fill,stop,stop0:stop,t1:null,t2:null,rr1:1.5,rr2:3,lev,notional,margin,risk,risk0:fill*sd,qty,qty0:qty,fees:fee,
+    openT:now,expiresAt:now+kc.holdH*3600e3,holdH:kc.holdH,stage:"open",hi:fill,lo:fill,realized:0,score:ev.score,yes:ev.yes,votes:[],ksP:ev.p,ksThr:ev.thr,decs:[],xs:[],exits:[],h24:true,bkx:[]}}; }
 function ksSummary(s,px){ const eq=ksEq(s,px); const tr=s.trades; const w=tr.filter(t=>t.R>0).length; const gross=Object.entries(s.pos).reduce((a,[k,p])=>a+p.qty*((px&&px[k])||p.px),0);
   return {eq,roi:(eq/s.start-1)*100,dd:s.peak>0?Math.max(0,1-eq/s.peak):0,n:tr.length,wr:tr.length?w/tr.length:null,avgR:tr.length?tr.reduce((a,t)=>a+t.R,0)/tr.length:null,
     open:Object.keys(s.pos).length,gross,margin:gross/(s.cfg.exLev||20),fees:s.fees,funding:s.funding,thr:ksThr(s,Date.now())}; }
