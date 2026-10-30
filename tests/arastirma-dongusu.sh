@@ -15,7 +15,7 @@ t0=$(date +%s); el(){ echo "[$(( $(date +%s)-t0 )) sn] $*"; }
 if [ ! -d "$ARCH/1d" ] && [ -f "$VERI/arch-csv.tar.gz" ]; then el "arşiv önbellekten açılıyor"; tar -xzf "$VERI/arch-csv.tar.gz" -C "$ARCH"; fi
 el "arşiv güncelleniyor"; node tests/fetch-archive.js --update --conc 24 | grep -v '^  ' || true
 node tests/fetch-metrics.js | grep -v '^  ' || true   # 5 dk OI, long/short, taker (ilk 30 coin)
-node tests/fetch-extra.js | grep -v '^  ' || true     # prim endeksi ve spot 15 dk (ilk 30 coin)
+node --max-old-space-size=6144 tests/fetch-extra.js | grep -v '^  ' || true     # prim endeksi ve spot 15 dk (ilk 30 coin)
 node tests/fetch-bookdepth.js | grep -v '^  ' || true # emir defteri derinliği 15 dk'ya toplanmış (ilk 30 coin, 2023-06'dan)
 rm -rf "$ARCH/zip"
 

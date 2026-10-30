@@ -1,4 +1,4 @@
-# Olay etkisi, seans mevsimselliği ve geniş zaman dilimi · 2026-10-08
+# Olay etkisi, seans mevsimselliği ve geniş zaman dilimi · 2026-10-24
 
 ## A) Planlı makro olaylar: FOMC, CPI, tarım dışı istihdam
 
@@ -95,7 +95,7 @@ BTC ve alt sepeti (ilk 30, eşit ağırlık): UTC saatine göre ortalama 1 sa ge
 
 **BTC 06/2023–2026** (saat: ort. 1 sa getiri bp, oynaklık payı)
 
-00: 0,3 bp (%4,5) · 01: -1,3 bp (%4,4) · 02: 0,8 bp (%3,4) · 03: 0,6 bp (%2,4) · 04: 0,1 bp (%2,4) · 05: 0,3 bp (%2,1) · 06: 1,2 bp (%2,9) · 07: 0,0 bp (%2,5) · 08: 2,6 bp (%2,6) · 09: -0,8 bp (%2,4) · 10: 1,8 bp (%2,4) · 11: 0,4 bp (%2,7) · 12: -0,3 bp (%3,7) · 13: -1,7 bp (%7,7) · 14: -0,5 bp (%8,8) · 15: 1,3 bp (%6,7) · 16: -1,7 bp (%5,6) · 17: 3,3 bp (%5,6) · 18: -1,0 bp (%4,3) · 19: -0,4 bp (%4,6) · 20: 1,5 bp (%4,0) · 21: 3,0 bp (%6,6) · 22: 1,1 bp (%4,5) · 23: -1,5 bp (%3,2)
+00: 0,3 bp (%4,5) · 01: -1,3 bp (%4,4) · 02: 0,8 bp (%3,4) · 03: 0,6 bp (%2,4) · 04: 0,2 bp (%2,4) · 05: 0,1 bp (%2,1) · 06: 1,3 bp (%2,9) · 07: 0,1 bp (%2,5) · 08: 2,5 bp (%2,6) · 09: -0,8 bp (%2,4) · 10: 1,7 bp (%2,4) · 11: 0,5 bp (%2,7) · 12: -0,7 bp (%3,8) · 13: -1,5 bp (%7,7) · 14: -0,5 bp (%8,8) · 15: 1,2 bp (%6,7) · 16: -1,8 bp (%5,6) · 17: 3,3 bp (%5,6) · 18: -0,9 bp (%4,3) · 19: -0,3 bp (%4,6) · 20: 1,5 bp (%4,0) · 21: 3,0 bp (%6,6) · 22: 1,0 bp (%4,5) · 23: -1,5 bp (%3,2)
 
 **Alt sepeti 2020–05/2023** (saat: ort. 1 sa getiri bp, oynaklık payı)
 
@@ -103,18 +103,18 @@ BTC ve alt sepeti (ilk 30, eşit ağırlık): UTC saatine göre ortalama 1 sa ge
 
 **Alt sepeti 06/2023–2026** (saat: ort. 1 sa getiri bp, oynaklık payı)
 
- · 01: -4,7 bp (%16,6) ·  ·  ·  · 05: -1,2 bp (%11,8) ·  ·  ·  · 09: -3,1 bp (%11,4) ·  ·  ·  · 13: -4,5 bp (%17,0) ·  ·  ·  · 17: 3,2 bp (%15,5) ·  ·  ·  · 21: 3,8 bp (%27,7) ·  · 
+ · 01: -4,6 bp (%16,6) ·  ·  ·  · 05: -1,6 bp (%11,8) ·  ·  ·  · 09: -3,3 bp (%11,5) ·  ·  ·  · 13: -4,1 bp (%17,1) ·  ·  ·  · 17: 3,3 bp (%15,5) ·  ·  ·  · 21: 3,9 bp (%27,6) ·  · 
 
 **Haftanın günü** (ort. 1 sa getiri, bp):
 
 BTC 1. dönem: Pzt: 1,4 bp/sa (t 1,1) · Sal: 0,4 bp/sa (t 0,3) · Çar: 2,0 bp/sa (t 1,5) · Per: -1,2 bp/sa (t -0,9) · Cum: 0,1 bp/sa (t 0,1) · Cmt: 0,4 bp/sa (t 0,4) · Paz: -0,0 bp/sa (t -0,0)
-BTC 2. dönem: Pzt: 1,9 bp/sa (t 2,2) · Sal: -0,5 bp/sa (t -0,7) · Çar: 1,7 bp/sa (t 2,0) · Per: -1,4 bp/sa (t -1,7) · Cum: 0,5 bp/sa (t 0,6) · Cmt: 0,1 bp/sa (t 0,1) · Paz: 0,4 bp/sa (t 0,7)
+BTC 2. dönem: Pzt: 1,8 bp/sa (t 2,1) · Sal: -0,5 bp/sa (t -0,6) · Çar: 1,7 bp/sa (t 2,0) · Per: -1,4 bp/sa (t -1,8) · Cum: 0,5 bp/sa (t 0,6) · Cmt: 0,1 bp/sa (t 0,1) · Paz: 0,4 bp/sa (t 0,7)
 Alt 1. dönem: Pzt: -4,3 bp/sa (t -1,1) · Sal: -3,3 bp/sa (t -0,9) · Çar: 5,1 bp/sa (t 1,1) · Per: 2,0 bp/sa (t 0,6) · Cum: -0,9 bp/sa (t -0,2) · Cmt: 0,8 bp/sa (t 0,3) · Paz: 1,1 bp/sa (t 0,4)
-Alt 2. dönem: Pzt: -2,8 bp/sa (t -0,9) · Sal: -4,3 bp/sa (t -1,5) · Çar: 1,4 bp/sa (t 0,5) · Per: -4,6 bp/sa (t -1,7) · Cum: 3,3 bp/sa (t 1,0) · Cmt: 2,2 bp/sa (t 1,1) · Paz: -2,7 bp/sa (t -1,1)
+Alt 2. dönem: Pzt: -3,0 bp/sa (t -0,9) · Sal: -3,6 bp/sa (t -1,3) · Çar: 1,0 bp/sa (t 0,3) · Per: -4,7 bp/sa (t -1,8) · Cum: 3,3 bp/sa (t 1,0) · Cmt: 2,2 bp/sa (t 1,1) · Paz: -2,8 bp/sa (t -1,2)
 
-**Asya aralığı kırılımı (BTC):** Londra 07–10 UTC'de Asya (00–07) tepesi kırılırsa long, dibi kırılırsa short; giriş kırılım mumundan sonraki mumun VWAP'ı, çıkış 16:00 UTC VWAP (maliyetsiz; taker %0,16). 2472 gün.
-- Yukarı kırılım: 1. dönem 347 gün, ort. 0,31%, kazanma %54, t 2,7 · 2. dönem 398 gün, ort. -0,02%, kazanma %43, t -0,3
-- Aşağı kırılım: 1. dönem 373 gün, ort. -0,01%, kazanma %46, t -0,1 · 2. dönem 331 gün, ort. 0,00%, kazanma %50, t 0,0
+**Asya aralığı kırılımı (BTC):** Londra 07–10 UTC'de Asya (00–07) tepesi kırılırsa long, dibi kırılırsa short; giriş kırılım mumundan sonraki mumun VWAP'ı, çıkış 16:00 UTC VWAP (maliyetsiz; taker %0,16). 2487 gün.
+- Yukarı kırılım: 1. dönem 347 gün, ort. 0,31%, kazanma %54, t 2,7 · 2. dönem 407 gün, ort. -0,03%, kazanma %43, t -0,4
+- Aşağı kırılım: 1. dönem 373 gün, ort. -0,01%, kazanma %46, t -0,1 · 2. dönem 333 gün, ort. 0,01%, kazanma %50, t 0,1
 
 ## D) Geniş zaman dilimi: günlük coinler arası faktörler → sonraki 7 gün
 
@@ -122,19 +122,19 @@ Evren: ayın ilk 100 coini (delist dahil). Her hafta (pazartesi 00:00 UTC) coinl
 
 | Faktör | Hafta | IC 1. dönem | t | IC 2. dönem | t | IC son 12 ay | Beşlik farkı 7 g (1. / 2. dönem / son 12 ay) |
 |---|---|---|---|---|---|---|---|
-| Momentum 7 g | 331 | -0,040 | -2,9 | -0,016 | -1,1 | 0,024 | 0,39% / 0,13% / 1,85% |
-| Momentum 30 g | 331 | -0,018 | -1,1 | -0,002 | -0,1 | 0,005 | 0,28% / -0,03% / -0,27% |
-| Momentum 90 g | 331 | -0,027 | -1,6 | -0,003 | -0,2 | -0,006 | -0,26% / -1,00% / -2,30% |
-| Momentum 30 g, son hafta hariç | 331 | 0,006 | 0,4 | 0,014 | 1,0 | -0,002 | 0,51% / 0,12% / -0,82% |
-| Dönüş 1 g (ters) | 331 | -0,007 | -0,6 | 0,011 | 0,7 | 0,006 | -0,14% / -0,38% / -1,73% |
-| Dönüş 3 g (ters) | 331 | 0,006 | 0,5 | 0,020 | 1,4 | -0,031 | -0,70% / 0,26% / -1,17% |
-| Hacim 7 g / 30 g | 331 | -0,048 | -3,4 | 0,022 | 1,9 | 0,049 | -0,58% / -0,45% / -1,58% |
-| 30 g tepeye uzaklık | 331 | 0,016 | 0,9 | 0,082 | 5,1 | 0,129 | 0,77% / 1,89% / 3,81% |
-| Oynaklık 30 g (ters) | 331 | 0,070 | 3,8 | 0,136 | 8,6 | 0,179 | 0,62% / 3,37% / 7,07% |
-| Oynaklık 7 g (ters) | 331 | 0,080 | 5,0 | 0,110 | 6,8 | 0,145 | 0,71% / 2,73% / 6,36% |
-| Oynaklık 90 g (ters) | 331 | 0,080 | 4,1 | 0,129 | 7,6 | 0,173 | 0,95% / 3,21% / 6,42% |
-| Günlük aralık 30 g (ters, (y−d)/k) | 331 | 0,082 | 4,1 | 0,148 | 8,6 | 0,185 | 1,23% / 3,42% / 6,63% |
-| Bakiyeye göre işlem sayısı 7 g / 30 g | 331 | -0,046 | -3,1 | 0,027 | 2,3 | 0,052 | -0,33% / -0,09% / -1,51% |
+| Momentum 7 g | 333 | -0,040 | -2,9 | -0,016 | -1,0 | 0,013 | 0,39% / 0,18% / 1,83% |
+| Momentum 30 g | 333 | -0,018 | -1,1 | -0,002 | -0,1 | 0,001 | 0,28% / 0,02% / -0,14% |
+| Momentum 90 g | 333 | -0,027 | -1,6 | -0,004 | -0,3 | -0,013 | -0,26% / -1,03% / -2,40% |
+| Momentum 30 g, son hafta hariç | 333 | 0,006 | 0,4 | 0,014 | 1,0 | -0,002 | 0,51% / 0,13% / -0,68% |
+| Dönüş 1 g (ters) | 333 | -0,007 | -0,6 | 0,010 | 0,7 | -0,001 | -0,14% / -0,42% / -2,17% |
+| Dönüş 3 g (ters) | 333 | 0,006 | 0,5 | 0,020 | 1,3 | -0,035 | -0,70% / 0,23% / -1,29% |
+| Hacim 7 g / 30 g | 333 | -0,048 | -3,4 | 0,022 | 1,9 | 0,045 | -0,58% / -0,45% / -1,67% |
+| 30 g tepeye uzaklık | 333 | 0,016 | 0,9 | 0,082 | 5,2 | 0,126 | 0,77% / 1,84% / 3,71% |
+| Oynaklık 30 g (ters) | 333 | 0,070 | 3,8 | 0,136 | 8,7 | 0,174 | 0,62% / 3,30% / 6,75% |
+| Oynaklık 7 g (ters) | 333 | 0,080 | 5,0 | 0,109 | 6,9 | 0,137 | 0,71% / 2,66% / 5,95% |
+| Oynaklık 90 g (ters) | 333 | 0,080 | 4,1 | 0,130 | 7,7 | 0,172 | 0,95% / 3,19% / 6,50% |
+| Günlük aralık 30 g (ters, (y−d)/k) | 333 | 0,082 | 4,1 | 0,148 | 8,7 | 0,181 | 1,23% / 3,34% / 6,39% |
+| Bakiyeye göre işlem sayısı 7 g / 30 g | 333 | -0,046 | -3,1 | 0,026 | 2,2 | 0,046 | -0,33% / -0,11% / -1,67% |
 
 Okuma: IC 0,05 üstü ve t ≥ 3 iki dönemde de tutuyorsa gerçek; beşlik farkı haftalık long−short sepetin brüt getirisi. BTC'ye göre momentum ayrı yazılmadı: aynı haftada BTC herkes için aynı olduğundan sıralaması momentumla birebir aynıdır.
 
@@ -142,25 +142,25 @@ Okuma: IC 0,05 üstü ve t ≥ 3 iki dönemde de tutuyorsa gerçek; beşlik fark
 | Faktör | Dönem | Q1 | Q2 | Q3 | Q4 | Q5 | Evren | Q5−evren | Evren−Q1 | Hafta artı (Q5−Q1) |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Oynaklık 30 g (ters) | 1. dönem (157 hf) | -0,35% | -0,32% | 0,03% | -0,03% | 0,37% | -0,04% | 0,41% | 0,31% | %55 |
-| Oynaklık 30 g (ters) | 2. dönem (174 hf) | -3,64% | -1,87% | -0,90% | -0,72% | -0,27% | -1,45% | 1,19% | 2,19% | %71 |
-| Oynaklık 30 g (ters) | son 12 ay (51 hf) | -7,88% | -3,03% | -1,85% | -1,55% | -0,79% | -2,97% | 2,18% | 4,90% | %80 |
+| Oynaklık 30 g (ters) | 2. dönem (176 hf) | -3,65% | -1,94% | -0,96% | -0,83% | -0,34% | -1,52% | 1,18% | 2,13% | %70 |
+| Oynaklık 30 g (ters) | son 12 ay (51 hf) | -7,72% | -3,22% | -1,90% | -1,78% | -0,94% | -3,07% | 2,13% | 4,65% | %78 |
 | 30 g tepeye uzaklık | 1. dönem (157 hf) | -0,57% | -0,20% | 0,12% | 0,26% | 0,02% | -0,04% | 0,07% | 0,53% | %53 |
-| 30 g tepeye uzaklık | 2. dönem (174 hf) | -3,04% | -1,31% | -1,07% | -0,72% | -1,18% | -1,45% | 0,28% | 1,59% | %57 |
-| 30 g tepeye uzaklık | son 12 ay (51 hf) | -5,98% | -2,93% | -2,29% | -1,55% | -2,22% | -2,97% | 0,75% | 3,01% | %65 |
+| 30 g tepeye uzaklık | 2. dönem (176 hf) | -3,05% | -1,38% | -1,19% | -0,78% | -1,24% | -1,52% | 0,28% | 1,53% | %57 |
+| 30 g tepeye uzaklık | son 12 ay (51 hf) | -5,94% | -2,96% | -2,53% | -1,74% | -2,29% | -3,07% | 0,78% | 2,87% | %63 |
 | Momentum 7 g | 1. dönem (157 hf) | -0,55% | 0,74% | 0,04% | -0,29% | -0,21% | -0,04% | -0,17% | 0,51% | %52 |
-| Momentum 7 g | 2. dönem (174 hf) | -2,32% | -0,75% | -0,93% | -1,20% | -2,02% | -1,45% | -0,57% | 0,86% | %50 |
-| Momentum 7 g | son 12 ay (51 hf) | -5,50% | -1,91% | -2,00% | -2,01% | -3,39% | -2,97% | -0,42% | 2,53% | %55 |
+| Momentum 7 g | 2. dönem (176 hf) | -2,37% | -0,85% | -1,03% | -1,27% | -2,03% | -1,52% | -0,51% | 0,85% | %50 |
+| Momentum 7 g | son 12 ay (51 hf) | -5,40% | -2,07% | -2,23% | -2,26% | -3,32% | -3,07% | -0,25% | 2,33% | %53 |
 | Hacim 7 g / 30 g | 1. dönem (157 hf) | -0,09% | 0,41% | -0,03% | 0,03% | -0,51% | -0,04% | -0,47% | 0,05% | %43 |
-| Hacim 7 g / 30 g | 2. dönem (174 hf) | -1,66% | -1,86% | -0,85% | -0,95% | -1,94% | -1,46% | -0,48% | 0,19% | %51 |
-| Hacim 7 g / 30 g | son 12 ay (51 hf) | -3,37% | -3,16% | -1,86% | -1,85% | -4,51% | -3,00% | -1,51% | 0,37% | %49 |
+| Hacim 7 g / 30 g | 2. dönem (176 hf) | -1,72% | -1,95% | -0,89% | -1,01% | -2,00% | -1,53% | -0,48% | 0,19% | %51 |
+| Hacim 7 g / 30 g | son 12 ay (51 hf) | -3,45% | -3,26% | -1,83% | -1,98% | -4,64% | -3,08% | -1,56% | 0,37% | %47 |
 
 **30 günlük ufuk** (aynı sıralama, sonraki 30 g getiri; haftalık örnekler çakışır, t bu yüzden iyimser):
 | Faktör | IC 1. dönem | t | IC 2. dönem | t | IC son 12 ay | Q5−Q1 30 g (1. / 2. / son 12 ay) | Q5−evren (1. / 2. / son 12 ay) |
 |---|---|---|---|---|---|---|---|
-| Oynaklık 30 g (ters) | 0,119 | 6,6 | 0,183 | 12,1 | 0,214 | 4,3% / 11,1% / 21,7% | 2,1% / 4,2% / 6,7% |
-| 30 g tepeye uzaklık | 0,068 | 4,2 | 0,128 | 9,4 | 0,147 | 3,4% / 6,5% / 10,2% | 1,9% / 1,3% / 1,4% |
-| Momentum 30 g, son hafta hariç | -0,002 | -0,1 | 0,005 | 0,4 | -0,010 | 0,3% / -2,3% / -6,5% | -0,9% / -3,8% / -8,1% |
-| Momentum 90 g | -0,032 | -1,9 | -0,009 | -0,7 | -0,027 | -0,4% / -4,2% / -11,3% | -0,4% / -5,2% / -11,4% |
+| Oynaklık 30 g (ters) | 0,119 | 6,6 | 0,183 | 12,3 | 0,212 | 4,3% / 11,2% / 21,7% | 2,1% / 4,2% / 6,5% |
+| 30 g tepeye uzaklık | 0,068 | 4,2 | 0,129 | 9,6 | 0,150 | 3,4% / 6,5% / 10,5% | 1,9% / 1,3% / 1,4% |
+| Momentum 30 g, son hafta hariç | -0,002 | -0,1 | 0,006 | 0,5 | -0,002 | 0,3% / -2,3% / -6,1% | -0,9% / -3,8% / -8,1% |
+| Momentum 90 g | -0,032 | -1,9 | -0,008 | -0,5 | -0,021 | -0,4% / -4,1% / -11,0% | -0,4% / -5,2% / -11,4% |
 
 ## E) Düşük oynaklık faktörü: gerçekçi haftalık simülasyon
 
@@ -169,9 +169,9 @@ Yukarıdaki IC ve beşlikler log getiriyle hesaplandı; log getiri yüksek oynak
 | Dönem | Hafta | Evren ort. basit 7 g | Q1 (en oynak) basit | Q5 (en durgun) basit | Q1 fonlama/hafta (short alır) | Q5 fonlama/hafta | En kötü tek coin-hafta (short için) |
 |---|---|---|---|---|---|---|---|
 | 1. dönem (2020-06 → 05/2023) | 157 | 1,51% | 1,75% | 1,29% | 0,262% | 0,329% | DOGEUSDT 317% (2021-01-25) |
-| 2. dönem (06/2023 → 2026) | 174 | 0,06% | -0,46% | 0,49% | -0,521% | 0,082% | SIRENUSDT 406% (2026-03-16) |
-| son 12 ay | 51 | -0,86% | -1,76% | -0,32% | -1,500% | -0,040% | SIRENUSDT 406% (2026-03-16) |
-| son 6 ay | 25 | 0,54% | -1,12% | 1,23% | -0,995% | 0,016% | LABUSDT 265% (2026-05-25) |
+| 2. dönem (06/2023 → 2026) | 176 | -0,00% | -0,41% | 0,41% | -0,516% | 0,081% | SIRENUSDT 406% (2026-03-16) |
+| son 12 ay | 51 | -0,92% | -1,42% | -0,48% | -1,496% | -0,037% | SIRENUSDT 406% (2026-03-16) |
+| son 6 ay | 25 | 0,15% | -0,53% | 0,60% | -0,919% | 0,019% | QUSDT 343% (2026-10-12) |
 
 | Dönem | Bacak | Maliyet | Toplam | Yıllık | En büyük düşüş | Hafta kazanma | Ort. hafta | En kötü hafta | t |
 |---|---|---|---|---|---|---|---|---|---|
@@ -181,24 +181,24 @@ Yukarıdaki IC ve beşlikler log getiriyle hesaplandı; log getiri yüksek oynak
 | 1. dönem (2020-06 → 05/2023) | Long Q5 | maker | 47% | 14% | -85% | %54 | 0,92% | -31,4% | 1,0 |
 | 1. dönem (2020-06 → 05/2023) | Long Q5 + Short Q1 | taker | -86% | -48% | -88% | %47 | -0,85% | -40,3% | -1,2 |
 | 1. dönem (2020-06 → 05/2023) | Long Q5 + Short Q1 | maker | -80% | -41% | -84% | %49 | -0,61% | -40,1% | -0,9 |
-| 2. dönem (06/2023 → 2026) | Short Q1 | taker | -82% | -40% | -89% | %53 | -0,22% | -45,3% | -0,3 |
-| 2. dönem (06/2023 → 2026) | Short Q1 | maker | -78% | -36% | -88% | %53 | -0,10% | -45,2% | -0,1 |
-| 2. dönem (06/2023 → 2026) | Long Q5 | taker | -26% | -9% | -78% | %49 | 0,25% | -30,8% | 0,3 |
-| 2. dönem (06/2023 → 2026) | Long Q5 | maker | -9% | -3% | -75% | %50 | 0,37% | -30,6% | 0,5 |
-| 2. dönem (06/2023 → 2026) | Long Q5 + Short Q1 | taker | -40% | -14% | -68% | %55 | 0,02% | -36,2% | 0,0 |
-| 2. dönem (06/2023 → 2026) | Long Q5 + Short Q1 | maker | -9% | -3% | -63% | %57 | 0,26% | -36,0% | 0,4 |
-| son 12 ay | Short Q1 | taker | -15% | -16% | -48% | %49 | 0,10% | -23,5% | 0,1 |
-| son 12 ay | Short Q1 | maker | -10% | -10% | -45% | %51 | 0,22% | -23,4% | 0,2 |
-| son 12 ay | Long Q5 | taker | -31% | -31% | -54% | %43 | -0,44% | -15,4% | -0,4 |
-| son 12 ay | Long Q5 | maker | -26% | -27% | -52% | %45 | -0,32% | -15,3% | -0,3 |
-| son 12 ay | Long Q5 + Short Q1 | taker | -32% | -33% | -61% | %51 | -0,34% | -23,0% | -0,3 |
-| son 12 ay | Long Q5 + Short Q1 | maker | -24% | -24% | -58% | %53 | -0,10% | -22,7% | -0,1 |
-| son 6 ay | Short Q1 | taker | -11% | -21% | -32% | %48 | -0,04% | -23,5% | -0,0 |
-| son 6 ay | Short Q1 | maker | -8% | -16% | -32% | %48 | 0,08% | -23,4% | 0,0 |
-| son 6 ay | Long Q5 | taker | 22% | 52% | -28% | %52 | 1,06% | -15,4% | 0,7 |
-| son 6 ay | Long Q5 | maker | 26% | 61% | -27% | %56 | 1,18% | -15,3% | 0,8 |
-| son 6 ay | Long Q5 + Short Q1 | taker | 17% | 39% | -34% | %48 | 1,02% | -18,6% | 0,6 |
-| son 6 ay | Long Q5 + Short Q1 | maker | 24% | 57% | -33% | %52 | 1,26% | -18,3% | 0,7 |
+| 2. dönem (06/2023 → 2026) | Short Q1 | taker | -84% | -41% | -89% | %53 | -0,26% | -45,3% | -0,3 |
+| 2. dönem (06/2023 → 2026) | Short Q1 | maker | -80% | -38% | -88% | %53 | -0,14% | -45,2% | -0,2 |
+| 2. dönem (06/2023 → 2026) | Long Q5 | taker | -36% | -12% | -78% | %48 | 0,17% | -30,8% | 0,2 |
+| 2. dönem (06/2023 → 2026) | Long Q5 | maker | -21% | -7% | -75% | %49 | 0,29% | -30,6% | 0,4 |
+| 2. dönem (06/2023 → 2026) | Long Q5 + Short Q1 | taker | -52% | -20% | -68% | %55 | -0,10% | -36,2% | -0,2 |
+| 2. dönem (06/2023 → 2026) | Long Q5 + Short Q1 | maker | -27% | -9% | -63% | %57 | 0,14% | -36,0% | 0,2 |
+| son 12 ay | Short Q1 | taker | -29% | -30% | -48% | %49 | -0,24% | -23,5% | -0,2 |
+| son 12 ay | Short Q1 | maker | -25% | -25% | -45% | %51 | -0,12% | -23,4% | -0,1 |
+| son 12 ay | Long Q5 | taker | -36% | -37% | -52% | %39 | -0,60% | -15,4% | -0,6 |
+| son 12 ay | Long Q5 | maker | -32% | -33% | -50% | %41 | -0,48% | -15,3% | -0,5 |
+| son 12 ay | Long Q5 + Short Q1 | taker | -49% | -49% | -61% | %49 | -0,83% | -23,0% | -0,6 |
+| son 12 ay | Long Q5 + Short Q1 | maker | -42% | -43% | -58% | %51 | -0,59% | -22,7% | -0,4 |
+| son 6 ay | Short Q1 | taker | -22% | -41% | -33% | %48 | -0,55% | -23,5% | -0,3 |
+| son 6 ay | Short Q1 | maker | -20% | -37% | -32% | %48 | -0,43% | -23,4% | -0,2 |
+| son 6 ay | Long Q5 | taker | 4% | 8% | -28% | %40 | 0,42% | -15,4% | 0,3 |
+| son 6 ay | Long Q5 | maker | 7% | 15% | -27% | %44 | 0,54% | -15,3% | 0,4 |
+| son 6 ay | Long Q5 + Short Q1 | taker | -14% | -26% | -34% | %48 | -0,13% | -19,8% | -0,1 |
+| son 6 ay | Long Q5 + Short Q1 | maker | -8% | -16% | -33% | %52 | 0,11% | -19,5% | 0,1 |
 
 Q1 içinde haftada +%50'den çok yükselen en az bir coin olan haftaların payı: 1. dönem %30, 2. dönem %35 (eşit ağırlıklı 20 coinlik short bacağında tek coinin +%100'ü sepete −%5 getirir; tasfiye riski ancak kaldıraçla büyür).
-Basit getiriyle Q5 − Q1 artı hafta payı: 1. dönem %50, 2. dönem %60, son 12 ay %57.
+Basit getiriyle Q5 − Q1 artı hafta payı: 1. dönem %50, 2. dönem %60, son 12 ay %55.
