@@ -1,0 +1,9 @@
+[Unit]
+Description=SWEEP canlı kaydını özel GitHub deposuna gönder
+
+[Service]
+Type=oneshot
+User=@USER@
+WorkingDirectory=@DIR@
+EnvironmentFile=/etc/sweep.env
+ExecStart=/usr/bin/env bash @DIR@/deploy/yedek.sh

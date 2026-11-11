@@ -1,0 +1,19 @@
+[Unit]
+Description=SWEEP kâğıt bot (ekransız)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=@USER@
+WorkingDirectory=@DIR@
+EnvironmentFile=/etc/sweep.env
+ExecStart=/usr/bin/env node headless/run.js --dir @DIR@/bot-data $SWEEP_ARGS
+Restart=always
+RestartSec=15
+KillSignal=SIGTERM
+TimeoutStopSec=20
+StandardOutput=append:@DIR@/bot-data/konsol.log
+StandardError=append:@DIR@/bot-data/konsol.log
+
+[Install]
+WantedBy=multi-user.target
