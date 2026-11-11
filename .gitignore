@@ -19,3 +19,15 @@ tests/hl/*.txt
 
 # FRED API anahtarı (yalnız kullanıcının bilgisayarında)
 .fred-key
+
+# Hesap/anahtar dosyaları repoya girmesin (yalnız cihazda kalır)
+.env
+.env.*
+*.key
+*.pem
+trade.json
+live.json
+state.json
+state.prev.json
+sweep-geri-yukle*.json
+/config.json
